@@ -1,0 +1,12 @@
+# Application Tracker
+
+**See:** `~/Documents/CV/Applications/application-tracker.xlsx`
+
+This file redirects to the Excel tracker for structured job application data.
+
+The Excel tracker contains:
+- Sheet 1: Applications (Date, Company, Role, Source, Salary, Status, Interview Date, Notes)
+- Sheet 2: Weekly Summary (auto-counts applications per week vs 3-4 target)
+- Sheet 3: Job Responses (from Gmail cache)
+
+**Location:** `~/Documents/CV/Applications/application-tracker.xlsx`

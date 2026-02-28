@@ -1,0 +1,154 @@
+# What Works
+
+Successful interventions for when overwhelm hits. Your brain forgets during crisis - this file remembers.
+
+## Spiral Breakers
+
+What stops anxiety spirals when they start:
+
+### Physical Location Change
+**What:** Leave the room
+**Why it works:** Interrupts thought spiral, provides sensory reset
+**When to use:** When stuck in rumination loop
+**How:** Stand up, walk to different room, notice surroundings
+
+### Mindfulness Grounding
+**What:** Ground in present moment
+**Why it works:** Pulls attention from future-worry to now-reality
+**When to use:** When anxiety says crisis but data says otherwise
+**How:** Name 5 things you can see, 4 you can hear, 3 you can touch, 2 you can smell, 1 you can taste
+
+### Attention Shifting
+**What:** Redirect focus to concrete task or sensory experience
+**Why it works:** Breaks rumination by giving brain something tangible
+**When to use:** When spiraling about abstract worries
+**How:** Pick small, concrete task (tidy desk, make tea, pet dog)
+
+## Flow State Creators
+
+What enables focused work:
+
+### Yoga (Tu/Thu/Sat)
+**What:** Somatic yoga practice (self-guided)
+**Why it works:** Regulates nervous system, releases tension, mindfulness, ADHD/anxiety management
+**Schedule:** Tuesday, Thursday, Saturday mornings
+**Evidence:** Reduces anxiety throughout day, proven mental health benefit from therapy notes
+**Tracking:** Log via `fitness-manager.py log-yoga` or mention in /end-day
+
+### Weight Lifting (Alternating with Yoga, 6 days/week)
+**What:** Structured beginner program with 10lb dumbbells (Week 3, upgraded from 5lb)
+**Current Routine (Week 3 - started Feb 10, 2026):**
+1. Goblet Squats — 2 × 8 (one 10lb dumbbell at chest)
+2. Dumbbell Bench Press — 2 × 8 (both 10lb dumbbells)
+3. Bent-Over Rows — 2 × 8 (one 10lb per hand)
+4. Overhead Press — 2 × 8 (both 10lb dumbbells)
+5. Romanian Deadlifts — 2 × 8 (both 10lb dumbbells)
+6. Plank Hold — 2 × 30 seconds
+**Rest:** 60-90 seconds between sets
+**Duration:** 20-30 minutes per session
+**Schedule:** Alternating — Weights → Yoga → Weights → Yoga (6 days/week, 1 rest day)
+**Why it works:** Builds strength, confidence, releases tension, necessary at age 39 for muscle maintenance, helps with anxiety via physical grounding
+**Evidence:** Tracked in fitness-log.md in HEALTH project
+**Progress:** Weeks 1-2 @ 5lb (2×10 reps), Week 3 onwards @ 10lb (2×8 reps) — taking it slow due to lower back
+**Tracking:** Update fitness-log.md after each session, mention in /end-day
+
+### Dog Walking
+**What:** Movement + purpose + nature
+**Why it works:** Triple benefit - exercise, caring for another, being outside
+**When:** Flexible - as needed, daily when possible
+**Note:** Not formally tracked yet but contributes to overall activity
+
+## Energy Boosters
+
+What restores capacity:
+
+- Yoga (see above)
+- Weight lifting (see above)
+- Dog walking (see above)
+- *To be populated from observation and therapy notes*
+
+## Time Management Reality
+
+What actually works vs what anxiety demands:
+
+### Hard Rules
+1. **Transition time matters:** Hard stop 15 minutes before next event
+2. **One task per block:** No multi-tasking, no cramming
+3. **Respect task duration:**
+   - 13-minute slots = tidy/email ONLY, NOT applications
+   - Application writing = 1+ hour minimum
+   - System work = Accept it's foundation-building, not "wasted"
+
+### Time-Blind Reality Checks
+- If calendar says 13 minutes left → Check what's realistic (NOT "I can squeeze in one more thing")
+- If girls at 3pm → Work backwards (2:30 get ready, 2:15 hard stop, max 1 focused task before then)
+- If feeling "I should cram more in" → This is anxiety lying, not reality
+
+## Pattern Interrupts
+
+What Claude should say when you're spiraling:
+
+### Application Anxiety
+**Trigger:** "I haven't done enough" / "I'm behind"
+**Interrupt:** "You've done 4 applications. Target was 3-4. You're on track."
+**Evidence check:** wins.md
+
+### Setup Spiral
+**Trigger:** "I wasted time on system stuff"
+**Interrupt:** "This is the setup spiral. System building = future time saved. You're prepared."
+**Evidence:** System now auto-syncs, saves 10-15min every morning
+
+### Time Cramming
+**Trigger:** "I can fit this in" with <30 min available
+**Interrupt:** "13 minutes until Get Ready. This task needs 30 minutes. No."
+**Reality:** Check Google Calendar, state facts
+
+### Noise vs Signal
+**Trigger:** Anxiety + can't tell if crisis is real
+**Interrupt:** "Anxiety says crisis. Calendar shows 3 events. Sleep was 8hrs. This is noise."
+**Check:** reality-check.md rubric
+
+## Therapy Techniques
+
+### Scheduled Worry Time (2026-01-18)
+**What:** 15-minute dedicated window for venting/worrying (e.g., 18:49-19:04)
+**Why it works:** Containment strategy - gives anxiety a place to go instead of leaking throughout day
+**Evidence:** First productive use Jan 18 - processed family conflict and week ahead planning
+**How:** Add to calendar as recurring event, use for structured venting/processing
+
+### Time-Blocked Morning Routine (2026-01-23)
+**What:** Morning-only task list with specific times (not general to-do list)
+**Why it works:** Prevents overwhelm, reduces "doing doing doing" spiral, combats time-blindness
+**How:**
+- Write ONLY morning tasks with specific times
+- Include breaks (5 min relaxed breakfast, 10 min after school drop)
+- Prepare night before (pack bags, lay out items)
+**Evidence:** Therapy with Samantha Quinn - addresses getting sidetracked by laptop for "two hours"
+**Key insight:** Looking after girls = full-time job in itself (acknowledge this achievement)
+
+### Compassionate Response to Criticism (2026-01-23)
+**What:** PAT model for handling difficult conversations without getting triggered
+**Why it works:** Prevents defensive spiral when partner makes comments from fatigue
+**How:**
+- Formulate positive, adult response in advance
+- Reference drama triangle to avoid victim/persecutor roles
+- Practice self-compassion (ACT/CFT frameworks)
+**Evidence:** Therapy homework - address being triggered by comments about untidy house
+**Resources:** YouTube videos on handling difficult conversations
+
+### "Should" Language Replacement
+**What:** Replace "should" with gentler alternatives
+**Why it works:** "Should" creates pressure and self-criticism
+**Instead say:** "It would have been nice to..." or "I can learn from that"
+**Evidence:** From therapy with Samantha Quinn
+
+### Self-Acknowledgement for Recognition Deficit
+**What:** Tell yourself what you did (out loud or written)
+**Why it works:** When partner can't acknowledge (capacity maxed), brain needs to hear it from somewhere
+**How:** "I looked after both girls, made food, tidied the house, handled a hard moment with Blossom, and supported Janna through a stressful day"
+**Evidence:** Jan 18 - helped process family conflict without escalating
+**Reinforced:** Jan 23 therapy - "Looking after girls is a full-time job in itself"
+
+## What Doesn't Work
+
+(To be added as we discover unhelpful patterns)

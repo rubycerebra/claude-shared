@@ -1,0 +1,203 @@
+# Setup Tasks for Tomorrow (Sunday 12 Jan 2026)
+
+Everything you need to finish the integration setup.
+
+---
+
+## 1. Google Calendar MCP (15-20 mins)
+
+**What it enables**: Calendar integration, therapy session reminders, automatic todo extraction from calendar
+
+### Steps:
+1. Go to https://console.cloud.google.com/
+2. Create/select a project
+3. Enable **Google Calendar API**
+4. Create **OAuth 2.0 Client ID** → Desktop application
+5. Download JSON credentials
+6. Move to: `/Users/jamescherry/.config/google-mcp/credentials.json`
+   ```bash
+   mv ~/Downloads/client_secret_*.json /Users/jamescherry/.config/google-mcp/credentials.json
+   ```
+7. In Claude Code, run: `/mcp`
+8. Authenticate with Google Calendar
+
+**Test**: Run `/mcp` - should show google-calendar as "connected"
+
+---
+
+## 2. Apple Health Integration (Research needed)
+
+**What it enables**: Track mental/physical health metrics (sleep, activity, heart rate variability)
+
+### Options to explore:
+
+**Option A: Apple Shortcuts**
+- Create shortcuts that export Health data to text files
+- Point coaching system to read those files
+- Similar to how Diarium exports work
+
+**Option B: MCP Server**
+- Check if Apple Health MCP server exists
+- Install if available
+- https://github.com/modelcontextprotocol/servers (check registry)
+
+**Option C: Manual export**
+- Export Apple Health data regularly
+- Save to `~/Documents/Claude Projects/claude-shared/health-data/`
+- Parse manually
+
+**Recommended**: Start with Option A (Shortcuts) - quickest to set up
+
+### What to track (examples):
+- Sleep hours
+- Sleep quality
+- Steps
+- Heart rate variability (HRV) - good anxiety indicator
+- Mindful minutes
+- Active energy
+
+---
+
+## 3. Finch App Integration (Research needed)
+
+**What it enables**: Track Finch goals/habits, mood check-ins
+
+### Investigation needed:
+1. **Check if Finch has export**
+   - Open Finch → Settings → Look for "Export data" or "Backup"
+   - If yes: export format? (JSON, CSV, text?)
+
+2. **Check if Finch has API**
+   - Google: "Finch app API"
+   - If yes: create integration script
+
+3. **Screenshots as fallback**
+   - Take daily screenshot of Finch stats
+   - OCR to extract data (tedious but works)
+
+**Recommended approach**: Export to file if available, parse like Diarium
+
+### What to track:
+- Daily mood check-ins
+- Goals completed
+- Finch growth/progress
+- Reflection entries
+
+---
+
+## 4. Streaks App Integration (Research needed)
+
+**What it enables**: Track habit streaks, completion patterns
+
+### Investigation needed:
+1. **Check Streaks export**
+   - Open Streaks → Settings → Export
+   - Format? (CSV, JSON?)
+
+2. **iCloud sync location**
+   - Check: `~/Library/Mobile Documents/`
+   - Streaks might sync data there
+
+3. **Shortcuts integration**
+   - Can Streaks be accessed via iOS Shortcuts?
+   - Create automation to export daily
+
+**Recommended**: Find data file location or export mechanism
+
+### What to track:
+- Which habits completed today
+- Current streak lengths
+- Patterns (which habits struggling with)
+- Recovery from broken streaks
+
+---
+
+## 5. Integration Pattern (General approach)
+
+Once you find where each app stores/exports data:
+
+### Create parser script:
+```bash
+/Documents/Claude Projects/mental-health-coach/.helpers/parse_[appname].py
+```
+
+### Update commands to check source:
+- Add to `/start-day`, `/end-day`, `/check-day`
+- Extract relevant insights
+- Add to `mental-health-insights.md`
+
+### Use todo tracker:
+- Extract actionable items
+- Track with `.helpers/track_todos.py`
+- Present NEW vs SEEN
+
+---
+
+## Priority Order (Recommended)
+
+### High Priority (Do first):
+1. **Google Calendar MCP** - Enables core calendar functionality
+2. **Apple Health Shortcuts** - Quick win, valuable health data
+
+### Medium Priority (After calendar working):
+3. **Finch** - If easy export exists
+4. **Streaks** - If easy export exists
+
+### Low Priority (Optional):
+5. More complex integrations
+6. Custom MCP servers
+
+---
+
+## Questions to Answer Tomorrow
+
+For each app (Finch, Streaks, Apple Health):
+
+1. **Does it have export?** (Settings → Export/Backup)
+2. **What format?** (JSON, CSV, text, PDF)
+3. **Where does it save data?** (Check app container, iCloud)
+4. **Can Shortcuts access it?** (iOS/macOS Shortcuts)
+5. **Does MCP server exist?** (Check GitHub)
+
+---
+
+## Test After Setup
+
+Once integrated, test with:
+
+```bash
+# In mental-health-coach project
+/start-day
+
+# Should now show:
+# - Diarium entries ✓
+# - Alter transcripts ✓
+# - Apple Notes therapy ✓
+# - Google Calendar events ✓ (NEW)
+# - Apple Health data ✓ (NEW)
+# - Finch check-ins ✓ (NEW - if integrated)
+# - Streaks habits ✓ (NEW - if integrated)
+```
+
+---
+
+## Resources
+
+**MCP Registry**: https://github.com/modelcontextprotocol/servers
+**Google Cloud Console**: https://console.cloud.google.com/
+**Apple Shortcuts**: Open Shortcuts app → Automation
+**Claude Code Docs**: https://code.claude.com/docs/
+
+---
+
+## Notes
+
+- **Don't rush**: Start with Google Calendar, then add one app at a time
+- **Test each integration**: Make sure it works before adding next
+- **Not everything needs automation**: Manual export is fine if it's quick
+- **Focus on value**: Only integrate apps you actually use daily
+
+---
+
+*Created: 2026-01-11 22:30*
+*For: Sunday 12 Jan 2026 (your birthday!)*

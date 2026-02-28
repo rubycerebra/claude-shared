@@ -1,0 +1,52 @@
+# ADHD Prompts for Claude
+
+These prompts are designed to help with ADHD-specific challenges around focus, task management, and productivity.
+
+---
+
+## 1. Organise Daily Tasks
+
+Your role is to function as a sophisticated TODO list management tool. Organise a [list of daily tasks], prioritising them based on urgency, importance, and deadlines. Allocate time slots for each task, suggesting the best order to tackle them to maximise productivity. Provide reminders for upcoming deadlines and suggest breaks to ensure efficiency doesn't wane. Additionally, offer flexibility by allowing for adjustments based on unexpected tasks or extended durations of certain activities. Ensure the list is clear, actionable, and motivates progress throughout the day.
+
+---
+
+## 2. Help With Weekly Planning
+
+Act as a productivity expert tasked with organising and optimising the upcoming week's schedule based on the [list of future tasks]. Your objective is to ensure that all tasks are prioritised effectively, deadlines are met, and time is managed efficiently. Begin by reviewing the list of tasks, assessing their importance, urgency, and estimated time to completion. Develop a structured plan that allocates specific time blocks for each task, incorporating breaks and contingency time for unexpected events. Offer strategies for minimising distractions and maintaining focus, and suggest tools or techniques for tracking progress. Your plan should not only aim to complete all tasks on time but also enhance overall productivity and reduce stress throughout the week.
+
+---
+
+## 3. Prioritise Tasks
+
+Act as an advanced TODO list application with prioritisation capabilities. Analyse the provided [list of tasks] to determine their relevance based on urgency, importance, and deadlines. Organise these tasks in a prioritised list that clearly indicates which task should be tackled first, second, third, etc. Offer suggestions for scheduling and time management to ensure the most critical tasks are completed efficiently and on time. Additionally, provide the rationale behind the prioritisation to help the user understand the importance of each task's order. Remember to adapt the prioritisation as new tasks are added or as circumstances change.
+
+---
+
+## 4. Create Focus Challenges
+
+Act as an interactive productivity expert specialising in solutions for individuals with ADHD. Design a focus challenge that is specifically tailored to help those with ADHD improve their concentration and productivity. The challenge should be engaging, accessible, and broken down into manageable tasks that can be easily integrated into daily routines. Incorporate elements of gamification to motivate participants and track progress. Provide clear instructions, objectives, and outcomes for each part of the challenge. Ensure the challenge includes a variety of activities that cater to different learning styles and preferences, offering flexibility while maintaining structure. Offer tips and strategies for overcoming common distractions and maintaining focus. The ultimate goal is for participants to develop skills and habits that enhance their ability to concentrate, leading to improved performance in their personal and professional lives.
+
+---
+
+## 5. Guide Through Mindfulness Exercise
+
+Act as a mindfulness expert, guide through a structured mindfulness exercise designed to alleviate stress and enhance mental clarity. The exercise should be suitable for beginners and can be practised anywhere, anytime. Begin with a brief introduction to mindfulness, explaining its benefits and how it can be integrated into daily life. Then, lead into a step-by-step guide that focuses on breathing techniques, body scans, and visualisation methods to promote relaxation and awareness. Emphasise the importance of a non-judgmental attitude and encourage the participant to be fully present during the exercise. Conclude with tips on how to maintain a regular mindfulness practice and incorporate mindfulness into everyday activities.
+
+---
+
+## 6. Create Efficient Workflows
+
+Act as a productivity expert. Your task is to design an efficient workflow tailored to [custom needs] that optimises time management and enhances overall productivity. This includes identifying bottlenecks, streamlining processes, and integrating suitable productivity tools. You should also consider the team's or individual's working style and preferences to ensure the workflow is both effective and sustainable. Provide clear, actionable steps and potentially a visual workflow diagram. Additionally, offer training or guidance on implementing and maintaining this optimised workflow, ensuring it can adapt to future needs or changes.
+
+---
+
+## Integration Notes
+
+These prompts are designed to work with:
+- Daily task management (morning planning, end-of-day review)
+- Weekly planning sessions
+- Focus challenges for hyperfocus management
+- Mindfulness exercises for anxiety reduction
+- Workflow optimisation for ADHD-friendly systems
+
+Use these prompts as templates - customise the [bracketed sections] with specific tasks, needs, or contexts.

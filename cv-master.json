@@ -1,0 +1,156 @@
+{
+  "metadata": {
+    "created": "2026-01-16",
+    "last_updated": "2026-01-16",
+    "version": "1.0",
+    "purpose": "Master CV structure to avoid repeated file reads - read ONCE per session, reference many times"
+  },
+  "core_profile": {
+    "name": "James Cherry",
+    "email": "james.cherry01@gmail.com",
+    "phone": "07828442535",
+    "summary": "Digital asset management and acquisitions specialist with sixteen years coordinating technical delivery of audio-visual content across distribution, production, and archive environments. Extensive experience managing material delivery workflows from third-party sources, tracking QC rejections and remediation, maintaining asset databases, and coordinating between technical and operational teams."
+  },
+  "experience": [
+    {
+      "title": "Technical Manager",
+      "company": "Royal Anthropological Institute, London",
+      "period": "2024 – Present",
+      "salary": "£46,000",
+      "key_responsibilities": [
+        "Coordinate operational delivery of international film festival and year-round cultural programming",
+        "Built asset management database from scratch to track programme materials, delivery status, and metadata across 100+ films annually",
+        "Monitor material delivery from filmmakers and distributors, track QC issues and remediation",
+        "Liaise with technical suppliers, post-production facilities, and cinema venues on format specifications",
+        "Process invoices, manage budgets, and maintain financial tracking systems"
+      ],
+      "achievements": [
+        "Designed and implemented comprehensive asset tracking database for festival operations",
+        "Coordinated delivery of 100+ film titles from international distributors",
+        "Managed technical specifications across multiple format requirements (DCP, ProRes, MP4)"
+      ]
+    },
+    {
+      "title": "Acquisitions and Production Manager",
+      "company": "DOGWOOF (International Documentary Distribution)",
+      "period": "2018 – 2022",
+      "salary": "£42,000",
+      "key_responsibilities": [
+        "Managed full acquisitions lifecycle for documentary films—sourcing, evaluation, onboarding, and delivery to market",
+        "Primary responsibility for asset management: coordinating material delivery from sales agents and producers",
+        "Tracked deliverables (scripts, metadata, artwork, audio-visual masters), managed QC processes",
+        "Built tracking systems in Excel and Google Sheets to monitor delivery status",
+        "Evaluated films for acquisition by analysing market positioning, competitor data, and audience trends"
+      ],
+      "achievements": [
+        "Managed asset delivery for 50+ documentary acquisitions across international territories",
+        "Coordinated with labs, distributors, and cinema chains on technical specifications",
+        "Maintained detailed metadata records for all acquired titles",
+        "Tracked QC rejections and coordinated remediation with post-production facilities"
+      ]
+    },
+    {
+      "title": "Digital Cinema Mastering Manager",
+      "company": "Deluxe Digital London",
+      "period": "2012 – 2015",
+      "salary": "£36,000",
+      "key_responsibilities": [
+        "Managed digital cinema mastering department—quality control, technical documentation, and database management to DCI standards",
+        "Coordinated material delivery from distributors and post-production facilities, conducted QC on DCPs",
+        "Tracked technical rejections, and managed remediation workflows",
+        "Maintained comprehensive database records for all mastered content",
+        "Liaised with cinema chains, distributors, and labs on delivery requirements and format specifications",
+        "Led team of QC technicians through compliance processes and technical reporting"
+      ],
+      "achievements": [
+        "Maintained 100% DCI compliance across all mastered content",
+        "Coordinated with major distributors (Universal, Warner Bros, Disney) on delivery specifications",
+        "Implemented database tracking system for material delivery and QC status",
+        "Managed team through high-volume delivery periods whilst maintaining quality standards"
+      ]
+    },
+    {
+      "title": "University Lecturer",
+      "company": "University of Reading",
+      "period": "2022 – Present",
+      "salary": "£38,000",
+      "key_responsibilities": [
+        "Teaching film history, documentary ethics, and visual media whilst completing PhD",
+        "Coordinate with departmental administrators, Finance, and HR on teaching delivery and research activities",
+        "Experience working across institutional systems and governance frameworks"
+      ]
+    },
+    {
+      "title": "Studio Theatre Manager",
+      "company": "Sony / Fox / Universal / Working Title",
+      "period": "2013 – Present (Freelance)",
+      "key_responsibilities": [
+        "Ongoing freelance technical operations management for major film studios—screenings, press events, client liaison",
+        "Handle logistics, equipment coordination, and troubleshooting in high-pressure environments"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "PhD: Arts and Communication Design (Documentary Ethics)",
+      "institution": "University of Reading",
+      "period": "2016 – Present"
+    },
+    {
+      "degree": "MA: History of Film and Visual Media (Distinction)",
+      "institution": "Birkbeck, University of London",
+      "period": "2008 – 2010"
+    },
+    {
+      "degree": "BA: Film History (First Class Honours)",
+      "institution": "Queen Mary, University of London",
+      "period": "2004 – 2008"
+    }
+  ],
+  "core_skills": {
+    "technical_operations": [
+      "Audio-visual asset tracking from acquisition through delivery",
+      "Database management (Excel, Google Sheets, Smartsheet, bespoke systems)",
+      "QC processes and technical compliance (DCI standards, format specifications)",
+      "Material delivery coordination with third-party distributors and facilities",
+      "Metadata management and documentation",
+      "Understanding technical specifications across different media types (DCP, ProRes, MP4, H.264)"
+    ],
+    "project_coordination": [
+      "Managing delivery schedules and tracking milestones",
+      "Coordinating between technical, operational, and administrative teams",
+      "Invoice processing, budget tracking, and financial reporting",
+      "Working to tight deadlines with multiple stakeholders",
+      "Problem-solving and remediation workflows",
+      "Clear communication with non-technical colleagues"
+    ],
+    "industry_knowledge": [
+      "Film distribution and theatrical exhibition workflows",
+      "Post-production and mastering processes",
+      "Digital cinema formats and delivery standards",
+      "Localization and versioning requirements",
+      "Audio-visual QC best practices"
+    ],
+    "technical_tools": [
+      "Microsoft Office (Excel, Word, PowerPoint)",
+      "Google Workspace (Sheets, Docs, Drive)",
+      "Smartsheet and project management platforms",
+      "Database design and management",
+      "CMS and ticketing systems",
+      "Digital asset management workflows",
+      "Understanding of file-based/HD technology",
+      "Audio-visual format knowledge (DCP, ProRes, H.264, AAC, AC-3)"
+    ]
+  },
+  "tailoring_notes": {
+    "disney_focus": "Asset management, acquisitions coordinator parallels, material delivery coordination, QC processes, database tracking, third-party liaison, technical specifications understanding",
+    "soas_focus": "Database development/maintenance, ticketing software management, website design and maintenance, Google Forms/onboarding systems, client data management, web traffic management, audience metrics design - strong IT/data systems skills",
+    "application_tone": "Personal, conversational, less corporate. Emphasise passion for arts/culture and being 'heavily entrenched' in the sector. Avoid keyword-stuffing and over-formal language. Show personality and genuine enthusiasm rather than generic professionalism."
+  },
+  "usage_instructions": {
+    "read_once": "At start of job application session, read this file ONCE and store structure in memory",
+    "reference_format": "Use cv-master.json:experience[0] to reference specific sections",
+    "never_reread": "Do not re-read this file during same session - reference from memory",
+    "updates": "Only update when Jim creates new tailored CV or adds new experience"
+  }
+}

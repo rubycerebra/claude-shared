@@ -1,0 +1,135 @@
+# Reality-Check Engine
+
+Distinguishes real crisis (SIGNAL) from anxiety noise (NOISE).
+
+## How It Works
+
+When anxiety says "crisis" → Check the data → Determine signal vs noise → State facts
+
+## Scoring Rubric
+
+### Factors to Check:
+
+1. **Calendar Load** (Google Calendar)
+   - Low: 0-3 events today
+   - Medium: 4-6 events today
+   - High: 7+ events today
+
+2. **Sleep Quality** (Apple Health)
+   - Good: 7-9 hours
+   - Poor: <6 hours or >9 hours
+   - Unknown: No data available
+
+3. **HRV (Heart Rate Variability)** (Apple Health)
+   - High HRV = Good (relaxed nervous system)
+   - Low HRV = Stressed (sympathetic activation)
+   - Trend matters: Is HRV declining over days?
+
+4. **Recent Accomplishments** (wins.md)
+   - Check: What's actually been completed?
+   - Pattern: Is anxiety ignoring evidence?
+
+5. **Available Work Time** (Google Calendar analysis)
+   - Calculate: Time until next hard deadline
+   - Reality: Is time anxiety match reality?
+
+6. **Diarium Anxiety Mentions**
+   - Frequency: How often is anxiety mentioned recently?
+   - Pattern: Is this ongoing or acute?
+
+## Decision Matrix
+
+| Calendar | Sleep | HRV | Assessment |
+|----------|-------|-----|------------|
+| High | Poor | Low | **SIGNAL** - Real stress, capacity is genuinely reduced |
+| Low | Good | High | **NOISE** - Anxiety lying, capacity is normal |
+| Medium | Good | High | **NOISE** - Manageable load, anxiety overreacting |
+| Low | Poor | Low | **MIXED** - Low external stress but physiological fatigue real |
+| High | Good | High | **SIGNAL** - High load even with good resources |
+
+## Statement Templates
+
+### When SIGNAL (Real Crisis):
+"Your anxiety is right this time. [Evidence]. You need to reduce load or increase support."
+
+**Actions:**
+- Defer non-essential tasks
+- Ask for help
+- Protect sleep
+- Increase self-care
+
+### When NOISE (Anxiety Lying):
+"Your anxiety says crisis. Data shows [counter-evidence]. This is noise."
+
+**Actions:**
+- Reference what-works.md for spiral breakers
+- State accomplishments from wins.md
+- Ground in present reality
+- Continue planned work
+
+### When MIXED:
+"[Factor] shows stress but [factor] is manageable. Reduce load slightly but you can continue."
+
+## Examples
+
+### Example 1: Object Permanence Spiral
+**Jim says:** "I've done nothing, I'm so behind"
+**Check wins.md:** 4 applications done (target 3-4)
+**Calendar:** 3 events today (low load)
+**Assessment:** NOISE
+**Response:** "You've done 4 applications. Target was 3-4. You're on track. Your anxiety is ignoring evidence."
+
+### Example 2: Time Cramming
+**Jim says:** "I can squeeze in one more application"
+**Calendar:** 13 minutes until Get Ready
+**Reality:** Applications need 60+ minutes
+**Assessment:** NOISE (time blindness)
+**Response:** "13 minutes until Get Ready. Applications need 60 minutes. No. This is time blindness."
+
+### Example 3: Setup Spiral
+**Jim says:** "I wasted the morning on setup"
+**Check wins.md:** System integration completed
+**Reality:** Saves 10-15min every future morning
+**Assessment:** NOISE
+**Response:** "This is the setup spiral. System building = foundation. You're prepared."
+
+### Example 4: Legitimate Overload
+**Calendar:** 8 events today
+**Sleep:** 5 hours last night
+**HRV:** Declining for 3 days
+**Assessment:** SIGNAL
+**Response:** "Your anxiety is right. 8 events + poor sleep + declining HRV = real overload. What can we defer?"
+
+### Example 5: Post-Rejection Casting Wide
+**Jim says:** "LSE rejected me, I need to cast my net wider with lots of jobs"
+**Check:** Week 2 already at 1 app (SOAS), plan for 2-3 more
+**Pattern check:** Is this quantity panic or genuine strategy?
+**Assessment:** NOISE (emotional reaction to rejection)
+**Response:** "That's understandable after rejection. But your strength is genuine passion + personal tone - that doesn't scale to mass-applying. You're on pace. One good application beats three rushed ones."
+
+### Example 6: Partner Capacity vs Personal Inadequacy
+**Jim says:** "I did everything but it's not enough for my wife"
+**Reality check:** Janna's mum in hospital, Janna exhausted, capacity maxed
+**Assessment:** NOISE (projecting her depletion as his inadequacy)
+**Response:** "You did a lot today. Janna's capacity is maxed - she probably can't notice anything right now. That's not about you. Tell yourself what you did - your brain needs to hear it from somewhere."
+
+### Example 7: "Not Doing Enough" Despite Full Schedule (Jan 23 2026)
+**Jim says:** "I'm not doing enough" / constant "doing doing doing"
+**Reality check:** Looking after girls + school run + dog walk + house tidying + job applications
+**Therapy insight:** "Looking after girls is a full-time job in itself"
+**Assessment:** NOISE (voice in head ignoring major daily work)
+**Response:** "You're parenting full-time AND job hunting. That's two jobs. The voice saying 'not enough' is ignoring a massive daily accomplishment. What specifically do you think you're not doing?"
+
+## Update Frequency
+
+Check these sources:
+- **Real-time:** Google Calendar (always current)
+- **Daily:** Diarium entries, wins.md updates
+- **Weekly:** Apple Health trends (sleep, HRV patterns)
+
+## Notes
+
+- Single bad sleep night ≠ crisis (could be noise)
+- Pattern over days = more reliable signal
+- Jim's self-report + biometrics = strongest evidence
+- When in doubt: Ask "What does the data show?" not "What does anxiety say?"

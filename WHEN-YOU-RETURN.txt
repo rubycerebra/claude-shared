@@ -1,0 +1,131 @@
+# When You Return - Setup Checklist
+
+**Status as of:** 2026-01-12 08:00
+
+You're currently testing Google MCPs in Claude Desktop. When you come back, here's what's ready and what we'll do next.
+
+---
+
+## ✅ Completed While You Were Gone
+
+### 1. GitHub Repos Pushed
+- 🔗 https://github.com/rubycerebra/mental-health-coach
+- 🔗 https://github.com/rubycerebra/todo-life-management
+- Both repos are private and live on GitHub
+- You can now access them from any device
+
+### 2. Teleport Aliases Created
+These commands are now available in your terminal:
+- `teleport` - Pull ALL changes from GitHub to local
+- `teleport-mental-health` - Pull just mental-health-coach
+- `teleport-todo` - Pull just todo-life-management
+- `push-mental-health` - Push local changes to GitHub (interactive)
+- `push-todo` - Push todo changes to GitHub (interactive)
+- `quick-push-mh` - Quick commit & push mental-health-coach
+- `quick-push-todo` - Quick commit & push todo
+
+**To use:** Open new terminal or run `source ~/.zshrc`
+
+### 3. Apple Health Setup Guide Created
+- Full guide at: `~/Documents/Claude Projects/claude-shared/apple-health-setup.md`
+- Instructions for exporting from iPhone
+- Extraction commands ready
+- MCP configuration ready to apply
+
+### 4. MCP Test Guide Created
+- Located at: `~/Documents/Claude Projects/claude-shared/test-mcps.md`
+- Commands to test each Google MCP
+- Troubleshooting steps included
+
+---
+
+## 📋 What to Report When You Return
+
+### Google MCPs (What happened in Claude Desktop?)
+
+**Google Calendar:**
+- ✅ / ❌ Did browser open for authentication?
+- ✅ / ❌ Successfully signed in?
+- ✅ / ❌ Can Claude see your calendar events?
+
+**Google Drive:**
+- ✅ / ❌ Did browser open for authentication?
+- ✅ / ❌ Successfully signed in?
+- ✅ / ❌ Can Claude see your Drive files?
+
+**Gmail:**
+- ✅ / ❌ Did browser open for authentication?
+- ✅ / ❌ Successfully signed in?
+- ✅ / ❌ Can Claude see your emails?
+
+---
+
+## 🎯 Next Steps (Once You're Back)
+
+### If Google MCPs Worked:
+
+**1. Apple Health Setup (5 min)**
+- Export Health data from iPhone
+- Extract to ~/Documents/Health-Data/
+- I'll configure the MCP
+
+**2. Test Apple Notes Integration (2 min)**
+- Search for #Therapy notes
+- Verify parser is pulling mental health insights
+
+**3. Test Diarium Integration (2 min)**
+- Export today's Diarium entry
+- Verify parser extracts gratitude & Ta-Dah list
+
+**4. Automatic Data Pulling (5 min)**
+- Update slash commands to auto-pull all sources
+- Test `/start-day` command
+- Verify all data sources load
+
+**5. Streaks & Finch Setup (10 min)**
+- Investigate export options
+- Set up manual logging if needed
+- Add to daily workflow
+
+### If Google MCPs Had Issues:
+
+**Troubleshooting steps:**
+1. Check credentials.json is valid JSON
+2. Verify APIs are enabled in Google Cloud Console
+3. Try revoking access and re-authenticating
+4. Check Claude Desktop logs
+
+---
+
+## 📖 Documentation Ready
+
+All guides are in `~/Documents/Claude Projects/claude-shared/`:
+- `WHEN-YOU-RETURN.md` (this file)
+- `apple-health-setup.md` - Apple Health export & config
+- `test-mcps.md` - MCP testing commands
+- `mcp-setup-complete.md` - Complete MCP reference
+- `automation-setup.md` - Daily workflows
+- `app-integrations.md` - Streaks/Finch setup
+- `adhd-prompts.md` - ADHD coaching prompts
+- `github-setup-instructions.md` - GitHub sync guide
+
+---
+
+## 🚀 Quick Start When Back
+
+**Just tell me:**
+1. "Google MCPs work!" or "Google MCPs had issues"
+2. Which one you want to do next:
+   - A. Apple Health setup
+   - B. Test all data sources
+   - C. Streaks & Finch setup
+   - D. Something else
+
+**I'll guide you through step-by-step from there.**
+
+---
+
+**Total remaining time:** ~25 minutes to complete everything
+**Priority:** Apple Health → Data source testing → Streaks/Finch
+
+See you soon! 👋

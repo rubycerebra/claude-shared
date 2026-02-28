@@ -1,0 +1,35 @@
+# Generated HTML outputs
+*.html
+weekly-deep-analysis-*.html
+daily-report-*.html
+
+# Generated / cache
+__pycache__/
+*.pyc
+cache/
+*.txt.bak
+
+# Handoff archives (ephemeral)
+handoff-*/
+handoff-archive/
+archive/
+archive-cleanup-*/
+setup-archive/
+system-audit/
+token-audit-reports/
+
+# Context snapshots (regenerated)
+claude-context*.txt
+claude-context*.sh
+claude-today*.txt
+
+# Temp/scratch
+*.log
+RUN-THIS-TEST.md
+SYSTEM-TEST.md
+test-*.md
+test-*.sh
+verify-sync.sh
+
+# macOS
+.DS_Store
