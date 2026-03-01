@@ -189,6 +189,20 @@ def _strip_updates_metadata(text):
         if is_weather_block or is_location_line or is_sun_line or looks_metadata_combo:
             continue
 
+        # Filter transcription assistant artefacts that leak from diary assistant responses
+        _TRANSCRIPTION_LEAK = (
+            "here's the full formatted version",
+            "here is the full formatted version",
+            "ready to paste into diarium",
+            "your evening entry is complete",
+            "here is the formatted version",
+            "formatted version, ready to paste",
+            "paste into diarium",
+            "full formatted version",
+        )
+        if any(phrase in lower for phrase in _TRANSCRIPTION_LEAK):
+            continue
+
         kept_lines.append(line)
 
     return "\n".join(kept_lines).strip()
@@ -637,7 +651,16 @@ def _derive_pieces_digest(pieces_payload, max_chars=3000):
             fallback_bits.append(snippet)
 
     if fallback_bits:
-        merged = " • ".join(fallback_bits).strip()
+        if len(fallback_bits) == 1:
+            merged = fallback_bits[0]
+        else:
+            sentences = []
+            for bit in fallback_bits:
+                s = bit.rstrip()
+                if s and s[-1] not in ".!?":
+                    s += "."
+                sentences.append(s)
+            merged = f"Worked across {len(fallback_bits)} sessions today. " + " ".join(sentences)
         return _truncate_sentence_safe(merged, max_len=max_chars), "summary_fallback"
 
     morning_brief = pieces_payload.get("morning_brief", {})
@@ -1240,7 +1263,15 @@ def generate_html(data):
     else:
         tadah_flat = tadah_data.get("flat", [])
         tadah_categories = tadah_data.get("categories", {})
-    yesterday_tadah = tadah_data.get("yesterday", []) if isinstance(tadah_data, dict) else []
+
+    # Strip Diarium bullet artifacts (∙, •, ·, tabs) and filter sentinel "list" item
+    _BULLET_STRIP = re.compile(r'^[\u2219\u2022\u00b7\u2022\-\*\t\s]+')
+    def _clean_tadah_text(t):
+        return _BULLET_STRIP.sub("", str(t)).strip()
+    tadah_flat = [_clean_tadah_text(t) for t in tadah_flat
+                  if str(t).strip().lower() not in ("list", "")]
+    yesterday_tadah = [_clean_tadah_text(t) for t in (tadah_data.get("yesterday", []) if isinstance(tadah_data, dict) else [])
+                       if _clean_tadah_text(t) and str(t).strip().lower() not in ("list", "")]
 
     wins = data.get("wins", [])
     tadah_html = ""
@@ -3908,6 +3939,25 @@ def generate_html(data):
 
         updates_completed_items = [item for item in updates_completed_items if not _is_mindfulness_item(item)]
 
+    # Filter out future-facing items — these are plans for tomorrow, not completions
+    updates_completed_items = [
+        item for item in updates_completed_items
+        if "tomorrow" not in str(item).lower()
+        and "next week" not in str(item).lower()
+    ]
+
+    # Deduplicate — strip ~~ formatting variants and normalise before dedup
+    def _norm_completed(t):
+        return re.sub(r"[^a-z0-9\s]", "", re.sub(r"\s+", " ", str(t).strip().lower()))
+    _seen_completed = set()
+    _deduped_completed = []
+    for _ci in updates_completed_items:
+        _ck = _norm_completed(_ci)
+        if _ck and _ck not in _seen_completed:
+            _seen_completed.add(_ck)
+            _deduped_completed.append(str(_ci).replace("~~", "").strip())
+    updates_completed_items = _deduped_completed
+
     if updates_completed_items:
         completed_rows = "".join(
             f'''<div class="flex items-start gap-2 text-sm">
@@ -4055,37 +4105,106 @@ def generate_html(data):
     is_morning = current_hour < 12
     is_evening = current_hour >= 18  # Jim sets tomorrow plans in evening, not afternoon
 
-    # Build Pieces "What I worked on today" block for evening card
+    # Build unified "What you did today" — narrative paragraph from all sources + Pieces collapsible
     _pieces_day_html = ""
     _p_digest2 = _pieces_digest_text if isinstance(_pieces_d, dict) else ""
     _p_digest2_source = _pieces_digest_source if isinstance(_pieces_d, dict) else ""
     _p_summaries2 = _pieces_d.get("summaries", []) if isinstance(_pieces_d, dict) else []
-    if _pieces_d.get("status") == "ok" and (_p_digest2 or _p_summaries2):
-        _day_parts = _build_pieces_shared_parts(
-            _pieces_d,
-            _p_digest2,
-            _p_digest2_source,
-            body_color="#e5e7eb",
-            muted_color="#9ca3af",
-            details_class="mt-1",
-        )
-        if _day_parts:
-            _pieces_day_html = (
-                '<div class="rounded-lg p-3 mb-2" style="background:rgba(88,28,135,0.1);border-left:3px solid rgba(196,181,253,0.4);">'
-                '<p class="text-xs font-semibold mb-2" style="color:#c4b5fd">🛠️ What you worked on today</p>'
-                + "".join(_day_parts)
-                + '</div>'
+
+    # Gather all data sources for narrative
+    _tadah_cat_data = data.get("taDahCategorised", {})
+    _tadah_total = _tadah_cat_data.get("total_items", len(tadah_flat)) if isinstance(_tadah_cat_data, dict) else len(tadah_flat)
+    _tadah_themes = _tadah_cat_data.get("themes", {}) if isinstance(_tadah_cat_data, dict) else {}
+    _latest_health = health_data[-1] if health_data else {}
+    _steps_val = int(_latest_health.get("steps", 0) or 0)
+    _ex_val = int(_latest_health.get("exercise", 0) or 0)
+    _wc = _today_ai.get("workout_checklist", {}) if isinstance(_today_ai, dict) else {}
+    _sf = _wc.get("session_feedback", {}) if isinstance(_wc, dict) else {}
+    _session_type = (_sf.get("session_type", "") or "").strip()
+    _session_dur = _sf.get("duration_minutes")
+    _body_feel = (_sf.get("body_feel", "") or "").strip()
+    _p_count2 = _pieces_d.get("count", 0) if isinstance(_pieces_d, dict) else 0
+
+    def _compose_day_narrative():
+        """Return AI-generated narrative from cache, or rich structured fallback."""
+        # Prefer AI-generated narrative cached by daemon (Haiku writes a full paragraph
+        # that already weaves Pieces/dev work naturally into the prose)
+        _cached_narrative = ""
+        if isinstance(_today_ai, dict):
+            _cached_narrative = str(_today_ai.get("day_activity_narrative", "") or "").strip()
+        if _cached_narrative:
+            return _cached_narrative
+
+        # Fallback: build a paragraph from structured data (used before daemon generates)
+        parts = []
+        _personal_kws = ("family", "girls", "janna", "tilly", "blossom", "coco", "dinner",
+                         "cook", "clean", "tidy", "garden", "shopping", "walk", "fortnite",
+                         "cinema", "park", "game", "print", "3d", "relax", "medication")
+        _personal = [t for t in tadah_flat if any(kw in t.lower() for kw in _personal_kws)][:5]
+        if _personal:
+            _listed = "; ".join(t.rstrip(".") for t in _personal)
+            parts.append(f"Today you {_listed.lower()}.")
+
+        # Movement / walk
+        _walk = any("walk" in t.lower() or "coco" in t.lower() for t in tadah_flat)
+        if _steps_val > 10000:
+            parts.append(f"You got some solid movement in — {_steps_val:,} steps on the clock.")
+        elif _steps_val > 5000 or _walk:
+            parts.append("You got out for a walk.")
+
+        # Workout
+        if _session_type and _session_type.lower() not in ("none", ""):
+            _w = _session_type.replace("_", " ").lower()
+            _dur = f" for {_session_dur} minutes" if _session_dur else ""
+            parts.append(f"You also did a {_w} session{_dur}.")
+
+        # Other ta-dah items not already captured
+        _other = [t for t in tadah_flat
+                  if not any(kw in t.lower() for kw in _personal_kws)
+                  and "walk" not in t.lower() and "coco" not in t.lower()
+                  and (_session_type or "").lower().replace("_", " ") not in t.lower()][:3]
+        if _other:
+            _others_listed = "; ".join(t.rstrip(".").lower() for t in _other)
+            parts.append(f"You also got through: {_others_listed}.")
+
+        # Pieces dev work — count summary only in fallback (full digest is huge; Sonnet narrative will replace this)
+        if _p_count2 > 0:
+            parts.append(f"You had {_p_count2} dev session{'s' if _p_count2 != 1 else ''} on the laptop today.")
+
+        return " ".join(parts) if parts else ""
+
+    _narrative = _compose_day_narrative()
+
+    # Standalone "What you did today" card — shown always (not gated by evening)
+    _has_day_data = bool(_narrative or _p_digest2 or _p_summaries2)
+    _pieces_day_html = ""
+    if _has_day_data:
+        if _narrative:
+            # Split into paragraphs on blank lines or sentence-group boundaries
+            _paras = [p.strip() for p in re.split(r'\n\n+|\n(?=[A-Z])', _narrative) if p.strip()]
+            if not _paras:
+                _paras = [_narrative]
+            _narrative_html = "".join(
+                f'<p style="color:#e5e7eb;font-size:0.9rem;line-height:1.75;margin-bottom:0.75rem;">'
+                f'{html.escape(p)}</p>'
+                for p in _paras
             )
+        else:
+            _narrative_html = '<p style="color:#6b7280;font-size:0.85rem;">No activity data yet today.</p>'
+        _pieces_day_html = (
+            '<div class="card mb-4" style="border-left:4px solid #a78bfa;">'
+            '<h3 class="text-lg font-semibold mb-3" style="color:#a78bfa">🗓️ What you did today</h3>'
+            + _narrative_html
+            + '</div>'
+        )
 
     # Build final evening card with clear section headers
     # TIME-OF-DAY AWARENESS: keep evening entries hidden until evening close window
+    # NOTE: _pieces_day_html is now its own standalone section — NOT inserted here
     evening_card_html = ""
     if not is_evening:
         if evening_arc_html:
             evening_card_html += evening_arc_html
-        # Still show Pieces day digest during the day (not gated by evening hour)
-        if _pieces_day_html:
-            evening_card_html += _pieces_day_html
         if not evening_card_html:
             evening_card_html = '<p class="text-sm" style="color: #6b7280">Evening entries appear after 18:00</p>'
     else:
@@ -4095,8 +4214,6 @@ def generate_html(data):
             evening_card_html += f'''
                 <p class="text-xs font-semibold mb-2" style="color: #9ca3af">📝 Your entries</p>
                 {evening_raw_html}'''
-        if _pieces_day_html:
-            evening_card_html += _pieces_day_html
         # Evening AI insights now go ONLY in unified "Today's Guidance" section
         if not evening_card_html:
             evening_card_html = '<p class="text-sm" style="color: #6b7280">No evening data yet</p>'
@@ -7795,6 +7912,9 @@ def generate_html(data):
         </div>
     </div>
     </section>
+
+    <!-- What you did today — full narrative card, always visible -->
+    {(f'<section class="dashboard-section phase-day" data-focus="day evening">{_pieces_day_html}</section>') if _pieces_day_html else ''}
 
     <section id="weekly" class="dashboard-section phase-day" data-focus="day evening">{weekly_digest_html}</section>
 
