@@ -5515,7 +5515,61 @@ def generate_html(data):
         if (!qaMoodSaving && snapshot.mood_checkin && typeof snapshot.mood_checkin === "object") {{
             qaApplyMoodState(snapshot.mood_checkin);
         }}
+        if (Array.isArray(snapshot.calendar)) {{
+            qaApplyCalendarState(snapshot.calendar);
+        }}
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
+    }}
+
+    function qaApplyCalendarState(events) {{
+        const container = document.getElementById("qa-calendar-body");
+        if (!container) return;
+        if (!events || events.length === 0) {{
+            container.innerHTML = '<p class="text-sm" style="color:#6b7280">No events today</p>';
+            return;
+        }}
+        const blocks = [
+            {{ label: "Morning (6am\u201312pm)", min: 6, max: 12 }},
+            {{ label: "Afternoon (12pm\u20135pm)", min: 12, max: 17 }},
+            {{ label: "Evening (5pm\u20139pm)", min: 17, max: 21 }},
+            {{ label: "Night (9pm\u20136am)", min: 21, max: 30 }},
+        ];
+        const allDay = events.filter(e => e.time === "All day");
+        const timed = events.filter(e => e.time !== "All day");
+        function eventEmoji(e) {{
+            if (e.type === "task") return "📌";
+            if (e.type === "work") return "💼";
+            return "📅";
+        }}
+        function eventColor(e) {{
+            if (e.type === "task") return "#fbbf24";
+            if (e.type === "work") return "#93c5fd";
+            return "#e5e7eb";
+        }}
+        function renderEvent(e) {{
+            return `<div class="flex items-center gap-2 text-sm ml-2">
+                <span class="w-14 font-mono text-xs" style="color:#9ca3af">${{e.time}}</span>
+                <span style="font-size:0.9rem">${{eventEmoji(e)}}</span>
+                <span style="color:${{eventColor(e)}}">${{e.event}}</span>
+            </div>`;
+        }}
+        let html = "";
+        if (allDay.length) {{
+            html += `<div class="mb-3"><div class="text-xs font-semibold mb-1" style="color:#6b7280">All day</div>`;
+            allDay.forEach(e => {{ html += renderEvent(e); }});
+            html += "</div>";
+        }}
+        blocks.forEach(block => {{
+            const evs = timed.filter(e => {{
+                const h = (e.hour !== undefined && e.hour >= 0) ? e.hour : parseInt(e.time.split(":")[0], 10);
+                return h >= block.min && h < block.max;
+            }});
+            if (!evs.length) return;
+            html += `<div class="mb-3"><div class="text-xs font-semibold mb-1" style="color:#6b7280">${{block.label}}</div>`;
+            evs.forEach(e => {{ html += renderEvent(e); }});
+            html += "</div>";
+        }});
+        container.innerHTML = html;
     }}
 
     function qaHandleLiveMessage(message) {{
@@ -7903,7 +7957,7 @@ def generate_html(data):
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div class="card">
             <h3 class="text-lg font-semibold mb-4" style="color: #f9a8d4">📅 Today</h3>
-            <div class="space-y-2">{calendar_html}</div>
+            <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
         </div>
         <div class="card">
             <h3 class="text-lg font-semibold mb-4"><a href="{journal_today}" style="color: #6ee7b7">✅ Ta-Dah ({len(tadah_flat)})</a></h3>
