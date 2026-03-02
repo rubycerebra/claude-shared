@@ -1011,28 +1011,151 @@ def _parse_tadah_from_journal(date_str):
         return []
 
 
+def _tadah_items_overlap(candidate, existing_texts, threshold=0.5):
+    """Return True if candidate overlaps significantly with any existing text (word-overlap dedup)."""
+    def _sig_words(s):
+        return set(w for w in re.findall(r'\b[a-z]{3,}\b', s.lower()))
+    cand_words = _sig_words(candidate)
+    if not cand_words:
+        return False
+    for existing in existing_texts:
+        ex_words = _sig_words(existing)
+        if not ex_words:
+            continue
+        overlap = len(cand_words & ex_words)
+        ratio = overlap / min(len(cand_words), len(ex_words))
+        if ratio >= threshold:
+            return True
+    return False
+
+
+def _find_claude_bin():
+    """Resolve the claude CLI binary (subscription, not API)."""
+    known = [
+        Path.home() / ".local" / "bin" / "claude",
+        Path("/usr/local/bin/claude"),
+        Path("/opt/homebrew/bin/claude"),
+    ]
+    for p in known:
+        if p.exists():
+            return str(p)
+    import shutil
+    return shutil.which("claude") or str(Path.home() / ".local" / "bin" / "claude")
+
+
+def _score_tadah_items(items):
+    """Score ta-dah items by significance using Claude Haiku via CLI (subscription).
+    Returns items sorted by score descending. Caches result for the day."""
+    if not items:
+        return items
+
+    today = get_effective_date()
+    texts = [i["text"] for i in items]
+    cache_hash = hashlib.md5(json.dumps(sorted(texts)).encode()).hexdigest()[:8]
+    score_cache_path = Path.home() / ".claude" / "cache" / f"tadah-scores-{today}.json"
+
+    # Return cached scores if item list unchanged
+    if score_cache_path.exists():
+        try:
+            cached = json.loads(score_cache_path.read_text())
+            if cached.get("hash") == cache_hash:
+                return cached["items"]
+        except Exception:
+            pass
+
+    items_text = "\n".join(f"{i+1}. {item['text']}" for i, item in enumerate(items))
+    prompt = (
+        "Score each personal daily accomplishment by significance/impact.\n"
+        "5=major win (solved hard problem, big life moment, significant achievement)\n"
+        "4=solid accomplishment (meaningful, took effort or had real impact)\n"
+        "3=moderate (useful task done, normal routine completed well)\n"
+        "2=minor (small admin, routine maintenance)\n"
+        "1=trivial\n\n"
+        "Return ONLY a valid JSON array, no markdown, no explanation:\n"
+        '[{"idx": 1, "score": 4}, {"idx": 2, "score": 2}, ...]\n\n'
+        f"Items:\n{items_text}"
+    )
+
+    env = os.environ.copy()
+    for var in ("CLAUDECODE", "CLAUDE_AGENT_SDK_VERSION",
+                "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "CLAUDE_CODE_ENTRYPOINT"):
+        env.pop(var, None)
+
+    try:
+        result = subprocess.run(
+            [_find_claude_bin(), "--model", "claude-haiku-4-5-20251001",
+             "--print", "--no-session-persistence", "--output-format", "json"],
+            input=prompt, capture_output=True, text=True, timeout=30, env=env,
+        )
+        if result.returncode != 0:
+            return items
+        raw = result.stdout.strip()
+        if not raw:
+            return items
+        try:
+            outer = json.loads(raw)
+            inner = outer.get("result", raw) if isinstance(outer, dict) else raw
+        except Exception:
+            inner = raw
+        inner = re.sub(r'^```[a-z]*\n?', '', inner.strip())
+        inner = re.sub(r'\n?```$', '', inner)
+        scores_raw = json.loads(inner)
+        score_map = {entry["idx"]: entry["score"] for entry in scores_raw}
+    except Exception:
+        return items
+
+    scored = [{**item, "score": score_map.get(i + 1, 3)} for i, item in enumerate(items)]
+    scored.sort(key=lambda x: (-x.get("score", 3), x["text"]))
+
+    try:
+        score_cache_path.write_text(json.dumps({"hash": cache_hash, "items": scored}))
+    except Exception:
+        pass
+
+    return scored
+
+
 def get_tadah():
-    """Get ta-dah list from daemon cache (AI-cleaned).
-    Supports categorised format with emoji headers and plain bullet lists.
-    Strict daily reset for today's list; yesterday is shown separately."""
+    """Get ta-dah list merged from diary (Diarium) and Pieces unplanned wins.
+    Items tagged with source for colour-coded display. Capped at 20 significant items.
+    Strict daily reset; yesterday shown separately."""
     today = get_effective_date()
     yesterday = (datetime.strptime(today, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    today_tadah = []
+    today_items = []  # List of dicts: {text, source}
     yesterday_tadah = []
 
-    # Try daemon cache FIRST — has AI-cleaned text
     if DAEMON_CACHE.exists():
         try:
             with open(DAEMON_CACHE) as f:
                 cache = json.load(f)
             source_date = str(cache.get("diarium_source_date", "")).strip()
             if source_date == today:
+                # Diary ta-dahs first — user-written, highest priority
                 cache_tadah = cache.get("diarium", {}).get("ta_dah", [])
-                if cache_tadah and isinstance(cache_tadah, list) and len(cache_tadah) >= 1:
-                    today_tadah = cache_tadah
+                if cache_tadah and isinstance(cache_tadah, list):
+                    for item in cache_tadah:
+                        text = str(item).strip()
+                        if text and text.lower() not in ("list", ""):
+                            today_items.append({"text": text, "source": "diary"})
+
+                # Pieces unplanned wins — de-duped against diary items
+                pieces = cache.get("pieces_activity", {})
+                if pieces.get("status") == "ok":
+                    diary_texts = [i["text"] for i in today_items]
+                    for win in pieces.get("unplanned_wins", []):
+                        win = str(win).strip()
+                        if win and not _tadah_items_overlap(win, diary_texts):
+                            today_items.append({"text": win, "source": "pieces"})
         except Exception:
             pass
+
+    # Reserve up to 5 slots for Pieces items so diary count never crowds them out
+    diary_items = [i for i in today_items if i["source"] == "diary"][:17]
+    pieces_items = [i for i in today_items if i["source"] == "pieces"][:5]
+    today_items = diary_items + pieces_items
+    # Score by significance via Claude Haiku (subscription, cached per day)
+    today_items = _score_tadah_items(today_items)
 
     # Yesterday remains explicit context only (never merged into today's list)
     try:
@@ -1040,7 +1163,12 @@ def get_tadah():
     except Exception:
         yesterday_tadah = []
 
-    return {"categories": {}, "flat": today_tadah, "yesterday": yesterday_tadah}
+    return {
+        "categories": {},
+        "flat": [i["text"] for i in today_items],
+        "items_with_source": today_items,
+        "yesterday": yesterday_tadah,
+    }
 
 
 def parse_wins(content):
@@ -1379,12 +1507,17 @@ def generate_html(data):
             # The daemon doesn't default unknowns to self_care, so neither should the dashboard
             return "✅"
 
-        def _render_tadah_item(item_text, category):
-            color = _category_colors.get(category, "#d1d5db")
-            content_emoji = _pick_content_emoji(item_text)
-            return f'<div class="flex items-start gap-2 text-sm" style="margin-left: 4px;"><span style="color: {color}; font-size: 1.2em; line-height: 1;">●</span><span style="color: #d1d5db; line-height: 1.4;">{html.escape(str(item_text))} {content_emoji}</span></div>'
+        # Build source/score lookup: cleaned item text → source and score
+        _items_with_source = tadah_data.get("items_with_source", []) if isinstance(tadah_data, dict) else []
+        _source_lookup = {}
+        _score_lookup = {}
+        for _itm in _items_with_source:
+            _cleaned_key = _BULLET_STRIP.sub("", str(_itm.get("text", ""))).strip()
+            _source_lookup[_cleaned_key] = _itm.get("source", "diary")
+            _score_lookup[_cleaned_key] = _itm.get("score")
+        _has_scores = any(v is not None for v in _score_lookup.values())
 
-        # Sort ta-dah items by category before rendering
+        # Category helpers (used for inline emoji on each item)
         _emoji_to_category = {v: k for k, v in _theme_emojis.items()}
         _emoji_to_category["✅"] = "uncategorised"
 
@@ -1398,27 +1531,52 @@ def generate_html(data):
             emoji = _categorise_item(item_text)
             return _emoji_to_category.get(emoji, "uncategorised")
 
-        tadah_sorted = sorted(tadah_flat, key=_get_sort_key)
+        def _render_tadah_item(item_text, category, source="diary", score=None):
+            color = _category_colors.get(category, "#d1d5db")
+            content_emoji = _pick_content_emoji(item_text)
+            source_badge = ""
+            if source == "pieces":
+                source_badge = '<span style="margin-left: 6px; padding: 1px 6px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); border-radius: 9999px; color: #fbbf24; font-size: 0.65rem; vertical-align: middle; white-space: nowrap;">⚡ Pieces</span>'
+            # ★ prefix on high-significance items (score 4+)
+            star_prefix = '<span style="color: #fbbf24; margin-right: 4px; font-size: 0.85em;">★</span>' if (score is not None and score >= 4) else ""
+            return (f'<div class="flex items-start gap-2 text-sm" style="margin-left: 4px;">'
+                    f'<span style="color: {color}; font-size: 1.2em; line-height: 1;">●</span>'
+                    f'<span style="color: #d1d5db; line-height: 1.4;">{star_prefix}{html.escape(str(item_text))} {content_emoji}{source_badge}</span>'
+                    f'</div>')
 
-        # Render with category headers (bigger, more spacing)
-        last_category = None
-        for i, item in enumerate(tadah_sorted[:8]):
-            current_category = _get_category(item)
-            if current_category != last_category:
-                tadah_html += f'<div style="color: #6ee7b7; font-size: 0.85rem; font-weight: 700; margin-top: {12 if i > 0 else 0}px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">{_category_labels.get(current_category, "Other")}</div>'
-                last_category = current_category
-            tadah_html += _render_tadah_item(item, current_category)
+        # Sort: by category first, then by significance (score desc) within each category
+        def _get_sort_key_with_score(item_text):
+            emoji = _categorise_item(item_text)
+            category = _emoji_to_category.get(emoji, "uncategorised")
+            cat_order = _category_order.index(category) if category in _category_order else 999
+            score = _score_lookup.get(item_text) or 0
+            return (cat_order, -score, item_text.lower())
 
-        if len(tadah_sorted) > 8:
-            extra_html = ""
-            last_category_extra = last_category
-            for item in tadah_sorted[8:]:
+        tadah_sorted = sorted(tadah_flat, key=_get_sort_key_with_score)
+        _VISIBLE_TADAH = 15  # show up to 15 before collapsing
+
+        def _render_tadah_list(items):
+            out = ""
+            last_cat = None
+            for i, item in enumerate(items):
                 current_category = _get_category(item)
-                if current_category != last_category_extra:
-                    extra_html += f'<div style="color: #6ee7b7; font-size: 0.85rem; font-weight: 700; margin-top: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">{_category_labels.get(current_category, "Other")}</div>'
-                    last_category_extra = current_category
-                extra_html += _render_tadah_item(item, current_category)
-            tadah_html += f'<details class="mt-2"><summary style="color: #6ee7b7; font-size: 0.75rem; cursor: pointer;">+{len(tadah_sorted) - 8} more</summary><div class="mt-1 space-y-1">{extra_html}</div></details>'
+                item_score = _score_lookup.get(item)
+                if current_category != last_cat:
+                    out += (f'<div style="color: #6ee7b7; font-size: 0.85rem; font-weight: 700; '
+                            f'margin-top: {12 if i > 0 else 0}px; margin-bottom: 6px; '
+                            f'text-transform: uppercase; letter-spacing: 0.08em;">'
+                            f'{_category_labels.get(current_category, "Other")}</div>')
+                    last_cat = current_category
+                out += _render_tadah_item(item, current_category, _source_lookup.get(item, "diary"), item_score)
+            return out
+
+        tadah_html += _render_tadah_list(tadah_sorted[:_VISIBLE_TADAH])
+
+        if len(tadah_sorted) > _VISIBLE_TADAH:
+            extra_html = _render_tadah_list(tadah_sorted[_VISIBLE_TADAH:])
+            tadah_html += (f'<details class="mt-2"><summary style="color: #6ee7b7; font-size: 0.75rem; cursor: pointer;">'
+                           f'+{len(tadah_sorted) - _VISIBLE_TADAH} more</summary>'
+                           f'<div class="mt-1 space-y-1">{extra_html}</div></details>')
 
     # Append recent wins as mint badges
     if wins:
@@ -1664,6 +1822,20 @@ def generate_html(data):
         text = re.sub(r"[^a-z0-9\s]", "", text)
         return text
 
+    # Pending task guard: tasks still in genuine_todos are never "done" even if a stale
+    # hash exists in completed-todos.json (daemon false-positive injection defence).
+    _pending_task_keys = {
+        _task_match_key(t.get("text", "") if isinstance(t, dict) else str(t))
+        for t in ai_todos
+        if (t.get("text", "") if isinstance(t, dict) else str(t)).strip()
+    }
+    # Also add article-stripped variants so minor wording differences still match
+    _article_words = {"the", "a", "an"}
+    _pending_task_keys |= {
+        " ".join(w for w in k.split() if w not in _article_words)
+        for k in _pending_task_keys
+    }
+
     # Populate feasibility map now that _task_match_key is defined
     if _sa_today:
         for _fi in _sa.get("feasibility_per_item", []):
@@ -1860,8 +2032,8 @@ def generate_html(data):
     all_action_items = []
     action_item_index = {}
 
-    def _append_action_item(task, priority="Medium", time_est="30m", source="daemon", category="standard"):
-        task_text = str(task or "").strip()
+    def _append_action_item(task, priority="Medium", time_est="30m", source="daemon", category="standard", force_done=False):
+        task_text = str(task or "").strip().rstrip("~").strip()
         if not task_text:
             return
         if not _is_actionable_task(task_text):
@@ -1869,7 +2041,12 @@ def generate_html(data):
         task_key = _task_match_key(task_text)
         if not task_key:
             return
-        done_today = _is_task_completed_today(task_text)
+        # Never mark future-facing items as done — they're reminders, not completions.
+        # Also never mark items still in genuine_todos (pending) as done — guards against
+        # daemon false-positive injection writing stale hashes.
+        _is_future_item = any(kw in task_text.lower() for kw in ("tomorrow", "tonight", "next week", "next month", "later today", "this evening"))
+        _is_pending = task_key in _pending_task_keys
+        done_today = (force_done or _is_task_completed_today(task_text)) and not _is_future_item and not _is_pending
         existing_idx = action_item_index.get(task_key)
         if existing_idx is None:
             for idx, existing_item in enumerate(all_action_items):
@@ -1911,20 +2088,37 @@ def generate_html(data):
         _append_action_item(text, priority="Medium", time_est="15m", source="apple_notes", category="standard")
 
     # Completed tasks that were promoted into ta_dah should remain visible as done rows.
+    _future_keywords = ("tomorrow", "tonight", "next week", "next month", "later today", "this evening")
     for done_item in (diarium_tadah or []):
         done_text = str(done_item or "").strip()
-        if not done_text:
+        if not done_text or done_text.lower() in ("list", ""):
             continue
-        if not _is_task_completed_today(done_text):
+        if len(done_text.split()) < 2:
+            continue  # single-word fragment — skip
+        # Never mark future-facing tasks as done — they're reminders, not completions
+        if any(kw in done_text.lower() for kw in _future_keywords):
             continue
-        _append_action_item(done_text, priority="Medium", time_est="", source="ta_dah", category="maintenance")
+        # Ta-dah items are definitionally completions — force_done=True.
+        # _is_pending guard inside _append_action_item still blocks false positives.
+        _append_action_item(done_text, priority="Medium", time_est="", source="ta_dah", category="maintenance", force_done=True)
 
     # Fallback: if ta_dah sync lags, still render completed labels from completion cache.
+    # Normalised pending texts for fuzzy-match guard (catches "schedule on calendar" vs "schedule on the calendar")
+    _ai_pending_texts = [
+        (t.get("text", "") if isinstance(t, dict) else str(t)).strip()
+        for t in (ai_todos or [])
+        if (t.get("text", "") if isinstance(t, dict) else str(t)).strip()
+    ]
     for done_label in (_completed_labels_today or []):
-        done_text = str(done_label or "").strip()
+        done_text = str(done_label or "").strip().rstrip("~").strip()
         if not done_text:
             continue
-        _append_action_item(done_text, priority="Medium", time_est="", source="completed", category="maintenance")
+        if any(kw in done_text.lower() for kw in _future_keywords):
+            continue
+        # Skip labels that are still in the pending genuine_todos — daemon false-positive guard
+        if any(_tasks_equivalent(done_text, pt) for pt in _ai_pending_texts):
+            continue
+        _append_action_item(done_text, priority="Medium", time_est="", source="completed", category="maintenance", force_done=True)
 
     for todo in (ai_todos or []):
         text = todo.get("text", "") if isinstance(todo, dict) else str(todo)
@@ -3912,7 +4106,12 @@ def generate_html(data):
     updates_text = _strip_updates_metadata(evening.get("updates", ""))
     updates_card_html = ""
     completed_updates_html = ""
-    if updates_text:
+    # Guard: if the Updates section contains a pasted journal/evening entry (prose, no bullets,
+    # > 150 chars) skip rendering it — user pastes transcribed entries there due to Diarium
+    # template constraints and it's not actual update items.
+    _updates_has_bullets = bool(re.search(r'(?m)^[\-\*]|\[\s*[xX ]?\s*\]|\d+\.\s', updates_text or ""))
+    _updates_is_prose = bool(updates_text) and len(updates_text) > 150 and not _updates_has_bullets
+    if updates_text and not _updates_is_prose:
         updates_emoji = _pick_content_emoji(updates_text)
         updates_card_html = f'''
     <div class="card mb-4">
@@ -3922,11 +4121,16 @@ def generate_html(data):
         </div>
     </div>'''
 
-    updates_completed_items = _today_ai.get("updates_completed_today", [])
-    if isinstance(updates_completed_items, list):
-        updates_completed_items = [str(item).strip() for item in updates_completed_items if str(item).strip()]
-    else:
+    # If updates text was a pasted prose journal entry, don't extract completed items from it —
+    # the AI would have extracted fragments from the narrative, not real task completions.
+    if _updates_is_prose:
         updates_completed_items = []
+    else:
+        updates_completed_items = _today_ai.get("updates_completed_today", [])
+        if isinstance(updates_completed_items, list):
+            updates_completed_items = [str(item).strip() for item in updates_completed_items if str(item).strip()]
+        else:
+            updates_completed_items = []
 
     # Avoid duplicate mindfulness completion in two places:
     # keep mindfulness status in the dedicated Mindfulness card, not in updates list.
@@ -3940,10 +4144,24 @@ def generate_html(data):
         updates_completed_items = [item for item in updates_completed_items if not _is_mindfulness_item(item)]
 
     # Filter out future-facing items — these are plans for tomorrow, not completions
+    # Also drop garbage fragments: single words, very short strings, or items that look
+    # like partial sentences extracted from prose (e.g. "Enough", "Nything")
+    def _looks_like_real_item(text):
+        t = str(text).strip()
+        if len(t) < 8:
+            return False  # too short to be a real task
+        words = t.split()
+        if len(words) < 2:
+            return False  # single word = fragment
+        if re.match(r'^[A-Z][a-z]{1,8}$', t):
+            return False  # single capitalised word
+        return True
+
     updates_completed_items = [
         item for item in updates_completed_items
         if "tomorrow" not in str(item).lower()
         and "next week" not in str(item).lower()
+        and _looks_like_real_item(item)
     ]
 
     # Deduplicate — strip ~~ formatting variants and normalise before dedup
@@ -5164,12 +5382,11 @@ def generate_html(data):
 
         <div class="mt-4 pt-4 space-y-2" style="border-top: 1px solid rgba(148,163,184,0.16);">
             {qa_end_day_controls_html}
-            <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-semibold" style="color: #a7f3d0">📖 Reading mode</span>
-                <button id="qa-sync-pause-10" onclick="qaSetSyncPause(10)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,41,59,0.62); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.25);">Pause 10m</button>
-                <button id="qa-sync-pause-30" onclick="qaSetSyncPause(30)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,41,59,0.62); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.25);">Pause 30m</button>
-                <button id="qa-sync-resume" onclick="qaSetSyncPause(0)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(6,95,70,0.32); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.3);">Resume</button>
+            <div class="flex items-center gap-2 flex-wrap" style="display:none">
                 <span id="qa-sync-pause-meta" class="text-xs" style="color: #94a3b8">Live sync active</span>
+                <button id="qa-sync-pause-10" onclick="qaSetSyncPause(10)" style="display:none">Pause 10m</button>
+                <button id="qa-sync-pause-30" onclick="qaSetSyncPause(30)" style="display:none">Pause 30m</button>
+                <button id="qa-sync-resume" onclick="qaSetSyncPause(0)" style="display:none">Resume</button>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <button id="qa-refresh-btn" onclick="qaRefreshData(this)" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(30,64,175,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">🔄 Refresh Data Now</button>
@@ -8735,8 +8952,17 @@ def main():
         "importantThing": str(diarium_display.get("important_thing", "")).strip(),
         "importantThingMissing": bool(diarium_display.get("important_thing_missing", False)) if diarium_fresh else False,
         "healthfitWorkouts": cache.get("healthfit", {}).get("workouts", []) if cache.get("healthfit", {}).get("status") == "success" else [],
-        "mindfulness": {},
-        "moodTracking": {},
+        "mindfulness": (lambda _d: _d.get("mindfulness_completion", {}) if isinstance(_d, dict) else {})(get_ai_day(ai_cache, get_effective_date()) if isinstance(ai_cache, dict) else {}),
+        "moodTracking": (lambda _m: {
+            "done_today": bool(_m.get("done")),
+            "manual_done_today": _m.get("source") == "dashboard_manual",
+            "streaks_done_today": bool(_m.get("done")) and _m.get("source") != "dashboard_manual",
+            "source": _m.get("source", ""),
+            "manual_source": _m.get("source", "") if _m.get("source") == "dashboard_manual" else "",
+            "habit": _m.get("habit", ""),
+            "latest_completed": _m.get("latest_completed", ""),
+            "updated_at": _m.get("updated_at", ""),
+        })((get_ai_day(ai_cache, get_effective_date()) if isinstance(ai_cache, dict) else {}).get("mood_checkin", {})),
         "moodLog": {
             "date": mood_log_payload.get("date", ""),
             "entries": mood_log_entries,

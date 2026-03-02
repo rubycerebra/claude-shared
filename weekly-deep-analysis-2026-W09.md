@@ -1,111 +1,83 @@
-# Weekly Deep Analysis — W09 (22 Feb – 28 Feb 2026)
+# Weekly Deep Analysis — W09 (23 Feb – 01 Mar 2026)
 
 ## 1. Emotional Arc
 
-The week's shape is a **slow climb from resolution into industrious flatness, punctuated by a depressive dip mid-week that was muscled through rather than processed.**
+The week follows a **descending plateau** — it begins with genuine intention and self-awareness on Monday, holds a fragile middle through Wednesday-Thursday, and then quietly empties out by the weekend.
 
-**Sunday (22nd)** opens with genuine resolution — "Spoke to Janna and sorted out our differences" and "stood my ground when there were problems." This is a high point: relational repair combined with boundary-holding. The tone is grounded and settled.
+**Monday (23 Feb)** is the week's emotional high point. The gratitude is specific and grounded: "Being true to myself. Attuned to my needs more." This is someone who arrived at the week with genuine self-connection. The Ta-Dah list is long and varied — weights, admin, parenting, self-care. There's a sense of agency here.
 
-**Monday–Tuesday (23rd–24th)** carry that momentum into productivity and intention-setting. Monday's intent — "bringing some focus and control into my life" — reads as authentic self-regulation, not anxious control. But by Tuesday evening, something shifts: **"Persevered through hyperfocus depression."** This is the week's lowest point, and it's buried at the bottom of a Ta-Dah list without elaboration. The word "persevered" suggests he endured it rather than explored it. The trigger appears to be 3D printing (glasses stands), which fits the known hyperfocus → self-criticism pattern, but the word "depression" is stronger than his usual language. This deserves attention.
+**Tuesday (24 Feb)** introduces the first crack. The intent is telling — it's dictated, unedited, almost breathless: "Probably regarding that's one thing I want to do and the resistance to doing it." He names "resistance" but doesn't name the thing he's resisting. The evening entry includes "Persevered through hyperfocus depression" — a significant disclosure buried at the bottom of a list. This is a low point he didn't fully process.
 
-**Wednesday–Thursday (25th–26th)** see a return to high-output domestic and professional activity — setting up meetings with Warner Bros and a work partnership, scarifying the lawn, therapy. Thursday's intent is the most emotionally articulate of the week: "Not back down from doing things I don't want to do — and not feel like I'm not able to do stuff and resign myself to not doing things." This is him naming a cycle he's caught in: avoidance → resignation → anxiety → cramming.
+**Wednesday–Thursday (25–27 Feb)** are operationally productive but emotionally hollow. Wednesday has no gratitude, no intent — the first time in weeks. Thursday's gratitude and intent are **identical copy-pastes from Friday's entry** (or vice versa), word for word. This isn't journalling — it's going through the motions. The content itself is revealing ("not back down from doing things I don't want to do — and not feel like I'm not able to do stuff and resign myself to not doing things") but it reads like it was recorded once and reused.
 
-**Friday–Saturday (27th–28th)** are notably sparse. Friday's morning gratitude and intent are **identical copies of Thursday's** — word for word. This is either a journalling shortcut or a signal that he ran out of reflective energy. Saturday's gratitude shifts to money — being paid, paying bills, buying for the family. The emotional register drops from relational warmth to **transactional relief.**
+**Friday (27 Feb)** has a morning entry (copied) and nothing else. No evening. No Ta-Dah. The day simply vanishes.
 
-**Highest point:** Sunday 22nd — resolving conflict with Janna while maintaining his own position.
-**Lowest point:** Tuesday 24th — "hyperfocus depression," named but not unpacked.
+**Saturday–Sunday (28 Feb – 1 Mar)** show a brief financial relief spike ("grateful for being paid") before Sunday dissolves entirely into unstructured screen time. The Pieces activity log for Sunday is exclusively adult content browsing — no work, no journalling, no family mention. This is the week's true lowest point, not because it's morally loaded, but because it represents a complete withdrawal from every system, routine, and connection that was active on Monday.
 
----
+**Turning points:** (1) Tuesday's unnamed "hyperfocus depression" — the first signal of withdrawal. (2) Wednesday's blank gratitude — the routines stop being inhabited. (3) Sunday's total disengagement — the arc completes.
 
 ## 2. Pattern Verification
 
-### Application Anxiety → Breakthrough Pattern
-**Not evidenced.** No job applications appear this week at all. The Warner Bros meeting setup (Wednesday) and Chris partnership discussion are the only career-adjacent actions. The absence is notable — either he's in a natural pause between application cycles, or avoidance has quietly reasserted itself. The anxiety reduction scores holding steady at 7/10 across three days suggest the absence of application pressure is *reducing* anxiety, which is informative in itself.
+**Application Anxiety → Breakthrough Pattern** — **Not evidenced.** No job applications appear anywhere this week. No mention of applications, no avoidance language, no breakthrough. The pattern isn't active because the entire domain seems to have been set aside. This is worth noting — silence on a known anxiety source is itself data.
 
-### Hyperfocus Distractions
-**Confirmed.** Tuesday: "Printed glasses stands" followed by "Persevered through hyperfocus depression." The pattern played out exactly as documented — distraction → stress → self-criticism. The 3D printer continues to be a reliable trigger. Monday also shows "Printed a dragon and a balloon unicorn" — two consecutive days of printing activity, suggesting a sustained pull rather than a single lapse.
+**Hyperfocus Distractions** — **Confirmed.** Tuesday: "Persevered through hyperfocus depression." Wednesday: tool organising, study tidying, 3D printing (glasses stands). Thursday: rug shopping, under-bed storage planning, trying Pieces. Saturday: Akiflow integration, dashboard scripts, Codex CLI automation. The pull toward system-building and fixing is constant and escalating through the week.
 
-### Pacing Works
-**Partially confirmed.** Exercise consistency is excellent (Workout A Wednesday, Yoga Thursday, Workout B Friday, Yoga scheduled Saturday — the alternating pattern is holding). But the pacing principle hasn't been tested against application work this week because no applications were attempted. Pacing is easier when the hardest thing isn't on the table.
+**Pacing Works** — **Partially confirmed (negatively).** Exercise pacing held well (alternating weights/yoga through Saturday, rest Sunday). But cognitive/emotional pacing collapsed — the journal went from inhabited to copy-pasted to absent across five days.
 
-### Open Loops = Anxiety
-**Confirmed.** Thursday's intent explicitly names the cramming pattern: "I end up getting anxious and trying to pack things into a short amount of time." The Ta-Dah lists are long and comprehensive — he's closing loops aggressively through domestic productivity, which is keeping surface anxiety managed. But the professional loops (job applications, career direction) remain open and unmentioned.
+**Open Loops = Anxiety** — **Confirmed.** Thursday's intent explicitly names this: "I end up getting anxious and trying to pack things into a short amount of time." The week has no clear "most important thing" after Monday. No MIT is named from Tuesday onwards.
 
-### Recognition Deficit in Relationship
-**Partially confirmed, but with positive movement.** Sunday's "sorted out our differences" and "stood my ground" suggest active engagement rather than resentment. No explicit complaints about recognition this week. The Monday gratitude — "Being true to myself. Attuned to my needs more" — suggests he's shifting from external validation-seeking toward self-acknowledgement. This is progress, if it holds.
+**Recognition Deficit in Relationship** — **Not evidenced.** Janna appears only in Tuesday's gratitude ("My beautiful wife") — notably without elaboration. No conflict, no recognition language, no repair. Whether this is peace or avoidance is unclear.
 
-### "Should" Language Awareness
-**Partially confirmed.** Thursday's intent contains the reframe in real time: "Not back down from doing things I don't want to do" — he's framing action in terms of what he *wants* rather than what he *should* do. But the same entry also shows him falling into the old pattern: "not feel like I'm not able to do stuff and resign myself." The self-talk is still negotiating between the two registers.
+**"Should" Language Awareness** — **Partially confirmed.** Thursday's intent contains "not feel like I'm not able to do stuff and resign myself to not doing things" — this is self-pressure language wrapped in double negatives. It's not "should" explicitly, but the pressure architecture is identical.
 
-### Motion-as-Safety Pattern
-**Confirmed.** The week is dominated by physical and practical doing — scarifying the lawn, organising tools, hoovering, tidying, shopping for rugs, planning under-bed storage. Wednesday's list is almost entirely domestic labour. This is adaptive in moderation but the sheer volume suggests regulation through motion. The question is what he's not sitting with.
+**Motion-as-Safety Pattern** — **Confirmed strongly.** This is the week's dominant pattern. Every day has extensive physical/practical doing. Wednesday alone: scarified lawn, cleaned, hoovered, tidied study, organised tools, put away laundry. When the emotional journalling drops out, the doing ramps up. Motion replaces feeling.
 
-### Task Gravity vs Presence
-**Not directly evidenced** — no explicit mention of choosing tasks over family presence this week. However, the density of domestic activity on days the girls are home (Wednesday: "Managed to get the girls to play independently" while he worked through a long task list) suggests the pull is still active, even if he's more aware of it.
+**Task Gravity vs Presence** — **Partially confirmed.** Wednesday: "Managed to get the girls to play independently" — framed as an achievement (getting them out of the way) rather than connection. No weekend family presence is described. Sunday's Pieces log shows no family interaction at all.
 
-### Social Micro-Bravery Builds Confidence
-**Confirmed.** Tuesday: "Spoke to friends." Wednesday: "Setup a meeting with Warner Bros," "Setup a meeting with Chris." Thursday: "Spoke to my parents," "Spoke to Blossom about starting swimming." These are all active social initiations, not passive responses. He's reaching outward consistently.
+**Social Micro-Bravery** — **Confirmed.** Wednesday: set up meetings with Warner Bros and Chris (work partnership). Tuesday: spoke to friends, emailed school about Blossom's neurodivergence. Thursday: spoke to parents. These are genuine social actions, but they're not being recognised as wins — they're buried in task lists.
 
-### System Work as Regulation
-**Confirmed.** Monday: "Fixed numerous claude issues," "Sorted todos," "Cleared my todos." Saturday: AI system work (Pieces Activity, Akiflow integration, dashboard generation). The system-building continues and is clearly serving a regulatory function. The stop condition question remains relevant — Saturday's evening is consumed by it.
-
----
+**System Work as Regulation** — **Confirmed strongly.** Saturday's Pieces activity is entirely system work: dashboard scripts, Codex CLI automation, Claude instructions. This is the controllability refuge in full effect. No stop condition was applied.
 
 ## 3. Fitness–Mental Health Correlation
 
-**The data this week tells a complicated story.**
+The fitness data this week is genuinely strong: steps averaging 14,646, exercise at 112 min/day, consistent alternating weights/yoga schedule through Saturday. Sleep is solid at 8.1 hours. The routine held.
 
-Exercise consistency is strong: weights and yoga alternating as prescribed, with 106 minutes average daily activity and 15,572 average steps. This is genuinely impressive output. But his HRV tells a different story — **weekly average of 36ms with sleep HRV at only 28ms.** These are low numbers for someone exercising this much and sleeping 8+ hours. Resting heart rate at 60.5 bpm is reasonable but not low.
+But here's the divergence: **HRV is notably low at 33.7ms average (sleep HRV 28ms)**. For context, Week 6 showed HRV dropping to 33 as a stress spike before recovering to 52. This week, 33 *is* the average. The body is under sustained stress despite high activity and adequate sleep.
 
-The divergence is significant: **high physical output is not translating into physiological recovery.** His body is active but his nervous system isn't settling. The anxiety scores at a flat 7/10 across three measured days align with this — he's managing anxiety to a consistent level but not reducing it further, despite doing everything "right" physically.
+The anxiety self-scores tell a different story: 7, 7, 7, 8 — steady and relatively high (where 10 = maximum reduction, so these scores suggest low anxiety). This creates a contradiction: the subjective experience says "I'm fine," but the physiological data says the nervous system is activated.
 
-This suggests one of two things: either the exercise volume itself is contributing to physiological stress (overtraining without adequate recovery — though 8 hours sleep argues against this), or **the anxiety load he's carrying is too high for exercise alone to counteract.** Given the professional uncertainty (no applications, career direction unclear) and the Tuesday "hyperfocus depression" episode, the latter seems more likely.
+This pattern — high physical output, adequate sleep, low HRV, self-reported calm — is consistent with **dissociative coping**. The body is doing the work of regulation (exercise, routine) but the emotional processing isn't happening. The journal entries confirm this: they become progressively emptier while the Ta-Dah lists stay full. He's doing without feeling.
 
-The correlation pattern from earlier weeks holds: **HRV is a leading indicator of emotional state, not a trailing one.** Low sleep HRV (28ms) despite adequate sleep duration suggests his nervous system is activated before he goes to bed — possibly rumination or unprocessed worry.
-
-**What this suggests:** Exercise is maintaining a floor, not creating a ceiling. The physical work is preventing deterioration but something else needs to shift for genuine nervous system regulation. The flat 7/10 anxiety scores feel like a managed plateau, not progress.
-
----
+The resting HR of 60 bpm is healthy and suggests the cardiovascular system is responding well to the exercise programme. The issue isn't fitness — it's that fitness is being used as the *only* regulation strategy while emotional processing has dropped off.
 
 ## 4. Therapy Integration
 
-Thursday's therapy session is the week's most significant therapeutic touchpoint, though the content isn't detailed in the journal. What *is* visible:
+Thursday's entry mentions having therapy, but there's no processing of what was discussed — just "Had therapy" on the Ta-Dah list. Compare this to earlier weeks where therapy content was reflected on and integrated into journal entries.
 
-**Active integration of therapy concepts:**
-- Thursday's intent shows real-time application of language reframing: he's describing what he wants rather than what he should do
-- The Ta-Dah list practice continues daily — this is the gratitude/recognition technique from therapy fully embedded as habit
-- Sunday's conflict resolution ("sorted out our differences," "stood my ground") suggests Drama Triangle awareness — he didn't collapse into Victim or Rescuer, he stayed in Adult
-- Monday's "Being true to myself. Attuned to my needs more" echoes the self-compassion work
+**Drama Triangle / Adult ego state work:** Not visibly applied this week. No interpersonal conflicts are described, which could mean either genuine peace or avoidance of situations that would require these tools.
 
-**Gaps:**
-- The "hyperfocus depression" on Tuesday was not brought to any visible processing framework. No Loops of Anxiety journal entry, no structured reflection. He named it and moved on. This is a missed opportunity — the therapy toolkit exists for exactly this kind of moment, but in the grip of it, he didn't reach for it
-- Friday and Saturday show journalling fatigue — copy-pasted gratitude, minimal reflection. The practice is becoming rote rather than reflective. Samantha would likely note that going through the motions without presence defeats the purpose
-- No mention of mindfulness practice this week beyond a single meditation on Monday. The grounding techniques that work well for him appear to have dropped off
+**Language reframing:** Thursday's intent shows the old pattern still active — "not back down from doing things I don't want to do" is double-negative self-coercion, not the reframed "I'd like to" language therapy has been building.
 
-**Breakthrough potential:** The Thursday intent — "resign myself to not doing things" — is him naming a new pattern that sits underneath the anxiety. This isn't just avoidance; it's **learned helplessness masquerading as acceptance.** "I can't do it, so I won't try" is different from "I'm choosing to rest." This distinction is ripe for therapy exploration.
+**Ta-Dah list:** Still in use and still long. But it's become the *only* reflective practice. The gratitude, intent, and evening reflection have atrophied. The Ta-Dah list was meant to complement self-compassion work — instead it's become a productivity receipt.
 
----
+**Gap:** The "Loops of Anxiety" journal technique doesn't appear this week despite the HRV data suggesting sustained physiological anxiety. The tools exist but aren't being deployed. Tuesday's "hyperfocus depression" would have been an ideal moment for structured processing — it didn't happen.
+
+**Biggest therapy gap this week:** The mindfulness and presence work has almost entirely disappeared. No meditation is mentioned after Monday. Phone/screen boundaries — which Janna had previously noticed and valued — appear to have collapsed by Sunday.
 
 ## 5. Coaching Signals
 
-**1. The applications have stopped and nobody's named it.**
-You set up meetings with Warner Bros and a potential work partner this week — genuine professional action. But the application pipeline has gone silent. Your anxiety scores are lower than when you were applying. Connect those dots honestly: is the reduced anxiety because you're in a healthy pause, or because you've removed the thing that makes you anxious? Your therapist set a target of 3–4 per week. This week it was zero. That's not pacing — that's avoidance wearing pacing's clothes.
+**1. The journal is dying and you need to notice that.** Monday's entry is alive — specific gratitude, genuine intent, full evening reflection. By Thursday you're copy-pasting morning entries. By Friday the evening vanishes. By Sunday there's nothing. This isn't laziness — this is withdrawal dressed as busyness. The Ta-Dah list is not a journal. It's a receipt. When the reflective practice goes, the early warning system goes with it.
 
-**2. "Persevered through hyperfocus depression" is doing a lot of heavy lifting.**
-You named something significant on Tuesday and then buried it in a list between "Printed glasses stands" and "Emailed school." Depression is not a Ta-Dah item to push through. You have tools for this — the Loops of Anxiety journal, grounding techniques, even just writing about what the depression *felt like* rather than just noting you survived it. Perseverance is a strength. But perseverance without processing is just endurance, and endurance has a shelf life.
+**2. "Persevered through hyperfocus depression" is not a Ta-Dah item — it's a distress signal.** You buried a significant mental health event in the middle of a list between "Long walk with Coco" and "Printed glasses stands." That phrase deserves its own entry. What triggered it? How long did it last? What did "persevering" actually look like? You know from therapy that naming and processing is what breaks loops. You named it and then immediately moved on. That's masking, not processing.
 
-**3. Friday's copy-paste tells a story.**
-Your Friday morning gratitude and intent are word-for-word identical to Thursday's. You either ran out of reflective energy or the practice has become mechanical. Either way, it means the journalling isn't doing its job that day. A two-sentence honest entry is worth more than a paragraph you've already written. If you're tired, say "I'm tired and don't have words today." That *is* the reflection.
+**3. Sunday tells the real story of this week.** No journal. No exercise. No family mention. Hours of compulsive content browsing. This isn't a rest day — it's a collapse day. And it follows a week where every system was technically running but emotionally uninhabited. The question isn't whether Sunday was a problem — it's what it reveals about the five days before it. You were running on structure alone, and when the structure paused (no work, no school run, no routine), there was nothing underneath holding you up.
 
-**4. Your HRV is trying to tell you something your mind won't.**
-You're averaging 36ms HRV and 28ms sleep HRV while doing everything physically right — exercise, sleep, nutrition. Your body is in a sustained stress response that activity alone isn't resolving. The unspoken weight is likely professional uncertainty: no clear career direction, a partnership conversation that's exploratory, meetings that are promising but unresolved. Your nervous system is holding the anxiety your conscious mind has tidied away into task lists. The domestic productivity is real, but it's also a way of feeling in control when the bigger picture feels uncontrollable.
-
----
+**4. You set up two promising work meetings and didn't celebrate them.** Warner Bros and a potential work partnership with Chris — these are buried in Wednesday's list with no reflection, no excitement, no anxiety processing. For someone with application anxiety and imposter syndrome, initiating professional meetings is a significant act. You treated it like tidying the kitchen. Your self-recognition practice is slipping at the exact moment you're doing things worth recognising.
 
 ## 6. Forward Signal
 
-**Watch for: The gap between domestic productivity and professional avoidance widening into a self-worth crisis.**
+**Watch for: Journal abandonment as a leading indicator of emotional shutdown.**
 
-This week, Jim's Ta-Dah lists are dominated by household tasks — cleaning, tidying, organising, fixing. These are genuine contributions, but they're also *safe* contributions. The professional actions (Warner Bros meeting, Chris partnership) are promising but early-stage and unresolved. If next week follows the same pattern — high domestic output, zero applications, exploratory-but-uncommitted professional conversations — the risk is that Jim starts to define his value entirely through domestic labour, which is the exact territory where the recognition deficit with Janna becomes most painful. He tidies everything, feels it should be enough, it isn't acknowledged the way he needs, and the cycle from January repeats.
+This week showed a clear five-day degradation: inhabited → formulaic → copy-pasted → absent → withdrawn. If Monday of W10 doesn't have specific, genuine gratitude and a real intent (not dictated-and-forgotten), that's the signal that the emotional processing channel has closed and the motion-as-safety pattern is running unchecked.
 
-**Actionable:** Before Thursday's therapy session, Jim should answer one question honestly: *"Am I choosing not to apply for jobs right now, or am I avoiding it and calling it a choice?"* The answer determines whether next week needs a gentle restart or a hard look in the mirror.
+**Actionable:** Before anything else on Monday morning, write three sentences about how you actually feel. Not what you're grateful for, not what you intend to do — how you feel right now, in your body. If you can't do it, that's the data. Bring it to Samantha.
