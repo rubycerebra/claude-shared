@@ -4116,8 +4116,9 @@ def generate_html(data):
     _tadah_total = _tadah_cat_data.get("total_items", len(tadah_flat)) if isinstance(_tadah_cat_data, dict) else len(tadah_flat)
     _tadah_themes = _tadah_cat_data.get("themes", {}) if isinstance(_tadah_cat_data, dict) else {}
     _latest_health = health_data[-1] if health_data else {}
-    _steps_val = int(_latest_health.get("steps", 0) or 0)
-    _ex_val = int(_latest_health.get("exercise", 0) or 0)
+    _health_age = data.get("healthDataAge", 0)
+    _steps_val = int(_latest_health.get("steps", 0) or 0) if _health_age <= 1 else 0
+    _ex_val = int(_latest_health.get("exercise", 0) or 0) if _health_age <= 1 else 0
     _wc = _today_ai.get("workout_checklist", {}) if isinstance(_today_ai, dict) else {}
     _sf = _wc.get("session_feedback", {}) if isinstance(_wc, dict) else {}
     _session_type = (_sf.get("session_type", "") or "").strip()
