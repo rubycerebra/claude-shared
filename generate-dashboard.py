@@ -1726,6 +1726,52 @@ def generate_html(data):
         {workout_toggle_html}
     </div>'''
 
+    # === Film Section (Letterboxd) ===
+    film_html = ""
+    film_data = data.get("film_data", {}) if isinstance(data.get("film_data"), dict) else {}
+    if film_data.get("status") == "success" and not (film_data.get("stale") and film_data.get("export_age_days", 0) > 180):
+        import html as _html
+        wl_count = film_data.get("counts", {}).get("watchlist") or film_data.get("full_watchlist_count", 0)
+        recent_watched = film_data.get("recent_watched", [])[:5]
+        recent_watchlist = film_data.get("recent_watchlist", [])[:5]
+        fetched_at = film_data.get("fetched_at", "")[:10] if film_data.get("fetched_at") else "unknown"
+        lb_username = film_data.get("username", "jcherry01")
+
+        # Recently watched
+        watched_items_html = ""
+        for item in recent_watched:
+            title = _html.escape(str(item.get("title", "")))
+            year = _html.escape(str(item.get("year", "")))
+            date = _html.escape(str(item.get("date", "")))
+            watched_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#c4b5fd">🎬</span><span class="text-sm" style="color:#e5e7eb">{title} <span style="color:#6b7280">({year})</span></span><span class="text-xs ml-auto" style="color:#4b5563">{date}</span></div>'
+
+        # Watchlist recently added
+        watchlist_items_html = ""
+        for item in recent_watchlist:
+            title = _html.escape(str(item.get("title", "")))
+            year = _html.escape(str(item.get("year", "")))
+            url = item.get("url", "")
+            link = f'<a href="{_html.escape(url)}" style="color:#f9a8d4;text-decoration:none">{title}</a>' if url else title
+            watchlist_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#f9a8d4">📋</span><span class="text-sm" style="color:#e5e7eb">{link} <span style="color:#6b7280">({year})</span></span></div>'
+
+        watched_summary = f"{len(recent_watched)} diary entries" if recent_watched else "No recent diary"
+        wl_str = f"{wl_count:,}" if isinstance(wl_count, int) else str(wl_count or "?")
+
+        watched_block = f'<p class="text-xs font-semibold mb-2" style="color:#c4b5fd">Recently watched</p>{watched_items_html}' if watched_items_html else ""
+        wl_block = f'<p class="text-xs font-semibold mb-2 mt-3" style="color:#f9a8d4">Recently added to watchlist</p>{watchlist_items_html}' if watchlist_items_html else ""
+
+        film_html = f'''<details class="card rounded-xl p-5 mb-4" style="background:rgba(88,28,135,0.12);border:1px solid rgba(196,181,253,0.18)">
+  <summary class="cursor-pointer flex items-center gap-2">
+    <span class="text-lg font-semibold" style="color:#c4b5fd">🎬 Film</span>
+    <span class="text-sm ml-2" style="color:#9ca3af">{watched_summary} · {wl_str} watchlist</span>
+  </summary>
+  <div class="mt-3">
+    {watched_block}
+    {wl_block}
+    <p class="text-xs mt-3" style="color:#4b5563"><a href="https://letterboxd.com/{_html.escape(lb_username)}/" style="color:#6b7280">@{_html.escape(lb_username)}</a> · synced {fetched_at}</p>
+  </div>
+</details>'''
+
     # === Action Items Section — categorised by quick_win / maintenance / standard ===
     # Matches embed-dashboard-in-notes.py action items section
     ai_insights = data.get("aiInsights", {})
@@ -8079,6 +8125,7 @@ def generate_html(data):
             <a href="#review">💭 Review</a>
             <a href="#weekly">📅 Weekly</a>
             <a href="#health">🏥 Health</a>
+            <a href="#film">🎬</a>
             <a href="#jobs">💼 Jobs</a>
             <a href="#system">🧰 System</a>
         </nav>
@@ -8215,6 +8262,9 @@ def generate_html(data):
         </div>
     </div>
     </section>
+
+    <!-- Film -->
+    <section id="film" class="dashboard-section" data-focus="day evening">{film_html}</section>
 
     <section class="dashboard-section phase-day" data-focus="day evening">{correlation_html}</section>
 
@@ -8936,6 +8986,7 @@ def main():
         "wins": [],
         "screentime": cache.get("screentime", {}),
         "activitywatch": cache.get("activitywatch", {}),
+        "film_data": cache.get("film_data", {}) if isinstance(cache.get("film_data", {}), dict) else {},
         "taDahCategorised": cache.get("ta_dah_categorised", {}),
         "diariumTodos": diarium_display.get("todos_extracted", []),
         "appleNotesTodos": cache.get("apple_notes_todos", []) if isinstance(cache.get("apple_notes_todos", []), list) else [],
