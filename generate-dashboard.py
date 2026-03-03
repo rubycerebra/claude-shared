@@ -1046,6 +1046,11 @@ def _tadah_items_overlap(candidate, existing_texts, threshold=0.5):
     return False
 
 
+def _tadah_score_key(text):
+    raw = re.sub(r'\s+', ' ', str(text or '').strip().lower())
+    return re.sub(r'[^a-z0-9\s]', '', raw).strip()
+
+
 def _score_tadah_items(items):
     """Score ta-dah items deterministically (no model calls, no token usage)."""
     if not items:
@@ -1064,6 +1069,9 @@ def _score_tadah_items(items):
     )
 
     def _score_item(item):
+        existing = item.get("score")
+        if isinstance(existing, (int, float)):
+            return max(1, min(5, int(round(existing))))
         text = str(item.get("text", "")).strip().lower()
         source = str(item.get("source", "diary")).strip().lower()
         score = 3
@@ -1102,12 +1110,31 @@ def get_tadah():
             source_date = str(cache.get("diarium_source_date", "")).strip()
             if source_date == today:
                 # Diary ta-dahs first — user-written, highest priority
-                cache_tadah = cache.get("diarium", {}).get("ta_dah", [])
+                diarium_cache = cache.get("diarium", {}) if isinstance(cache.get("diarium", {}), dict) else {}
+                cache_tadah = diarium_cache.get("ta_dah", [])
+                scored_rows = diarium_cache.get("ta_dah_scored_items", [])
+                score_lookup = {}
+                if isinstance(scored_rows, list):
+                    for row in scored_rows:
+                        if not isinstance(row, dict):
+                            continue
+                        key = _tadah_score_key(row.get("text", ""))
+                        if not key:
+                            continue
+                        try:
+                            value = int(round(float(row.get("score", 3))))
+                        except Exception:
+                            value = 3
+                        score_lookup[key] = max(1, min(5, value))
                 if cache_tadah and isinstance(cache_tadah, list):
                     for item in cache_tadah:
                         text = str(item).strip()
                         if text and text.lower() not in ("list", ""):
-                            today_items.append({"text": text, "source": "diary"})
+                            row = {"text": text, "source": "diary"}
+                            score_key = _tadah_score_key(text)
+                            if score_key in score_lookup:
+                                row["score"] = score_lookup[score_key]
+                            today_items.append(row)
 
                 # Pieces unplanned wins — de-duped against diary items
                 pieces = cache.get("pieces_activity", {})
