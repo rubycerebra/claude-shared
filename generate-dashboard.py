@@ -2036,7 +2036,7 @@ def generate_html(data):
         task_text = str(task or "").strip().rstrip("~").strip()
         if not task_text:
             return
-        if not _is_actionable_task(task_text):
+        if source != "akiflow" and not _is_actionable_task(task_text):
             return
         task_key = _task_match_key(task_text)
         if not task_key:
