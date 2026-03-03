@@ -208,6 +208,23 @@ def _strip_updates_metadata(text):
     return "\n".join(kept_lines).strip()
 
 
+def _is_effectively_empty_updates_text(text):
+    """Treat punctuation-only/placeholder updates values as empty."""
+    raw = str(text or "").strip()
+    if not raw:
+        return True
+    lowered = raw.lower()
+    if lowered in {"-", "--", "---", "—", "—-", "n/a", "na", "none", "nil", "null"}:
+        return True
+    token_stripped = re.sub(r"[\s\-\—\–\•\·\.\,\:\;\|\_\/]+", "", lowered)
+    return token_stripped == ""
+
+
+def _is_stale_diarium_fallback_line(text):
+    lowered = re.sub(r"\s+", " ", str(text or "").strip().lower())
+    return "diarium is stale" in lowered and "live activity context" in lowered
+
+
 def _time_to_minutes_hhmm(value):
     match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", str(value or ""))
     if not match:
@@ -1589,7 +1606,7 @@ def generate_html(data):
     # Yesterday's ta-dahs — always separate from today's list for clear differentiation
     # Uses same categorization as today's ta-dahs (helpers defined in else block above)
     yesterday_tadah_html = ""
-    if yesterday_tadah:
+    if yesterday_tadah and not bool(data.get("diariumFresh", True)):
         try:
             yesterday_label_date = (
                 datetime.strptime(get_effective_date(), "%Y-%m-%d") - timedelta(days=1)
@@ -2477,11 +2494,15 @@ def generate_html(data):
         # Suppress stale synthesis once anxiety has actually been logged.
         return has_anxiety_logged_today
 
+    def _is_stale_diarium_guidance_text(text: str) -> bool:
+        return _is_stale_diarium_fallback_line(text)
+
     if entries:
         # Entries are already today-scoped; only split by source
         morning_entries = [e for e in entries if e.get("source") == "morning"]
         evening_payload = data.get("evening", {}) if isinstance(data.get("evening"), dict) else {}
-        has_real_updates_text = bool(_strip_updates_metadata(evening_payload.get("updates", "")))
+        cleaned_updates_text = _strip_updates_metadata(evening_payload.get("updates", ""))
+        has_real_updates_text = not _is_effectively_empty_updates_text(cleaned_updates_text)
         updates_entries = [e for e in entries if e.get("source") == "updates"] if has_real_updates_text else []
         evening_entries = [e for e in entries if e.get("source") == "evening"]
         # Fallback: daemon_evening (heuristic) when no API-based evening insights exist
@@ -2490,6 +2511,17 @@ def generate_html(data):
 
         # Synthesised insights — split by source
         daily_guidance = ai_today.get("daily_guidance")
+        if bool(data.get("diariumFresh", True)) and isinstance(daily_guidance, dict):
+            guidance_path = str(daily_guidance.get("path", "")).strip()
+            guidance_lines = daily_guidance.get("lines", []) if isinstance(daily_guidance.get("lines", []), list) else []
+            if guidance_path == "pieces_fallback" and guidance_lines:
+                filtered_lines = [
+                    item for item in guidance_lines
+                    if not _is_stale_diarium_guidance_text(str(item.get("text", "")) if isinstance(item, dict) else str(item))
+                ]
+                if filtered_lines != guidance_lines:
+                    daily_guidance = dict(daily_guidance)
+                    daily_guidance["lines"] = filtered_lines
 
         # Morning synthesis (morning data only)
         # daily_guidance contains AI-generated prescriptive analysis of morning diary entries
@@ -2528,14 +2560,16 @@ def generate_html(data):
                 if len(sentences) > 2 and len(sl) > 150:
                     lead = sentences[0]
                     rest = ' '.join(sentences[1:])
+                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div class="mb-4{'  pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);' if idx > 0 else '"'}>
+                        <div{divider_attrs}>
                             <p class="text-base font-medium leading-relaxed" style="color: #f3f4f6; line-height: 1.8;">{emoji} {lead}</p>
                             <p class="text-sm mt-2 ml-6 leading-relaxed" style="color: #b0b5bd; line-height: 1.7;">{rest}</p>
                         </div>'''
                 else:
+                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div class="mb-4{'  pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);' if idx > 0 else '"'}>
+                        <div{divider_attrs}>
                             <p class="text-base leading-relaxed" style="color: #e5e7eb; line-height: 1.8;">{emoji} {sl}</p>
                         </div>'''
             morning_sections += f'''
@@ -2622,14 +2656,16 @@ def generate_html(data):
                 if len(sentences) > 2 and len(sl) > 150:
                     lead = sentences[0]
                     rest = ' '.join(sentences[1:])
+                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div class="mb-4{'  pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);' if idx > 0 else '"'}>
+                        <div{divider_attrs}>
                             <p class="text-base font-medium leading-relaxed" style="color: #f3f4f6; line-height: 1.8;">{emoji} {lead}</p>
                             <p class="text-sm mt-2 ml-6 leading-relaxed" style="color: #b0b5bd; line-height: 1.7;">{rest}</p>
                         </div>'''
                 else:
+                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div class="mb-4{'  pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);' if idx > 0 else '"'}>
+                        <div{divider_attrs}>
                             <p class="text-base leading-relaxed" style="color: #e5e7eb; line-height: 1.8;">{emoji} {sl}</p>
                         </div>'''
             evening_sections += f'''
@@ -3916,6 +3952,8 @@ def generate_html(data):
     def _summary_lines(key):
         rows = day_state_summary.get(key, []) if isinstance(day_state_summary.get(key, []), list) else []
         cleaned = [str(row).strip() for row in rows if str(row).strip()]
+        if bool(data.get("diariumFresh", True)):
+            cleaned = [line for line in cleaned if not _is_stale_diarium_fallback_line(line)]
         return cleaned[:3]
 
     def _render_day_state_block(title, emoji, lines, accent_color, bg_color):
@@ -4151,6 +4189,8 @@ def generate_html(data):
 
     # Updates card (middle section between morning insights and evening)
     updates_text = _strip_updates_metadata(evening.get("updates", ""))
+    if _is_effectively_empty_updates_text(updates_text):
+        updates_text = ""
     updates_card_html = ""
     completed_updates_html = ""
     # Guard: if the Updates section contains a pasted journal/evening entry (prose, no bullets,
@@ -4235,6 +4275,13 @@ def generate_html(data):
     <div class="card mb-4">
         <h3 class="text-lg font-semibold mb-3" style="color: #6ee7b7">✅ Completed today (from updates)</h3>
         <div class="space-y-2">{completed_rows}</div>
+    </div>'''
+
+    if not updates_card_html and not updates_insights_html and not completed_updates_html:
+        updates_card_html = '''
+    <div class="card mb-4">
+        <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
+        <p class="text-sm" style="color: #6b7280">No update notes logged yet today.</p>
     </div>'''
 
     # Evening card content — SPLIT: raw entries + AI insights
@@ -4425,10 +4472,11 @@ def generate_html(data):
             parts.append(f"You also did a {_w} session{_dur}.")
 
         # Other ta-dah items not already captured
+        _session_token = (_session_type or "").lower().replace("_", " ").strip()
         _other = [t for t in tadah_flat
                   if not any(kw in t.lower() for kw in _personal_kws)
                   and "walk" not in t.lower() and "coco" not in t.lower()
-                  and (_session_type or "").lower().replace("_", " ") not in t.lower()][:3]
+                  and (not _session_token or _session_token not in t.lower())][:3]
         if _other:
             _others_listed = "; ".join(t.rstrip(".").lower() for t in _other)
             parts.append(f"You also got through: {_others_listed}.")
@@ -4584,6 +4632,11 @@ def generate_html(data):
     _guidance_path = str(_daily_guidance_payload.get("path", "")).strip() if isinstance(_daily_guidance_payload, dict) else ""
     if not bool(data.get("diariumFresh", True)) and _guidance_path != "pieces_fallback":
         _guidance_lines = []
+    if bool(data.get("diariumFresh", True)) and _guidance_path == "pieces_fallback":
+        _guidance_lines = [
+            line for line in _guidance_lines
+            if not _is_stale_diarium_guidance_text(str(line.get("text", "")) if isinstance(line, dict) else str(line))
+        ]
 
     if _guidance_lines or state_of_day_html:
         guidance_items_html = ""
@@ -5825,7 +5878,9 @@ def generate_html(data):
         }}
         blocks.forEach(block => {{
             const evs = timed.filter(e => {{
-                const h = (e.hour !== undefined && e.hour >= 0) ? e.hour : parseInt(e.time.split(":")[0], 10);
+                const rawHour = (e.hour !== undefined && e.hour >= 0) ? e.hour : parseInt(e.time.split(":")[0], 10);
+                if (Number.isNaN(rawHour)) return false;
+                const h = rawHour < 6 ? rawHour + 24 : rawHour;
                 return h >= block.min && h < block.max;
             }});
             if (!evs.length) return;

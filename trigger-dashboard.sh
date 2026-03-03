@@ -401,7 +401,7 @@ pieces_status = str(pieces.get("status", "")).strip().lower() if isinstance(piec
 if pieces_status == "ok" and pieces_count > 0:
     if 'id="pieces"' not in html:
         issues.append("missing_pieces_section")
-    if "🛠️ What you worked on today" not in html:
+    if "🗓️ What you did today" not in html and "🛠️ What you worked on today" not in html:
         issues.append("missing_evening_pieces_block")
 
 if issues:
