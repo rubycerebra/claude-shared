@@ -4238,13 +4238,29 @@ def generate_html(data):
     # template constraints and it's not actual update items.
     _updates_has_bullets = bool(re.search(r'(?m)^[\-\*]|\[\s*[xX ]?\s*\]|\d+\.\s', updates_text or ""))
     _updates_is_prose = bool(updates_text) and len(updates_text) > 150 and not _updates_has_bullets
-    if updates_text and not _updates_is_prose:
+    if updates_text:
         updates_emoji = _pick_content_emoji(updates_text)
-        updates_card_html = f'''
+        updates_text_html = html.escape(updates_text).replace("\n", "<br>")
+        if _updates_is_prose:
+            updates_preview = _truncate_sentence_safe(updates_text, max_len=260)
+            updates_preview_html = html.escape(updates_preview).replace("\n", "<br>")
+            updates_card_html = f'''
     <div class="card mb-4">
         <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
         <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border-left: 3px solid #60a5fa">
-            <p class="text-sm" style="color: #e5e7eb">{updates_emoji} {updates_text}</p>
+            <p class="text-sm mb-2" style="color: #e5e7eb">{updates_emoji} {updates_preview_html}</p>
+            <details>
+                <summary class="text-xs cursor-pointer" style="color: #93c5fd">View full cleaned updates text</summary>
+                <p class="text-sm mt-2" style="color: #cbd5e1; line-height: 1.65;">{updates_text_html}</p>
+            </details>
+        </div>
+    </div>'''
+        else:
+            updates_card_html = f'''
+    <div class="card mb-4">
+        <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
+        <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border-left: 3px solid #60a5fa">
+            <p class="text-sm" style="color: #e5e7eb">{updates_emoji} {updates_text_html}</p>
         </div>
     </div>'''
 
