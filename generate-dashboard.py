@@ -2072,10 +2072,25 @@ def generate_html(data):
             return first_clause.rstrip(".!?:;,- ") + "..."
         return text[: max_len - 3].rstrip() + "..."
 
+    _future_keywords = ("tomorrow", "tonight", "next week", "next month", "later today", "this evening")
+
+    def _is_future_facing_task(raw_text):
+        task_lower = str(raw_text or "").lower()
+        return any(kw in task_lower for kw in _future_keywords)
+
     all_action_items = []
     action_item_index = {}
 
-    def _append_action_item(task, priority="Medium", time_est="30m", source="daemon", category="standard", force_done=False):
+    def _append_action_item(
+        task,
+        priority="Medium",
+        time_est="30m",
+        source="daemon",
+        category="standard",
+        force_done=False,
+        due_today_override=False,
+        target_date="",
+    ):
         task_text = str(task or "").strip().rstrip("~").strip()
         if not task_text:
             return
@@ -2087,7 +2102,7 @@ def generate_html(data):
         # Never mark future-facing items as done — they're reminders, not completions.
         # Also never mark items still in genuine_todos (pending) as done — guards against
         # daemon false-positive injection writing stale hashes.
-        _is_future_item = any(kw in task_text.lower() for kw in ("tomorrow", "tonight", "next week", "next month", "later today", "this evening"))
+        _is_future_item = _is_future_facing_task(task_text) and not bool(due_today_override)
         _is_pending = task_key in _pending_task_keys
         done_today = (force_done or _is_task_completed_today(task_text)) and not _is_future_item and not _is_pending
         existing_idx = action_item_index.get(task_key)
@@ -2105,6 +2120,9 @@ def generate_html(data):
             existing_item["done"] = bool(existing_item.get("done")) or done_today
             if not existing_item.get("time") and time_est:
                 existing_item["time"] = time_est
+            existing_item["due_today_override"] = bool(existing_item.get("due_today_override")) or bool(due_today_override)
+            if target_date and not existing_item.get("target_date"):
+                existing_item["target_date"] = str(target_date).strip()
             return
         action_item_index[task_key] = len(all_action_items)
         all_action_items.append({
@@ -2114,6 +2132,8 @@ def generate_html(data):
             "source": source,
             "category": category,
             "done": done_today,
+            "due_today_override": bool(due_today_override),
+            "target_date": str(target_date).strip(),
         })
 
     for todo in (diarium_data or []):
@@ -2131,7 +2151,6 @@ def generate_html(data):
         _append_action_item(text, priority="Medium", time_est="15m", source="apple_notes", category="standard")
 
     # Completed tasks that were promoted into ta_dah should remain visible as done rows.
-    _future_keywords = ("tomorrow", "tonight", "next week", "next month", "later today", "this evening")
     for done_item in (diarium_tadah or []):
         done_text = str(done_item or "").strip()
         if not done_text or done_text.lower() in ("list", ""):
@@ -2163,10 +2182,30 @@ def generate_html(data):
             continue
         _append_action_item(done_text, priority="Medium", time_est="", source="completed", category="maintenance", force_done=True)
 
+    try:
+        _effective_today_dt = datetime.strptime(_effective_today, "%Y-%m-%d")
+    except Exception:
+        _effective_today_dt = None
     for todo in (ai_todos or []):
         text = todo.get("text", "") if isinstance(todo, dict) else str(todo)
         category = todo.get("category", "standard") if isinstance(todo, dict) else "standard"
-        _append_action_item(text, priority="Medium", time_est="15m", source="ai", category=category)
+        target_date = str(todo.get("rollover_target_date", "")).strip() if isinstance(todo, dict) else ""
+        due_today_override = False
+        try:
+            target_dt = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+        except Exception:
+            target_dt = None
+        if _effective_today_dt and target_dt and target_dt <= _effective_today_dt:
+            due_today_override = True
+        _append_action_item(
+            text,
+            priority="Medium",
+            time_est="15m",
+            source="ai",
+            category=category,
+            due_today_override=due_today_override,
+            target_date=target_date,
+        )
 
     if weekly_report_due:
         _append_action_item(
@@ -2207,6 +2246,7 @@ def generate_html(data):
         standard_items = []
         system_items = []
         completed_items = []
+        tomorrow_queue_items = []
         system_keywords = ["daemon", "dashboard", "claude", "script", "config", "cache", "verify"]
 
         current_hour_for_filter = datetime.now().hour
@@ -2216,6 +2256,9 @@ def generate_html(data):
                 continue
             # Skip "set tomorrow's plans" before 18:00 — Jim sets these in the evening
             if current_hour_for_filter < 18 and "tomorrow" in item.get("task", "").lower() and "plan" in item.get("task", "").lower():
+                continue
+            if _is_future_facing_task(item.get("task", "")) and not bool(item.get("due_today_override")):
+                tomorrow_queue_items.append(item)
                 continue
             display_action_items.append(item)
             if item.get("done"):
@@ -2319,6 +2362,23 @@ def generate_html(data):
             items_html += f'<p class="text-xs font-semibold mb-2 mt-3" style="color: {color}">{label}</p>'
             for section_item in section_items:
                 items_html += _render_action_item_row(section_item)
+
+        if tomorrow_queue_items:
+            tomorrow_rows_html = "".join(_render_action_item_row(item) for item in tomorrow_queue_items[:8])
+            tomorrow_extra = ""
+            if len(tomorrow_queue_items) > 8:
+                tomorrow_extra = (
+                    f'<p class="text-xs mt-2" style="color:#6b7280">'
+                    f'+{len(tomorrow_queue_items) - 8} more future item(s)</p>'
+                )
+            items_html += f'''
+            <details class="mt-4 rounded-lg px-3 py-2" style="background: rgba(30,41,59,0.38); border: 1px solid rgba(129,140,248,0.24);">
+                <summary class="text-xs font-semibold cursor-pointer" style="color:#c4b5fd">🗓️ Tomorrow queue ({len(tomorrow_queue_items)})</summary>
+                <p class="text-xs mt-2 mb-2" style="color:#9ca3af">Hidden from today’s action list. Expands into action items on its target day.</p>
+                {tomorrow_rows_html}
+                {tomorrow_extra}
+            </details>
+            '''
 
         if items_html:
             action_items_list_html = items_html
