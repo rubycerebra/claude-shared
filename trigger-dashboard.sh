@@ -6,14 +6,16 @@
 #   trigger-dashboard.sh --no-open    # immediate, no browser
 #   trigger-dashboard.sh --delay --no-open  # wait + no browser
 #   trigger-dashboard.sh --force      # bypass dedup check
+#   trigger-dashboard.sh --cache-only # regenerate HTML from existing cache only (no daemon refresh)
 #
-# IMPORTANT: This script refreshes Diarium + journal data in cache before
-# generating the dashboard. No need to run /start-day first for fresh data.
-# (AI analysis still requires /start-day — that's Claude's judgment work.)
+# IMPORTANT: By default this script refreshes Diarium + journal data in cache
+# before generating the dashboard. Use --cache-only to skip refresh/daemon
+# triggers and regenerate purely from current cache state.
 
 DELAY=false
 NO_OPEN=""
 FORCE=false
+CACHE_ONLY=false
 STRICT_CHECK="${DASHBOARD_STRICT_CHECK:-0}"
 LOG_FILE="$HOME/.claude/logs/trigger-dashboard.log"
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -28,6 +30,9 @@ for arg in "$@"; do
             ;;
         --force)
             FORCE=true
+            ;;
+        --cache-only)
+            CACHE_ONLY=true
             ;;
     esac
 done
@@ -68,13 +73,14 @@ except: pass
     fi
 fi
 
-# Refresh Diarium + journal in cache before generating dashboard
-# This ensures the dashboard always shows today's diary data, even without /start-day
-# NOTE: Daemon is triggered AFTER this refresh so it sees today's Diarium when
-# regenerating day_state_summary (prevents "Continue the strongest work thread"
-# from referencing yesterday's activities).
-echo "🔄 Refreshing data..."
-python3 -c "
+if [[ "$CACHE_ONLY" != "true" ]]; then
+    # Refresh Diarium + journal in cache before generating dashboard
+    # This ensures the dashboard always shows today's diary data, even without /start-day
+    # NOTE: Daemon is triggered AFTER this refresh so it sees today's Diarium when
+    # regenerating day_state_summary (prevents "Continue the strongest work thread"
+    # from referencing yesterday's activities).
+    echo "🔄 Refreshing data..."
+    python3 -c "
 import sys, json, subprocess
 import re
 from pathlib import Path
@@ -344,11 +350,14 @@ with open(cache_file, 'w') as f:
 print('  ✅ Cache updated')
 " 2>>"$LOG_FILE"
 
-# Now trigger daemon to re-fetch external sources (HealthFit, calendar, etc.)
-# Running AFTER Diarium refresh ensures daemon sees today's Diarium when
-# regenerating day_state_summary — fixes cross-day context in "work thread" insights.
-touch "$HOME/.claude/cache/trigger-refresh"
-sleep 8  # Give daemon time to fetch from GSheet + write cache
+    # Now trigger daemon to re-fetch external sources (HealthFit, calendar, etc.)
+    # Running AFTER Diarium refresh ensures daemon sees today's Diarium when
+    # regenerating day_state_summary — fixes cross-day context in "work thread" insights.
+    touch "$HOME/.claude/cache/trigger-refresh"
+    sleep 8  # Give daemon time to fetch from GSheet + write cache
+else
+    echo "ℹ️ Cache-only mode: skipping refresh + daemon trigger"
+fi
 
 # Generate dashboard (pass through --no-open if specified)
 python3 ~/Documents/Claude\ Projects/claude-shared/generate-dashboard.py $NO_OPEN || { echo "Dashboard generation failed"; exit 1; }
