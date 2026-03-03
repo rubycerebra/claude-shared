@@ -68,12 +68,11 @@ except: pass
     fi
 fi
 
-# Trigger daemon to re-fetch all data sources (HealthFit, calendar, etc.)
-touch "$HOME/.claude/cache/trigger-refresh"
-sleep 8  # Give daemon time to fetch from GSheet + write cache
-
 # Refresh Diarium + journal in cache before generating dashboard
 # This ensures the dashboard always shows today's diary data, even without /start-day
+# NOTE: Daemon is triggered AFTER this refresh so it sees today's Diarium when
+# regenerating day_state_summary (prevents "Continue the strongest work thread"
+# from referencing yesterday's activities).
 echo "🔄 Refreshing data..."
 python3 -c "
 import sys, json, subprocess
@@ -251,14 +250,19 @@ if parser:
                     new_diarium[list_field] = existing_diarium[list_field]
                     new_diarium[raw_items_key] = existing_diarium[raw_items_key]
             # Preserve ta_dah wins merged by completion flows (and parser output).
-            existing_tadah = existing_diarium.get('ta_dah', [])
-            if isinstance(existing_tadah, list):
-                new_diarium['ta_dah'] = _merge_unique_list(new_diarium.get('ta_dah', []), existing_tadah)
-            if 'ta_dah_raw_items' in existing_diarium and isinstance(existing_diarium.get('ta_dah_raw_items'), list):
-                new_diarium['ta_dah_raw_items'] = _merge_unique_list(
-                    existing_diarium.get('ta_dah_raw_items', []),
-                    new_diarium.get('ta_dah_raw_items', []),
-                )
+            # Only merge if re-parsing the SAME day — cross-day merge causes yesterday's
+            # ta-dah items to bleed into today's list.
+            existing_source = existing_diarium.get('source_date', '') or str(cache.get('diarium_source_date', '') or '')
+            if source_date and existing_source == source_date:
+                existing_tadah = existing_diarium.get('ta_dah', [])
+                if isinstance(existing_tadah, list):
+                    new_diarium['ta_dah'] = _merge_unique_list(new_diarium.get('ta_dah', []), existing_tadah)
+                if 'ta_dah_raw_items' in existing_diarium and isinstance(existing_diarium.get('ta_dah_raw_items'), list):
+                    new_diarium['ta_dah_raw_items'] = _merge_unique_list(
+                        existing_diarium.get('ta_dah_raw_items', []),
+                        new_diarium.get('ta_dah_raw_items', []),
+                    )
+            # else: new day — start fresh with only today's parsed items (no cross-day bleed)
 
             # Add today's completed todo labels as ta_dah fallback.
             completed_file = Path.home() / '.claude/cache/completed-todos.json'
@@ -348,6 +352,12 @@ with open(cache_file, 'w') as f:
     json.dump(cache, f, indent=2)
 print('  ✅ Cache updated')
 " 2>>"$LOG_FILE"
+
+# Now trigger daemon to re-fetch external sources (HealthFit, calendar, etc.)
+# Running AFTER Diarium refresh ensures daemon sees today's Diarium when
+# regenerating day_state_summary — fixes cross-day context in "work thread" insights.
+touch "$HOME/.claude/cache/trigger-refresh"
+sleep 8  # Give daemon time to fetch from GSheet + write cache
 
 # Generate dashboard (pass through --no-open if specified)
 python3 ~/Documents/Claude\ Projects/claude-shared/generate-dashboard.py $NO_OPEN || { echo "Dashboard generation failed"; exit 1; }

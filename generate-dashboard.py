@@ -3471,7 +3471,7 @@ def generate_html(data):
 
     correlation_html = ""
     corr = data.get("anxietyCorrelation", {}) if isinstance(data.get("anxietyCorrelation", {}), dict) else {}
-    if corr.get("status") == "ok" and corr.get("count", 0) >= 5:
+    if corr.get("status") == "ok" and corr.get("count", 0) >= 14:
         step_corr = corr.get("step_corr")
         ex_corr = corr.get("exercise_corr")
         sleep_corr = corr.get("sleep_corr")
@@ -3503,6 +3503,7 @@ def generate_html(data):
                 <details>
                     <summary class="text-lg font-semibold cursor-pointer" style="color: #93c5fd">📈 Anxiety Relief Correlation ({points_count} days)</summary>
                     <div class="mt-3">
+                        <p class="text-xs mb-2" style="color: #94a3b8">Tracks whether your Finch anxiety scores correlate with steps, exercise, and sleep over the last 14 days — helps identify which health habits most reliably reduce anxiety.</p>
                         <p class="text-xs mb-2" style="color: #94a3b8">Last 14 days with score+health overlap: {points_count}</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs mb-3">
                             <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Steps corr: <span style="color: #a7f3d0">{corr_text(step_corr)}</span></div>
@@ -4851,7 +4852,7 @@ def generate_html(data):
             <button id="sys-heal-btn" onclick="qaHealSystem(this)" class="system-chip system-chip-action" style="background: rgba(6,95,70,0.28); color: #a7f3d0; border: 1px solid rgba(110,231,183,0.3);">🛠️</button>
             <span id="sys-daemon-badge" class="system-chip" style="{daemon_style}">{daemon_label}</span>
             <span id="sys-api-badge" class="system-chip" style="{api_style}">{api_label}</span>
-            <span id="sys-cache-badge" class="system-chip" style="{cache_style}">{cache_label}</span>
+            <span id="sys-cache-badge" class="system-chip" title="Data last refreshed {cache_age if isinstance(cache_age, int) else '?'} min ago — red means some sections may show yesterday&apos;s content" style="{cache_style}">{cache_label}</span>
             <span id="sys-beads-summary" class="system-inline">{beads_summary}</span>
             <span id="sys-checked-at" class="system-inline">{checked_text}</span>
             {tailscale_html}
