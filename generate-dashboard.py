@@ -1046,88 +1046,41 @@ def _tadah_items_overlap(candidate, existing_texts, threshold=0.5):
     return False
 
 
-def _find_claude_bin():
-    """Resolve the claude CLI binary (subscription, not API)."""
-    known = [
-        Path.home() / ".local" / "bin" / "claude",
-        Path("/usr/local/bin/claude"),
-        Path("/opt/homebrew/bin/claude"),
-    ]
-    for p in known:
-        if p.exists():
-            return str(p)
-    import shutil
-    return shutil.which("claude") or str(Path.home() / ".local" / "bin" / "claude")
-
-
 def _score_tadah_items(items):
-    """Score ta-dah items by significance using Claude Haiku via CLI (subscription).
-    Returns items sorted by score descending. Caches result for the day."""
+    """Score ta-dah items deterministically (no model calls, no token usage)."""
     if not items:
         return items
 
-    today = get_effective_date()
-    texts = [i["text"] for i in items]
-    cache_hash = hashlib.md5(json.dumps(sorted(texts)).encode()).hexdigest()[:8]
-    score_cache_path = Path.home() / ".claude" / "cache" / f"tadah-scores-{today}.json"
-
-    # Return cached scores if item list unchanged
-    if score_cache_path.exists():
-        try:
-            cached = json.loads(score_cache_path.read_text())
-            if cached.get("hash") == cache_hash:
-                return cached["items"]
-        except Exception:
-            pass
-
-    items_text = "\n".join(f"{i+1}. {item['text']}" for i, item in enumerate(items))
-    prompt = (
-        "Score each personal daily accomplishment by significance/impact.\n"
-        "5=major win (solved hard problem, big life moment, significant achievement)\n"
-        "4=solid accomplishment (meaningful, took effort or had real impact)\n"
-        "3=moderate (useful task done, normal routine completed well)\n"
-        "2=minor (small admin, routine maintenance)\n"
-        "1=trivial\n\n"
-        "Return ONLY a valid JSON array, no markdown, no explanation:\n"
-        '[{"idx": 1, "score": 4}, {"idx": 2, "score": 2}, ...]\n\n'
-        f"Items:\n{items_text}"
+    high_signal = (
+        "fixed", "solved", "finished", "completed", "shipped", "launched",
+        "therapy", "interview", "workout", "weights", "yoga", "family", "girls",
+    )
+    medium_signal = (
+        "updated", "improved", "set up", "organised", "organized",
+        "scheduled", "cleaned", "walked", "wrote", "built",
+    )
+    low_signal = (
+        "checked", "quick", "small", "tiny", "sorted", "tidied",
     )
 
-    env = os.environ.copy()
-    for var in ("CLAUDECODE", "CLAUDE_AGENT_SDK_VERSION",
-                "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "CLAUDE_CODE_ENTRYPOINT"):
-        env.pop(var, None)
+    def _score_item(item):
+        text = str(item.get("text", "")).strip().lower()
+        source = str(item.get("source", "diary")).strip().lower()
+        score = 3
+        if any(k in text for k in high_signal):
+            score += 2
+        elif any(k in text for k in medium_signal):
+            score += 1
+        if any(k in text for k in low_signal):
+            score -= 1
+        if len(text.split()) <= 3:
+            score -= 1
+        if source == "pieces":
+            score = max(score, 3)
+        return max(1, min(5, score))
 
-    try:
-        result = subprocess.run(
-            [_find_claude_bin(), "--model", "claude-haiku-4-5-20251001",
-             "--print", "--no-session-persistence", "--output-format", "json"],
-            input=prompt, capture_output=True, text=True, timeout=30, env=env,
-        )
-        if result.returncode != 0:
-            return items
-        raw = result.stdout.strip()
-        if not raw:
-            return items
-        try:
-            outer = json.loads(raw)
-            inner = outer.get("result", raw) if isinstance(outer, dict) else raw
-        except Exception:
-            inner = raw
-        inner = re.sub(r'^```[a-z]*\n?', '', inner.strip())
-        inner = re.sub(r'\n?```$', '', inner)
-        scores_raw = json.loads(inner)
-        score_map = {entry["idx"]: entry["score"] for entry in scores_raw}
-    except Exception:
-        return items
-
-    scored = [{**item, "score": score_map.get(i + 1, 3)} for i, item in enumerate(items)]
+    scored = [{**item, "score": _score_item(item)} for item in items]
     scored.sort(key=lambda x: (-x.get("score", 3), x["text"]))
-
-    try:
-        score_cache_path.write_text(json.dumps({"hash": cache_hash, "items": scored}))
-    except Exception:
-        pass
 
     return scored
 
@@ -1606,7 +1559,7 @@ def generate_html(data):
     # Yesterday's ta-dahs — always separate from today's list for clear differentiation
     # Uses same categorization as today's ta-dahs (helpers defined in else block above)
     yesterday_tadah_html = ""
-    if yesterday_tadah and not bool(data.get("diariumFresh", True)):
+    if yesterday_tadah:
         try:
             yesterday_label_date = (
                 datetime.strptime(get_effective_date(), "%Y-%m-%d") - timedelta(days=1)

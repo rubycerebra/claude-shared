@@ -249,26 +249,11 @@ if parser:
                     # Daemon has AI-cleaned versions — use those instead of raw parser output
                     new_diarium[list_field] = existing_diarium[list_field]
                     new_diarium[raw_items_key] = existing_diarium[raw_items_key]
-            # Preserve ta_dah wins merged by completion flows (and parser output).
-            # Only merge if re-parsing the SAME day — cross-day merge causes yesterday's
-            # ta-dah items to bleed into today's list.
-            existing_source = existing_diarium.get('source_date', '') or str(cache.get('diarium_source_date', '') or '')
-            if source_date and existing_source == source_date:
-                existing_tadah = existing_diarium.get('ta_dah', [])
-                if isinstance(existing_tadah, list):
-                    # Keep parser output for this run as source-of-truth, but preserve
-                    # same-day non-parser additions (e.g. completion flows) from cache.
-                    existing_raw = existing_diarium.get('ta_dah_raw_items', []) if isinstance(existing_diarium.get('ta_dah_raw_items'), list) else []
-                    def _norm_tadah(item):
-                        return re.sub(r'\\s+', ' ', str(item).strip().lower())
-                    existing_raw_keys = {_norm_tadah(item) for item in existing_raw if str(item).strip()}
-                    existing_extras = [
-                        item for item in existing_tadah
-                        if _norm_tadah(item) and _norm_tadah(item) not in existing_raw_keys
-                    ]
-                    if existing_extras:
-                        new_diarium['ta_dah'] = _merge_unique_list(new_diarium.get('ta_dah', []), existing_extras)
-            # else: new day — start fresh with only today's parsed items (no cross-day bleed)
+            # IMPORTANT: do not merge cached ta_dah back into parser output.
+            # Cached ta_dah can contain prior-day carryover from older runs, which
+            # causes yesterday items to bleed into today's section. We keep parser
+            # output for this refresh as source-of-truth, then append only explicit
+            # same-day completions from completed-todos.json below.
 
             # Add today's completed todo labels as ta_dah fallback.
             completed_file = Path.home() / '.claude/cache/completed-todos.json'
