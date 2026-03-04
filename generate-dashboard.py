@@ -14,7 +14,6 @@ Called by Raycast shortcut or Code commands.
 """
 
 import html
-import hashlib
 import json
 import os
 import re
@@ -38,6 +37,44 @@ from shared.workout_logic import (
     derive_workout_progression,
     workout_progression_view,
 )
+from dashboard_action_items import (
+    FUTURE_KEYWORDS,
+    collect_akiflow_today_items,
+    compact_task_text,
+    is_actionable_task,
+    is_future_facing_task,
+    load_completed_todo_state,
+    task_completion_hash,
+    task_completion_hash_legacy,
+    task_match_key,
+    task_matches_completed_text,
+    tasks_equivalent,
+)
+from dashboard_freshness_ideas import (
+    build_important_thing_warning_html,
+    build_freshness_watch_html,
+    build_ideas_status_html,
+    build_stale_notice_html,
+    build_system_status_html,
+    compute_cache_freshness,
+    compute_diarium_freshness,
+    compute_diarium_pickup_freshness,
+    compute_freshness_overview,
+    compute_mood_freshness,
+    narrative_contradiction_reason,
+    resolve_ai_path_status,
+)
+from dashboard_day_narrative import (
+    collect_day_narrative_lines,
+    compose_day_narrative,
+    split_day_narrative_paragraphs,
+)
+from dashboard_value_helpers import (
+    coerce_choice,
+    coerce_optional_int,
+    end_day_status_text,
+    input_num_text,
+)
 
 
 # Paths
@@ -47,6 +84,7 @@ WINS_FILE = SHARED_DIR / "wins.md"
 JOURNAL_DIR = SHARED_DIR / "journal"  # Used only for hyperlinks, not for reading raw text
 OUTPUT_FILE = SHARED_DIR / "dashboard.html"
 COMPLETED_TODOS_FILE = Path.home() / ".claude" / "cache" / "completed-todos.json"
+ACTION_ITEM_DEFER_FILE = Path.home() / ".claude" / "cache" / "action-item-defer.json"
 
 DASHBOARD_DUMP_MARKER_PATTERNS = (
     r"^\s*(?:📊\s*)?Dashboard\s*[—\-:|]",
@@ -71,6 +109,52 @@ def _clock_hhmm(raw):
     except Exception:
         return ""
     return stamp.strftime("%H:%M")
+
+
+def _parse_ymd(raw):
+    try:
+        return datetime.strptime(str(raw or "").strip(), "%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def _normalise_action_item_key(text):
+    value = re.sub(r"\s+", " ", str(text or "").strip().lower())
+    value = re.sub(r"[^a-z0-9\s]", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _load_action_item_defer_targets(effective_date):
+    """Return task-key -> target_date for user-requested deferrals."""
+    if not ACTION_ITEM_DEFER_FILE.exists():
+        return {}
+    today_dt = _parse_ymd(effective_date)
+    if not today_dt:
+        return {}
+    try:
+        payload = json.loads(ACTION_ITEM_DEFER_FILE.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        return {}
+
+    raw_items = payload.get("items", []) if isinstance(payload, dict) else []
+    if not isinstance(raw_items, list):
+        return {}
+
+    targets = {}
+    for row in raw_items:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text", "")).strip()
+        target_date = str(row.get("target_date", "")).strip()
+        key = _normalise_action_item_key(text)
+        target_dt = _parse_ymd(target_date)
+        if not key or not target_dt:
+            continue
+        # Only treat future target dates as active deferrals.
+        if target_dt <= today_dt:
+            continue
+        targets[key] = target_date
+    return targets
 
 
 def _dashboard_dump_start_index(raw_text):
@@ -223,6 +307,72 @@ def _to_float(value):
         return None
 
 
+def _is_updates_verification_noise_text(text):
+    lowered = re.sub(r"\s+", " ", str(text or "").strip().lower())
+    if not lowered:
+        return False
+    if any(
+        token in lowered
+        for token in (
+            "verification note",
+            "updates section sync",
+            "codex verification",
+            "test scratch pad entry",
+        )
+    ):
+        return True
+    if re.search(r"\btest[-_ ]?(?:item|entry|stub|dummy|does)\b", lowered):
+        return True
+    return False
+
+
+def _normalise_updates_line_key(text):
+    raw = re.sub(r"\s+", " ", str(text or "").strip().lower())
+    raw = re.sub(r"[^a-z0-9\s]", " ", raw)
+    return re.sub(r"\s+", " ", raw).strip()
+
+
+def _updates_overlap_ratio(a, b):
+    aset = _token_set(a)
+    bset = _token_set(b)
+    if not aset or not bset:
+        return 0.0
+    return len(aset & bset) / max(1, min(len(aset), len(bset)))
+
+
+def _dedupe_updates_lines(lines, max_items=8):
+    deduped = []
+    for raw_line in lines:
+        line = re.sub(r"\s+", " ", str(raw_line or "").strip())
+        if len(line) < 4:
+            continue
+        if _is_updates_verification_noise_text(line):
+            continue
+        line_key = _normalise_updates_line_key(line)
+        if not line_key:
+            continue
+
+        merged = False
+        for idx, existing in enumerate(deduped):
+            existing_key = _normalise_updates_line_key(existing)
+            if not existing_key:
+                continue
+            overlap = _updates_overlap_ratio(line, existing)
+            if line_key == existing_key or overlap >= 0.68:
+                # Keep the fresher line if it's similarly rich, otherwise keep richer text.
+                if len(line) >= int(len(existing) * 0.85):
+                    deduped[idx] = line
+                merged = True
+                break
+
+        if not merged:
+            deduped.append(line)
+
+        if len(deduped) > max_items:
+            deduped = deduped[-max_items:]
+    return deduped
+
+
 def _strip_updates_metadata(text):
     """Remove Weather/Location metadata lines from Updates display."""
     if not text:
@@ -274,9 +424,13 @@ def _strip_updates_metadata(text):
         if any(phrase in lower for phrase in _TRANSCRIPTION_LEAK):
             continue
 
+        if _is_updates_verification_noise_text(line):
+            continue
+
         kept_lines.append(line)
 
-    cleaned = "\n".join(kept_lines).strip()
+    deduped_lines = _dedupe_updates_lines(kept_lines, max_items=8)
+    cleaned = "\n".join(deduped_lines).strip()
     cleaned, _ = _strip_dashboard_dump_suffix(cleaned)
     return cleaned
 
@@ -852,6 +1006,52 @@ def _count_open_issues_from_jsonl(project_path):
         return None
 
 
+def _read_open_issues_from_jsonl(project_path, limit=160):
+    """Fast local open-issue reader used by optional backlog card (no bd call needed)."""
+    issues_file = project_path / ".beads" / "issues.jsonl"
+    if not issues_file.exists():
+        return []
+    latest = {}
+    try:
+        with open(issues_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    issue = json.loads(line)
+                except Exception:
+                    continue
+                issue_id = str(issue.get("id", "")).strip()
+                if not issue_id:
+                    continue
+                latest[issue_id] = issue
+    except Exception:
+        return []
+
+    def _priority_val(issue):
+        raw = issue.get("priority")
+        try:
+            p = int(raw)
+            return p if p > 0 else 99
+        except Exception:
+            return 99
+
+    def _updated_key(issue):
+        for key in ("updated_at", "updated", "created_at", "created"):
+            raw = str(issue.get(key, "")).strip()
+            if raw:
+                return raw
+        return ""
+
+    open_items = [
+        issue for issue in latest.values()
+        if str(issue.get("status", "")).lower() == "open"
+    ]
+    open_items.sort(key=lambda issue: (_priority_val(issue), _updated_key(issue)), reverse=False)
+    return open_items[: max(1, int(limit))]
+
+
 def _runtime_open_bead_counts():
     counts = {}
     base = Path.home() / "Documents" / "Claude Projects"
@@ -1118,6 +1318,34 @@ def _parse_tadah_from_journal(date_str):
         return []
 
 
+def _parse_updates_from_journal(date_str):
+    """Extract user-entered updates from journal ## Notes section."""
+    journal_file = JOURNAL_DIR / f"{date_str}.md"
+    if not journal_file.exists():
+        return ""
+    try:
+        content = journal_file.read_text(encoding="utf-8", errors="replace")
+        match = re.search(r'(?ms)^## Notes\s*\n(.*?)(?=^##\s+|\Z)', content)
+        if not match:
+            return ""
+        raw_block = match.group(1)
+        lines = []
+        for raw in raw_block.splitlines():
+            line = str(raw).strip()
+            if not line:
+                continue
+            if re.match(r'^\*\[\d{1,2}:\d{2}\s+via dashboard\]\*$', line, re.IGNORECASE):
+                continue
+            lines.append(line)
+        deduped_lines = _dedupe_updates_lines(lines, max_items=8)
+        if not deduped_lines:
+            return ""
+        # Keep recent lines only to avoid stale bloat from long-running notes files.
+        return "\n".join(deduped_lines[-8:])
+    except Exception:
+        return ""
+
+
 def _tadah_items_overlap(candidate, existing_texts, threshold=0.5):
     """Return True if candidate overlaps significantly with any existing text (word-overlap dedup)."""
     def _sig_words(s):
@@ -1259,37 +1487,88 @@ def get_tadah():
 
 
 def parse_wins(content):
-    """Parse wins.md - extract most recent week's accomplishments only"""
-    # Split by week headers to get the latest week
+    """Parse wins.md - extract most recent accomplishments only (last 3 days)."""
+    from datetime import datetime, timedelta
+    today = datetime.now().date()
+    cutoff = today - timedelta(days=3)
+
     weeks = re.split(r'^## (Week \d+.*?)$', content, flags=re.MULTILINE)
     if len(weeks) < 3:
         return []
     last_content = weeks[-1]
 
-    wins = []
     skip_prefixes = [
         '- Evidence:', '- Status:', '- Note:', '- Reason:', '- Decision:',
         '- Reflection:', '- Contract:', '- Salary negotiation',
     ]
-    for line in last_content.split('\n'):
+
+    wins = []
+    current_date = None
+    lines = last_content.split('\n')
+
+    for line in reversed(lines):
         line = line.strip()
         if not line:
             continue
+
+        # Parse date context from **DayName MonDD: style headers
+        date_match = re.match(r'\*\*\w+ (\w+ \d+):', line)
+        if date_match:
+            try:
+                current_date = datetime.strptime(
+                    f"{date_match.group(1)} {today.year}", "%b %d %Y"
+                ).date()
+            except ValueError:
+                current_date = None
+            continue
+
+        # Parse [YYYY-MM-DD] prefix from Pieces entries
+        bracket = re.match(r'[-•]\s*\[(\d{4}-\d{2}-\d{2})\]', line)
+        if bracket:
+            try:
+                current_date = datetime.strptime(bracket.group(1), "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        # Skip lines older than cutoff
+        if current_date and current_date < cutoff:
+            continue
+
+        # Skip unwanted patterns
         if line.startswith('###') or line.startswith('**Target') or line.startswith('**Actual'):
             continue
         if any(line.startswith(p) for p in skip_prefixes):
             continue
         if '❌' in line:
             continue
-        # Capture 🎉/✅ lines and normal bullet wins
+
+        # Accept win lines
+        clean = None
         if '🎉' in line or '✅' in line:
             clean = re.sub(r'^\d+\.\s*', '', line).strip('- ').replace('**', '')
-            wins.append(clean)
         elif line.startswith('- ') and len(line) > 10:
             clean = line.lstrip('- ').strip().replace('**', '')
-            if len(clean) < 80:
+
+        if clean:
+            # Strip [date] prefix and Pieces attribution
+            clean = re.sub(r'^\[\d{4}-\d{2}-\d{2}\]\s*', '', clean).strip()
+            clean = re.sub(r'\s*\(via Pieces\)\s*$', '', clean).strip()
+            if 5 < len(clean) < 120:
                 wins.append(clean)
-    return wins[:4]
+
+        if len(wins) >= 4:
+            break
+
+    # Deduplicate
+    seen = set()
+    deduped = []
+    for w in wins:
+        key = re.sub(r'[^a-z0-9]', '', w.lower())[:60]
+        if key not in seen:
+            seen.add(key)
+            deduped.append(w)
+
+    return deduped[:4]
 
 
 def generate_html(data):
@@ -1895,44 +2174,10 @@ def generate_html(data):
     # Date-gate: only show action items from today's data
     _effective_today = get_effective_date()
     _ai_is_today = ai_today.get("status") == "success"
-    _completed_hashes_today = set()
-    _completed_text_keys_today = []
-    _completed_labels_today = []
-    try:
-        if COMPLETED_TODOS_FILE.exists():
-            completed_payload = json.loads(COMPLETED_TODOS_FILE.read_text(encoding="utf-8", errors="replace"))
-            if (
-                isinstance(completed_payload, dict)
-                and str(completed_payload.get("date", "")).strip() == _effective_today
-                and isinstance(completed_payload.get("completed"), list)
-            ):
-                _completed_hashes_today = {
-                    str(item).strip().lower()
-                    for item in completed_payload.get("completed", [])
-                    if str(item).strip()
-                }
-                if isinstance(completed_payload.get("completed_texts"), list):
-                    _completed_text_keys_today = [
-                        re.sub(r"\s+", " ", str(item).strip().lower())
-                        for item in completed_payload.get("completed_texts", [])
-                        if str(item).strip()
-                    ]
-                if isinstance(completed_payload.get("completed_labels"), list):
-                    _completed_labels_today = [
-                        str(item).strip()
-                        for item in completed_payload.get("completed_labels", [])
-                        if str(item).strip()
-                    ]
-                if not _completed_labels_today and isinstance(completed_payload.get("completed_texts"), list):
-                    _completed_labels_today = [
-                        str(item).strip().capitalize()
-                        for item in completed_payload.get("completed_texts", [])
-                        if str(item).strip()
-                    ]
-    except Exception:
-        _completed_hashes_today = set()
-        _completed_text_keys_today = []
-        _completed_labels_today = []
+    _completed_hashes_today, _completed_text_keys_today, _completed_labels_today = load_completed_todo_state(
+        COMPLETED_TODOS_FILE,
+        _effective_today,
+    )
 
     # Collect action items from multiple sources (only if data is from today)
     diarium_data = data.get("diariumTodos", []) if data.get("diariumDataDate") == _effective_today else []
@@ -1941,44 +2186,7 @@ def generate_html(data):
     ai_todos = ai_today.get("genuine_todos", []) if _ai_is_today else []
 
     # --- Akiflow today tasks (non-routine, for action items injection) ---
-    _akiflow_raw_sa = data.get("akiflow_tasks", {})
-    _akiflow_routine_lower = {
-        "weights", "yoga", "walk dog", "walk the dog", "get ready", "meditation", "stretch",
-        "break", "lunch", "dinner", "breakfast", "shower", "morning routine", "evening routine",
-    }
-    _akiflow_today_items = []
-    _akiflow_seen_summary = set()
-    if isinstance(_akiflow_raw_sa, dict) and _akiflow_raw_sa.get("status") == "ok":
-        for _t in _akiflow_raw_sa.get("tasks", []):
-            if _t.get("days_from_now") != 0:
-                continue
-            _summary = _t.get("summary", "").strip()
-            if not _summary or _summary.lower() in _akiflow_routine_lower:
-                continue
-            _summary_key = re.sub(r"\s+", " ", _summary.lower()).strip()
-            if _summary_key in _akiflow_seen_summary:
-                continue
-            _time_est = "30m"
-            _start_iso = str(_t.get("start", "")).strip()
-            try:
-                from datetime import datetime as _dt_sa
-                _s = _dt_sa.fromisoformat(_t["start"].replace("Z", "+00:00"))
-                _e = _dt_sa.fromisoformat(_t["end"].replace("Z", "+00:00"))
-                _mins = int((_e - _s).total_seconds() / 60)
-                if _mins > 0:
-                    _time_est = (f"{_mins}m" if _mins < 60
-                                 else f"{_mins//60}h{_mins%60}m" if _mins % 60
-                                 else f"{_mins//60}h")
-            except Exception:
-                pass
-            _akiflow_seen_summary.add(_summary_key)
-            _akiflow_today_items.append({"summary": _summary, "time_est": _time_est, "start": _start_iso})
-    _akiflow_today_items.sort(
-        key=lambda row: (
-            str(row.get("start", "")).strip(),
-            re.sub(r"\s+", " ", str(row.get("summary", "")).strip().lower()),
-        )
-    )
+    _akiflow_today_items = collect_akiflow_today_items(data.get("akiflow_tasks", {}))
 
     # --- Schedule analysis extraction (feasibility_map populated after _task_match_key) ---
     _sa = data.get("schedule_analysis", {})
@@ -1988,12 +2196,16 @@ def generate_html(data):
     _schedule_insight = _sa.get("schedule_insight", "") if _sa_today else ""
     _feasibility_map = {}  # populated after _task_match_key is defined below
 
-    def _task_match_key(raw_text):
-        """Normalize task/loop text so small punctuation differences do not duplicate rows."""
-        text = re.sub(r"\s+", " ", str(raw_text or "").strip().lower())
-        text = re.sub(r"[^a-z0-9\s]", " ", text)
-        text = re.sub(r"\s+", " ", text).strip()
-        return text
+    _task_match_key = task_match_key
+    _task_completion_hash = task_completion_hash
+    _task_completion_hash_legacy = task_completion_hash_legacy
+    _tasks_equivalent = tasks_equivalent
+    _is_actionable_task = is_actionable_task
+    _compact_task_text = compact_task_text
+    _future_keywords = FUTURE_KEYWORDS
+    _is_future_facing_task = is_future_facing_task
+
+    _deferred_task_targets = _load_action_item_defer_targets(_effective_today)
 
     # Pending task guard: tasks still in genuine_todos are never "done" even if a stale
     # hash exists in completed-todos.json (daemon false-positive injection defence).
@@ -2025,103 +2237,8 @@ def generate_html(data):
             if _pck:
                 _pieces_observed_keys.add(_pck)
 
-    def _task_completion_hash(raw_text):
-        key = _task_match_key(raw_text) or str(raw_text or "").strip().lower()
-        if not key:
-            return ""
-        return hashlib.md5(key.encode()).hexdigest()[:12]
-
-    def _task_completion_hash_legacy(raw_text):
-        seed = str(raw_text or "").strip().lower()
-        if not seed:
-            return ""
-        return hashlib.md5(seed.encode()).hexdigest()[:12]
-
-    _task_action_stems = {
-        "apply", "assemble", "book", "buy", "call", "cancel", "change", "check",
-        "clean", "collect", "complete", "contact", "create", "do", "email", "file",
-        "fill", "find", "finish", "fix", "follow", "get", "give", "install", "log",
-        "look", "make", "message", "move", "pack", "pay", "pick", "plan", "post",
-        "prepare", "print", "read", "register", "repair", "replace", "reply",
-        "request", "research", "review", "schedule", "send", "set", "sign", "sort",
-        "submit", "tidy", "unpack", "update", "vacuum", "wash", "write",
-    }
-    _task_object_stopwords = {
-        "the", "and", "this", "that", "with", "from", "into", "onto", "for", "to",
-        "after", "before", "right", "left", "one", "some", "any", "just", "then",
-        "today", "tonight", "tomorrow", "morning", "afternoon", "evening", "now",
-    }
-
     def _task_matches_completed_text(raw_text):
-        candidate_key = _task_match_key(raw_text)
-        if not candidate_key or not _completed_text_keys_today:
-            return False
-        candidate_tokens = {t for t in candidate_key.split() if t}
-        candidate_object_tokens = {
-            t for t in candidate_tokens
-            if t not in _task_action_stems and t not in _task_object_stopwords and not t.isdigit() and len(t) > 2
-        }
-        for done_raw in _completed_text_keys_today:
-            done_key = _task_match_key(done_raw)
-            if not done_key:
-                continue
-            if candidate_key == done_key:
-                return True
-            if len(candidate_key) >= 10 and candidate_key in done_key:
-                return True
-            if len(done_key) >= 10 and done_key in candidate_key:
-                return True
-            done_tokens = {t for t in done_key.split() if t}
-            done_object_tokens = {
-                t for t in done_tokens
-                if t not in _task_action_stems and t not in _task_object_stopwords and not t.isdigit() and len(t) > 2
-            }
-            if done_object_tokens and candidate_object_tokens:
-                obj_overlap = done_object_tokens & candidate_object_tokens
-                min_obj = min(len(done_object_tokens), len(candidate_object_tokens))
-                if len(obj_overlap) >= 2:
-                    return True
-                if min_obj >= 3 and len(obj_overlap) / max(min_obj, 1) >= 0.75:
-                    return True
-            overlap = len(candidate_tokens & done_tokens)
-            union = len(candidate_tokens | done_tokens)
-            if overlap >= 2 and union and (overlap / union) >= 0.66:
-                return True
-        return False
-
-    def _task_object_tokens(raw_text):
-        key = _task_match_key(raw_text)
-        tokens = {t for t in key.split() if t}
-        return {
-            t for t in tokens
-            if t not in _task_action_stems and t not in _task_object_stopwords and not t.isdigit() and len(t) > 2
-        }
-
-    def _tasks_equivalent(left_text, right_text):
-        left_key = _task_match_key(left_text)
-        right_key = _task_match_key(right_text)
-        if not left_key or not right_key:
-            return False
-        if left_key == right_key:
-            return True
-        if len(left_key) >= 10 and left_key in right_key:
-            return True
-        if len(right_key) >= 10 and right_key in left_key:
-            return True
-        left_obj = _task_object_tokens(left_text)
-        right_obj = _task_object_tokens(right_text)
-        if left_obj and right_obj:
-            obj_overlap = left_obj & right_obj
-            min_obj = min(len(left_obj), len(right_obj))
-            if len(obj_overlap) >= 2:
-                return True
-            if min_obj >= 3 and len(obj_overlap) / max(min_obj, 1) >= 0.75:
-                return True
-        left_tokens = set(left_key.split())
-        right_tokens = set(right_key.split())
-        overlap = len(left_tokens & right_tokens)
-        union = len(left_tokens | right_tokens)
-        return bool(overlap >= 2 and union and (overlap / union) >= 0.66)
+        return task_matches_completed_text(raw_text, _completed_text_keys_today)
 
     def _is_task_completed_today(raw_text):
         if not _completed_hashes_today and not _completed_text_keys_today:
@@ -2133,84 +2250,6 @@ def generate_html(data):
             or h_legacy in _completed_hashes_today
             or _task_matches_completed_text(raw_text)
         )
-
-    _task_action_verbs = {
-        "apply", "assemble", "book", "buy", "call", "cancel", "change", "check",
-        "clean", "collect", "complete", "contact", "create", "do", "email", "file",
-        "fill", "finish", "fix", "follow", "get", "give", "install", "log", "make",
-        "message", "move", "pack", "pay", "pick", "plan", "post", "prepare", "print",
-        "read", "register", "repair", "replace", "reply", "request", "research",
-        "review", "schedule", "send", "set", "sign", "sort", "submit", "tidy",
-        "unpack", "update", "vacuum", "wash", "write",
-    }
-    _task_vague_object_tokens = {
-        "that", "this", "it", "thing", "things", "stuff", "something", "anything",
-        "everything", "whatever", "whenever", "sometime", "someday",
-    }
-
-    def _is_actionable_task(raw_text):
-        text = re.sub(r"\s+", " ", str(raw_text or "").strip())
-        if len(text) < 10 or len(text) > 220:
-            return False
-        lower = text.lower()
-        if "tomorrow" in lower and re.search(r"\bpay(?:ing)?\b", lower):
-            concrete_targets = ("rent", "invoice", "bill", "tax", "credit card", "subscription", "council")
-            if not any(token in lower for token in concrete_targets):
-                return False
-        if any(tok in lower for tok in ("payment", "paid")):
-            if lower.startswith(("get paid", "be paid", "receive payment", "check if", "check whether", "check that", "wait for", "waiting for")):
-                return False
-            if any(tok in lower for tok in ("tomorrow", "by noon", "by midday", "arrive", "arrives", "arrived", "land", "lands", "come through")):
-                return False
-        if re.match(r"^(and|or|but|so|because|me|him|her|them|us|it|that|which)\b", lower):
-            return False
-        if re.match(r"^(today|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", lower):
-            return False
-        if lower.startswith("make sure"):
-            return False
-        if any(phrase in lower for phrase in ("can wait", "could wait", "should wait", "wait for later", "wait until later", "at some point", "eventually")):
-            return False
-        # Reject items where the text qualifies itself out of being a task:
-        # e.g. "Fix toys, but that's obviously not the most important thing today"
-        if any(phrase in lower for phrase in ("obviously not", "not the most important", ", but that's not", ", but that is not", "but obviously")):
-            return False
-        if any(marker in lower for marker in ("i'm a terrible person", "denigrate", "feel bad about", "childish")):
-            return False
-        candidate = re.sub(
-            r"^(?:i need to|i have to|i must|i'm going to|i will|need to|must|to)\s+",
-            "",
-            lower,
-        ).strip()
-        words = re.findall(r"[a-z']+", candidate)
-        if len(words) < 2:
-            return False
-        if words[0] not in _task_action_verbs:
-            return False
-        if words[0] in {"do", "get", "make"} and words[1] in _task_vague_object_tokens:
-            return False
-        object_tokens = [
-            token for token in words[1:]
-            if token not in {"up", "out", "off", "on", "in", "to", "for", "with", "and", "or", "then", "now"}
-        ]
-        if object_tokens and all(token in _task_vague_object_tokens for token in object_tokens):
-            return False
-        return True
-
-    def _compact_task_text(raw_text, max_len=140):
-        """Shorten long AI task text so rows stay scannable."""
-        text = re.sub(r"\s+", " ", str(raw_text or "").strip())
-        if len(text) <= max_len:
-            return text
-        first_clause = re.split(r"(?<=[\.\!\?])\s+| — | - |; ", text, maxsplit=1)[0].strip()
-        if 24 <= len(first_clause) <= max_len:
-            return first_clause.rstrip(".!?:;,- ") + "..."
-        return text[: max_len - 3].rstrip() + "..."
-
-    _future_keywords = ("tomorrow", "tonight", "next week", "next month", "later today", "this evening")
-
-    def _is_future_facing_task(raw_text):
-        task_lower = str(raw_text or "").lower()
-        return any(kw in task_lower for kw in _future_keywords)
 
     all_action_items = []
     action_item_index = {}
@@ -2233,6 +2272,8 @@ def generate_html(data):
         task_key = _task_match_key(task_text)
         if not task_key:
             return
+        defer_target_date = str(_deferred_task_targets.get(task_key, "") or "").strip()
+        effective_target_date = str(target_date or "").strip() or defer_target_date
         # Never mark future-facing items as done — they're reminders, not completions.
         # Also never mark items still in genuine_todos (pending) as done — guards against
         # daemon false-positive injection writing stale hashes.
@@ -2255,8 +2296,10 @@ def generate_html(data):
             if not existing_item.get("time") and time_est:
                 existing_item["time"] = time_est
             existing_item["due_today_override"] = bool(existing_item.get("due_today_override")) or bool(due_today_override)
-            if target_date and not existing_item.get("target_date"):
-                existing_item["target_date"] = str(target_date).strip()
+            if effective_target_date and not existing_item.get("target_date"):
+                existing_item["target_date"] = effective_target_date
+            if defer_target_date and not existing_item.get("defer_target_date"):
+                existing_item["defer_target_date"] = defer_target_date
             return
         action_item_index[task_key] = len(all_action_items)
         all_action_items.append({
@@ -2267,7 +2310,8 @@ def generate_html(data):
             "category": category,
             "done": done_today,
             "due_today_override": bool(due_today_override),
-            "target_date": str(target_date).strip(),
+            "target_date": effective_target_date,
+            "defer_target_date": defer_target_date,
         })
 
     for todo in (diarium_data or []):
@@ -2407,7 +2451,9 @@ def generate_html(data):
             # Skip "set tomorrow's plans" before 18:00 — Jim sets these in the evening
             if current_hour_for_filter < 18 and "tomorrow" in item.get("task", "").lower() and "plan" in item.get("task", "").lower():
                 continue
-            if _is_future_facing_task(item.get("task", "")) and not bool(item.get("due_today_override")):
+            defer_target_date = str(item.get("defer_target_date", "") or "").strip()
+            force_tomorrow_queue = bool(defer_target_date and defer_target_date > _effective_today)
+            if (_is_future_facing_task(item.get("task", "")) or force_tomorrow_queue) and not bool(item.get("due_today_override")):
                 tomorrow_queue_items.append(item)
                 continue
             display_action_items.append(item)
@@ -2487,7 +2533,11 @@ def generate_html(data):
             else:
                 row_style = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
                 text_style = "color: #f3f4f6; line-height: 1.45;"
-                button_html = f'<button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" data-task-hash="{html.escape(task_hash, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">☐ Done</button>'
+                button_html = f'''
+                <div class="flex flex-col gap-1">
+                    <button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" data-task-hash="{html.escape(task_hash, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">☐ Done</button>
+                    <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
+                </div>'''
             return f'''
                 <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="todo" data-task-hash="{html.escape(task_hash, quote=True)}" style="{row_style}">
                     <span style="font-size: 1rem; line-height: 1.35;">{task_emoji}</span>
@@ -2664,7 +2714,8 @@ def generate_html(data):
     ai_today = get_ai_day(ai_insights, today)
     entries = ai_today.get("entries", []) if ai_today.get("status") == "success" else []
     if not bool(data.get("diariumFresh", True)):
-        entries = []
+        # Keep dashboard-authored updates insights even when Diarium export is stale.
+        entries = [e for e in entries if str(e.get("source", "")).strip().lower() == "updates"]
     anxiety_today_raw = ai_today.get("anxiety_reduction_score") if isinstance(ai_today, dict) else None
     try:
         anxiety_today_value = float(anxiety_today_raw)
@@ -2822,11 +2873,29 @@ def generate_html(data):
             all_updates_insights = []
             for entry in updates_entries:
                 summary = entry.get("emotional_summary", "").strip()
-                if summary and not _is_stale_missing_reflection_signal(summary) and not _is_tracker_metadata_leak_text(summary):
+                if (
+                    summary
+                    and not _is_stale_missing_reflection_signal(summary)
+                    and not _is_tracker_metadata_leak_text(summary)
+                    and not _is_updates_verification_noise_text(summary)
+                ):
                     update_summaries.append(summary)
-                all_updates_insights.extend(entry.get("insights", []))
+                for insight in entry.get("insights", []):
+                    if not isinstance(insight, dict):
+                        continue
+                    insight_text = str(insight.get("text", "")).strip()
+                    if not insight_text:
+                        continue
+                    if _is_stale_missing_reflection_signal(insight_text):
+                        continue
+                    if _is_tracker_metadata_leak_text(insight_text):
+                        continue
+                    if _is_updates_verification_noise_text(insight_text):
+                        continue
+                    all_updates_insights.append(insight)
 
             if update_summaries:
+                update_summaries = _dedupe_updates_lines(update_summaries, max_items=3)
                 summary_items = ""
                 for idx, summary in enumerate(update_summaries[:2]):
                     emoji = _pick_insight_emoji(summary)
@@ -2845,6 +2914,28 @@ def generate_html(data):
                 updates_sections += f'''
                 <div class="mb-2">
                     {_render_entry_items(all_updates_insights, skip_todos=True)}
+                </div>'''
+            elif has_real_updates_text:
+                fallback_lines = collect_day_narrative_lines([cleaned_updates_text], max_items=4, split_sentences=True)
+                fallback_lines = [line for line in fallback_lines if not _is_updates_verification_noise_text(line)]
+                fallback_items = []
+                for line in fallback_lines:
+                    lowered_line = line.lower()
+                    item_type = "connection"
+                    if any(token in lowered_line for token in ("good", "went well", "fit", "win", "worked")):
+                        item_type = "win"
+                    elif any(token in lowered_line for token in ("self-conscious", "masking", "anxious", "exhausted", "tired", "overload")):
+                        item_type = "signal"
+                    elif any(token in lowered_line for token in ("next action", "need to", "email", "tomorrow", "follow up", "follow-up")):
+                        item_type = "signal"
+                    fallback_items.append({
+                        "type": item_type,
+                        "text": _truncate_sentence_safe(line, max_len=190),
+                    })
+                if fallback_items:
+                    updates_sections += f'''
+                <div class="mb-2">
+                    {_render_entry_items(fallback_items, skip_todos=True)}
                 </div>'''
 
         if updates_sections:
@@ -3104,40 +3195,23 @@ def generate_html(data):
     workout_checklist_signals = data.get("workoutChecklistSignals", {}) if isinstance(data.get("workoutChecklistSignals"), dict) else {}
     shortcut_endpoint = str(data.get("workoutShortcutEndpoint", "")).strip() or "http://127.0.0.1:8765/v1/workout/log"
 
-    def _input_num(value, min_v, max_v):
-        try:
-            if value is None or value == "":
-                return ""
-            n = float(value)
-        except Exception:
-            return ""
-        if n < float(min_v) or n > float(max_v):
-            return ""
-        if float(n).is_integer():
-            return str(int(n))
-        return str(round(float(n), 1))
-
-    def _input_choice(value, allowed):
-        raw = str(value or "").strip().lower()
-        return raw if raw in allowed else ""
-
     wc_recovery = str(workout_checklist.get("recovery_gate", "unknown")).strip().lower()
     if wc_recovery not in {"pass", "fail", "unknown"}:
         wc_recovery = "unknown"
     wc_calf_checked = "checked" if bool(workout_checklist.get("calf_done")) else ""
-    wc_rpe_value = _input_num(workout_checklist_post.get("rpe"), 1, 10)
-    wc_pain_value = _input_num(workout_checklist_post.get("pain"), 0, 10)
-    wc_energy_value = _input_num(workout_checklist_post.get("energy_after"), 1, 10)
+    wc_rpe_value = input_num_text(workout_checklist_post.get("rpe"), 1, 10)
+    wc_pain_value = input_num_text(workout_checklist_post.get("pain"), 0, 10)
+    wc_energy_value = input_num_text(workout_checklist_post.get("energy_after"), 1, 10)
     wc_feedback = workout_checklist.get("session_feedback", {}) if isinstance(workout_checklist.get("session_feedback"), dict) else {}
-    wc_duration_value = _input_num(wc_feedback.get("duration_minutes"), 5, 240)
-    wc_intensity_value = _input_choice(wc_feedback.get("intensity"), {"easy", "moderate", "hard"})
-    wc_session_type_value = _input_choice(wc_feedback.get("session_type"), {"somatic", "yin", "flow", "mobility", "restorative", "other"})
-    wc_body_feel_value = _input_choice(wc_feedback.get("body_feel"), {"relaxed", "neutral", "tight", "sore", "energised", "fatigued"})
+    wc_duration_value = input_num_text(wc_feedback.get("duration_minutes"), 5, 240)
+    wc_intensity_value = coerce_choice(wc_feedback.get("intensity"), {"easy", "moderate", "hard"}, empty_value="")
+    wc_session_type_value = coerce_choice(wc_feedback.get("session_type"), {"somatic", "yin", "flow", "mobility", "restorative", "other"}, empty_value="")
+    wc_body_feel_value = coerce_choice(wc_feedback.get("body_feel"), {"relaxed", "neutral", "tight", "sore", "energised", "fatigued"}, empty_value="")
     wc_note_value = str(wc_feedback.get("session_note", "")).strip()
     wc_yoga_anxiety_source = wc_feedback.get("anxiety_reduction_score")
     if wc_yoga_anxiety_source in {None, ""}:
         wc_yoga_anxiety_source = get_ai_day(data.get("aiInsights", {}) if isinstance(data.get("aiInsights", {}), dict) else {}, get_effective_date()).get("anxiety_reduction_score")
-    wc_yoga_anxiety_value = _input_num(wc_yoga_anxiety_source, 0, 10)
+    wc_yoga_anxiety_value = input_num_text(wc_yoga_anxiety_source, 0, 10)
     wc_workout_type = str(workout.get("type", "")).strip().lower() if isinstance(workout, dict) else ""
 
     recovery_signal = str(workout_checklist_signals.get("recovery_signal", "unknown")).strip().lower()
@@ -4472,16 +4546,52 @@ def generate_html(data):
         and _looks_like_real_item(item)
     ]
 
-    # Deduplicate — strip ~~ formatting variants and normalise before dedup
+    # Deduplicate completed items robustly:
+    # - strip markdown wrappers
+    # - drop short hash IDs often appended by task systems (e.g. [bf9cb2], "bf9cb2")
+    # - normalise spacing/punctuation before comparing
+    _BRACKET_ID_RE = re.compile(r"\[\s*[0-9a-f]{6,8}\s*\]", re.IGNORECASE)
+    _TRAILING_ID_RE = re.compile(r"(?:\s+|^)[0-9a-f]{6,8}$", re.IGNORECASE)
+
+    def _clean_completed_display(text):
+        cleaned = str(text or "").replace("~~", "").strip()
+        cleaned = _BRACKET_ID_RE.sub("", cleaned).strip()
+        # Remove one or more trailing short IDs (some sources duplicate IDs in two forms)
+        while cleaned:
+            next_cleaned = _TRAILING_ID_RE.sub("", cleaned).strip()
+            if next_cleaned == cleaned:
+                break
+            cleaned = next_cleaned
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" -–—:;,.")
+        return cleaned
+
     def _norm_completed(t):
-        return re.sub(r"[^a-z0-9\s]", "", re.sub(r"\s+", " ", str(t).strip().lower()))
+        cleaned = _clean_completed_display(t)
+        return re.sub(r"[^a-z0-9\s]", "", re.sub(r"\s+", " ", cleaned.lower())).strip()
+
+    def _looks_like_test_noise(text):
+        lowered = str(text or "").strip().lower()
+        if not lowered:
+            return False
+        compact = re.sub(r"[\s_\-]+", "", lowered)
+        if "doesnotexist" in compact:
+            return True
+        if re.fullmatch(r"(?:test|dummy|placeholder)[a-z0-9]{4,}", compact):
+            return True
+        return False
+
     _seen_completed = set()
     _deduped_completed = []
     for _ci in updates_completed_items:
-        _ck = _norm_completed(_ci)
+        _display = _clean_completed_display(_ci)
+        if not _display:
+            continue
+        if _looks_like_test_noise(_display):
+            continue
+        _ck = _norm_completed(_display)
         if _ck and _ck not in _seen_completed:
             _seen_completed.add(_ck)
-            _deduped_completed.append(str(_ci).replace("~~", "").strip())
+            _deduped_completed.append(_display)
     updates_completed_items = _deduped_completed
 
     if updates_completed_items:
@@ -4666,183 +4776,33 @@ def generate_html(data):
     _effective_today_key = get_effective_date()
 
     def _narrative_contradiction_reason(raw_text):
-        text = str(raw_text or "").strip().lower()
-        if not text:
-            return ""
-        if current_hour < 18 and re.search(r"\b(end(?:ed)?\s+(?:the\s+)?day|end of (?:the )?day)\b", text):
-            return "contains end-of-day claim before evening window"
-        if current_hour < 18 and re.search(r"\b(no\s+ta[\-\s]?dah|no\s+movement|no\s+health|untracked)\b", text):
-            return "contains absence claim before evening window"
-        no_tadah_patterns = (
-            r"\bno\s+ta[\-\s]?dah\b",
-            r"\bno\s+ta[\-\s]?dah\s+items\b",
-            r"\bwithout\s+ta[\-\s]?dah\b",
+        return narrative_contradiction_reason(
+            raw_text,
+            current_hour=current_hour,
+            tadah_total=int(_tadah_total or 0),
+            steps_val=int(_steps_val or 0),
+            ex_val=int(_ex_val or 0),
+            session_type=_session_type,
         )
-        if int(_tadah_total or 0) > 0 and any(re.search(pattern, text) for pattern in no_tadah_patterns):
-            return "claims no ta-dah despite recorded ta-dah items"
-        has_movement_data = bool(
-            (_steps_val and _steps_val > 0)
-            or (_ex_val and _ex_val > 0)
-            or str(_session_type or "").strip()
-        )
-        no_movement_patterns = (
-            r"\bno health(?:\s+or\s+movement)?\b",
-            r"\bno movement\b",
-            r"\bno health or movement updates logged\b",
-            r"\bremained?\s+untracked\b",
-            r"\bleft\s+those\s+parts\s+of\s+the\s+day\s+untracked\b",
-            r"\bwithout\s+(?:any\s+)?(?:health|movement)\s+updates\b",
-        )
-        if has_movement_data and any(re.search(pattern, text) for pattern in no_movement_patterns):
-            return "claims no movement/health tracking despite movement data"
-        return ""
 
-    def _evaluate_cached_narrative():
-        cached = str(_today_ai.get("day_activity_narrative", "") or "").strip() if isinstance(_today_ai, dict) else ""
-        if not cached:
-            return "", {
-                "status": "missing",
-                "level": "info",
-                "line": "ℹ️ Waiting for AI day narrative.",
-            }
-
-        entries = _today_ai.get("entries", []) if isinstance(_today_ai.get("entries", []), list) else []
-        source_max_iso = ""
-        source_max_ts = 0.0
-        source_includes_today = False
-        morning_generated_iso = ""
-        morning_generated_ts = 0.0
-        for row in entries:
-            if not isinstance(row, dict):
-                continue
-            row_date = str(row.get("date", "")).strip()
-            if row_date == _effective_today_key:
-                source_includes_today = True
-            row_generated = str(row.get("generated_at", "")).strip()
-            row_ts = _iso_to_ts(row_generated)
-            if row_ts > source_max_ts:
-                source_max_ts = row_ts
-                source_max_iso = row_generated
-            if str(row.get("source", "")).strip() == "morning" and row_ts > morning_generated_ts:
-                morning_generated_ts = row_ts
-                morning_generated_iso = row_generated
-
-        meta = _today_ai.get("narrative_meta", {}) if isinstance(_today_ai.get("narrative_meta"), dict) else {}
-        meta_source_date = str(meta.get("source_date", "")).strip()
-        meta_generated_iso = str(meta.get("generated_at", "")).strip()
-        meta_source_max_iso = str(meta.get("source_max_ts", "")).strip()
-        meta_source_includes_today = meta.get("source_includes_today")
-        generated_iso = meta_generated_iso or morning_generated_iso
-        generated_ts = _iso_to_ts(generated_iso)
-        latest_source_iso = meta_source_max_iso or source_max_iso
-        latest_source_ts = _iso_to_ts(latest_source_iso)
-        if isinstance(meta_source_includes_today, bool):
-            source_includes_today = bool(meta_source_includes_today)
-
-        reasons = []
-        if meta_source_date and meta_source_date != _effective_today_key:
-            reasons.append(f"source date {meta_source_date} ≠ {_effective_today_key}")
-        if not source_includes_today:
-            reasons.append("same-day sources missing")
-        if generated_ts <= 0:
-            reasons.append("generated_at missing")
-        if latest_source_ts > 0 and generated_ts > 0 and generated_ts < latest_source_ts:
-            reasons.append("older than latest same-day source")
-
-        if not reasons:
-            clean_cached = re.sub(r'^\s*#{1,6}\s+[^\n]+\n*', '', cached, count=1).strip()
-            narrative = clean_cached or cached
-            contradiction = _narrative_contradiction_reason(narrative)
-            if contradiction:
-                return "", {
-                    "status": "stale",
-                    "level": "warn",
-                    "line": f"⚠️ Cached day narrative invalid ({contradiction}); fallback active.",
-                    "generated_at": generated_iso,
-                    "source_max_ts": latest_source_iso,
-                }
-            if narrative:
-                when = _clock_hhmm(generated_iso)
-                line = "✅ What you did today is fresh."
-                if when:
-                    line = f"✅ What you did today is fresh ({when})."
-                return narrative, {
-                    "status": "fresh",
-                    "level": "ok",
-                    "line": line,
-                    "generated_at": generated_iso,
-                    "source_max_ts": latest_source_iso,
-                }
-
-        reason_text = reasons[0] if reasons else "cache mismatch"
-        return "", {
-            "status": "stale",
-            "level": "warn",
-            "line": f"⚠️ Cached day narrative stale ({reason_text}); fallback active.",
-            "generated_at": generated_iso,
-            "source_max_ts": latest_source_iso,
-        }
-
-    def _compose_day_narrative():
-        """Return AI-generated narrative from cache, or rich structured fallback."""
-        cached_narrative, cached_state = _evaluate_cached_narrative()
-        if cached_narrative:
-            return cached_narrative, cached_state
-
-        # Fallback: build a paragraph from structured data (used before daemon generates)
-        parts = []
-        _personal_kws = ("family", "girls", "janna", "tilly", "blossom", "coco", "dinner",
-                         "cook", "clean", "tidy", "garden", "shopping", "walk", "fortnite",
-                         "cinema", "park", "game", "print", "3d", "relax", "medication")
-        _personal = [t for t in tadah_flat if any(kw in t.lower() for kw in _personal_kws)][:5]
-        if _personal:
-            _listed = "; ".join(t.rstrip(".") for t in _personal)
-            parts.append(f"Today you {_listed.lower()}.")
-
-        # Movement / walk
-        _walk = any("walk" in t.lower() or "coco" in t.lower() for t in tadah_flat)
-        if _steps_val > 10000:
-            parts.append(f"You got some solid movement in — {_steps_val:,} steps on the clock.")
-        elif _steps_val > 5000 or _walk:
-            parts.append("You got out for a walk.")
-
-        # Workout
-        if _session_type and _session_type.lower() not in ("none", ""):
-            _w = _session_type.replace("_", " ").lower()
-            _dur = f" for {_session_dur} minutes" if _session_dur else ""
-            parts.append(f"You also did a {_w} session{_dur}.")
-
-        # Other ta-dah items not already captured
-        _session_token = (_session_type or "").lower().replace("_", " ").strip()
-        _other = [t for t in tadah_flat
-                  if not any(kw in t.lower() for kw in _personal_kws)
-                  and "walk" not in t.lower() and "coco" not in t.lower()
-                  and (not _session_token or _session_token not in t.lower())][:3]
-        if _other:
-            _others_listed = "; ".join(t.rstrip(".").lower() for t in _other)
-            parts.append(f"You also got through: {_others_listed}.")
-
-        # Pieces dev work — count summary only in fallback (full digest is huge; Sonnet narrative will replace this)
-        if _p_count2 > 0:
-            parts.append(f"You had {_p_count2} dev session{'s' if _p_count2 != 1 else ''} on the laptop today.")
-
-        fallback_text = " ".join(parts) if parts else ""
-        if fallback_text:
-            if cached_state.get("status") == "stale":
-                return fallback_text, {
-                    **cached_state,
-                    "status": "fallback",
-                    "level": "warn",
-                    "line": str(cached_state.get("line", "")).strip() or "⚠️ Cached day narrative stale; fallback active.",
-                }
-            return fallback_text, {
-                "status": "fallback",
-                "level": "info",
-                "line": "🟡 Using structured fallback narrative until AI rewrite lands.",
-            }
-        return "", cached_state
-
-    _narrative, _narrative_freshness = _compose_day_narrative()
+    _narrative, _narrative_freshness = compose_day_narrative(
+        today_ai=_today_ai,
+        data=data,
+        updates_text=updates_text,
+        tadah_flat=tadah_flat,
+        steps_val=int(_steps_val or 0),
+        session_type=_session_type,
+        session_dur=_session_dur,
+        pieces_count=int(_p_count2 or 0),
+        current_hour=current_hour,
+        effective_today_key=_effective_today_key,
+        iso_to_ts=_iso_to_ts,
+        clock_hhmm=_clock_hhmm,
+        truncate_sentence_safe=_truncate_sentence_safe,
+        contradiction_reason_fn=_narrative_contradiction_reason,
+        is_updates_verification_noise_text=_is_updates_verification_noise_text,
+        looks_like_test_noise=_looks_like_test_noise,
+    )
 
     # Standalone "What you did today" card — shown always (not gated by evening)
     _has_day_data = bool(_narrative or _p_digest2 or _p_summaries2)
@@ -4850,16 +4810,22 @@ def generate_html(data):
     if _has_day_data:
         if _narrative:
             # Split into paragraphs on blank lines or sentence-group boundaries
-            _paras = [p.strip() for p in re.split(r'\n\n+|\n(?=[A-Z])', _narrative) if p.strip()]
-            if not _paras:
-                _paras = [_narrative]
-            _narrative_html = "".join(
-                f'<p style="color:#e5e7eb;font-size:0.9rem;line-height:1.75;margin-bottom:0.75rem;">'
-                f'{html.escape(p)}</p>'
-                for p in _paras
+            _paras = split_day_narrative_paragraphs(_narrative)
+            _narrative_html = (
+                '<div id="qa-day-narrative-body">'
+                + "".join(
+                    f'<p style="color:#e5e7eb;font-size:0.9rem;line-height:1.75;margin-bottom:0.75rem;">'
+                    f'{html.escape(p)}</p>'
+                    for p in _paras
+                )
+                + '</div>'
             )
         else:
-            _narrative_html = '<p style="color:#6b7280;font-size:0.85rem;">No activity data yet today.</p>'
+            _narrative_html = (
+                '<div id="qa-day-narrative-body">'
+                '<p style="color:#6b7280;font-size:0.85rem;">No activity data yet today.</p>'
+                '</div>'
+            )
         _pieces_day_html = (
             '<div class="card mb-4" style="border-left:4px solid #a78bfa;">'
             '<h3 class="text-lg font-semibold mb-3" style="color:#a78bfa">🗓️ What you did today</h3>'
@@ -5161,17 +5127,28 @@ def generate_html(data):
     backlog_html = ""
     try:
         import subprocess
-        # Get beads data from HEALTH project
+        # Optional backlog section should never block dashboard generation.
         health_path = Path.home() / "Documents/Claude Projects/HEALTH"
-        result = subprocess.run(
-            ["bd", "list", "--status=open", "--json"],
-            cwd=health_path,
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0:
-            beads = json.loads(result.stdout)
+        beads = _read_open_issues_from_jsonl(health_path, limit=200)
+        if not beads:
+            try:
+                result = subprocess.run(
+                    ["bd", "list", "--status=open", "--json"],
+                    cwd=health_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=12,
+                )
+                if result.returncode == 0:
+                    parsed = json.loads(result.stdout or "[]")
+                    if isinstance(parsed, list):
+                        beads = parsed
+            except subprocess.TimeoutExpired:
+                beads = []
+            except Exception:
+                beads = []
+
+        if beads:
             # Group by priority
             p1_beads = [b for b in beads if b.get("priority") == 1]
             p2_beads = [b for b in beads if b.get("priority") == 2]
@@ -5210,8 +5187,9 @@ def generate_html(data):
             <p class="text-xs mt-3" style="color: #4b5563">Run <code>bd ready</code> to see what's ready to work on</p>
         </div>
     </details>'''
-    except Exception as e:
-        print(f"Warning: Beads section failed: {e}", file=sys.stderr)
+    except Exception:
+        # Keep this card optional and silent on failure.
+        pass
 
     # Data source file paths for section header hyperlinks
     home = str(Path.home())
@@ -5249,290 +5227,82 @@ def generate_html(data):
     system_status_html = ""
     system_needs_attention = False
     runtime = data.get("runtimeStatus", {}) if isinstance(data.get("runtimeStatus", {}), dict) else {}
-    if runtime:
-        daemon_ok = bool(runtime.get("daemon_ok"))
-        api_ok = bool(runtime.get("api_ok"))
-        cache_age = runtime.get("cache_age_minutes")
-        checked_at = str(runtime.get("checked_at", "")).strip()
-        beads_counts = runtime.get("beads", {}) if isinstance(runtime.get("beads", {}), dict) else {}
-        remote_access = runtime.get("remote_access", {}) if isinstance(runtime.get("remote_access", {}), dict) else {}
-
-        daemon_label = "🟢 Daemon" if daemon_ok else "🔴 Daemon"
-        daemon_style = "color: #6ee7b7; border: 1px solid rgba(110,231,183,0.28); background: rgba(6,95,70,0.22);" if daemon_ok else "color: #fca5a5; border: 1px solid rgba(239,68,68,0.28); background: rgba(127,29,29,0.22);"
-        api_label = "🟢 API" if api_ok else "🔴 API"
-        api_style = "color: #93c5fd; border: 1px solid rgba(147,197,253,0.28); background: rgba(30,64,175,0.2);" if api_ok else "color: #fca5a5; border: 1px solid rgba(239,68,68,0.28); background: rgba(127,29,29,0.22);"
-
-        if isinstance(cache_age, int):
-            if cache_age <= 10:
-                cache_label = f"🟢 {cache_age}m"
-                cache_style = "color: #a7f3d0; border: 1px solid rgba(110,231,183,0.28); background: rgba(6,95,70,0.22);"
-            elif cache_age <= 60:
-                cache_label = f"🟡 {cache_age}m"
-                cache_style = "color: #fde68a; border: 1px solid rgba(251,191,36,0.28); background: rgba(120,53,15,0.24);"
-            else:
-                cache_label = f"🔴 {cache_age}m"
-                cache_style = "color: #fca5a5; border: 1px solid rgba(239,68,68,0.28); background: rgba(127,29,29,0.22);"
-        else:
-            cache_label = "🔴 Cache"
-            cache_style = "color: #fca5a5; border: 1px solid rgba(239,68,68,0.28); background: rgba(127,29,29,0.22);"
-
-        system_needs_attention = (
-            runtime.get("daemon_ok") is False
-            or runtime.get("api_ok") is False
-            or (isinstance(cache_age, int) and cache_age > 60)
-        )
-
-        beads_h = beads_counts.get("HEALTH")
-        beads_w = beads_counts.get("WORK")
-        beads_t = beads_counts.get("TODO")
-        beads_summary = f"H:{beads_h if isinstance(beads_h, int) else '?'} • W:{beads_w if isinstance(beads_w, int) else '?'} • T:{beads_t if isinstance(beads_t, int) else '?'}"
-        checked_text = checked_at if checked_at else "--:--"
-
-        tailscale_url = str(remote_access.get("tailscale_url", "")).strip()
-        tailscale_state = str(remote_access.get("tailscale_state", "unknown")).strip()
-        cloudflare_url = str(remote_access.get("cloudflare_url", "")).strip()
-        cloudflare_state = str(remote_access.get("cloudflare_state", "missing")).strip()
-        cloudflare_age = remote_access.get("cloudflare_age_minutes")
-
-        if tailscale_url:
-            ts_label = "🟢 TS" if tailscale_state == "serve" else "🔵 TS"
-            tailscale_html = f'<a href="{html.escape(tailscale_url + "/dashboard", quote=True)}" class="system-inline" target="_blank" rel="noopener">{ts_label}</a>'
-        else:
-            tailscale_html = '<span class="system-inline">⚪ TS</span>'
-
-        # Hide Cloudflare status badge when Tailscale is available to reduce visual noise.
-        # Cloudflare can still be used as backend fallback.
-        if tailscale_url:
-            cloudflare_html = ""
-        else:
-            if cloudflare_url:
-                if isinstance(cloudflare_age, int):
-                    cf_age_text = f"{cloudflare_age}m"
-                else:
-                    cf_age_text = "?"
-                cf_label = "🟢 CF" if cloudflare_state == "fresh" else "🟠 CF"
-                cloudflare_html = f'<a href="{html.escape(cloudflare_url + "/dashboard", quote=True)}" class="system-inline" target="_blank" rel="noopener">{cf_label} {cf_age_text}</a>'
-            else:
-                cloudflare_html = '<span class="system-inline">⚪ CF</span>'
-
-        system_status_html = f'''
-    <section class="settings-rail system-rail" aria-label="System status">
-        <div class="system-line">
-            <span class="settings-inline-label">🧩 System</span>
-            <button id="sys-heal-btn" onclick="qaHealSystem(this)" class="system-chip system-chip-action" style="background: rgba(6,95,70,0.28); color: #a7f3d0; border: 1px solid rgba(110,231,183,0.3);">🛠️</button>
-            <span id="sys-daemon-badge" class="system-chip" style="{daemon_style}">{daemon_label}</span>
-            <span id="sys-api-badge" class="system-chip" style="{api_style}">{api_label}</span>
-            <span id="sys-cache-badge" class="system-chip" title="Data last refreshed {cache_age if isinstance(cache_age, int) else '?'} min ago — red means some sections may show yesterday&apos;s content" style="{cache_style}">{cache_label}</span>
-            <span id="sys-beads-summary" class="system-inline">{beads_summary}</span>
-            <span id="sys-checked-at" class="system-inline">{checked_text}</span>
-            {tailscale_html}
-            {cloudflare_html}
-        </div>
-    </section>'''
-
-    _cache_age_live = runtime.get("cache_age_minutes") if isinstance(runtime.get("cache_age_minutes"), int) else None
-    if isinstance(_cache_age_live, int) and _cache_age_live <= 10:
-        cache_fresh_line = f"✅ Cache age healthy ({_cache_age_live}m)."
-        cache_fresh_level = "ok"
-    elif isinstance(_cache_age_live, int) and _cache_age_live <= 60:
-        cache_fresh_line = f"🟡 Cache aging ({_cache_age_live}m) — watching."
-        cache_fresh_level = "info"
-    elif isinstance(_cache_age_live, int):
-        cache_fresh_line = f"⚠️ Cache stale ({_cache_age_live}m) — refresh recommended."
-        cache_fresh_level = "warn"
-    else:
-        cache_fresh_line = "ℹ️ Cache age unknown."
-        cache_fresh_level = "info"
+    system_view = build_system_status_html(runtime)
+    system_status_html = str(system_view.get("html", "") or "")
+    system_needs_attention = bool(system_view.get("needs_attention"))
+    _cache_age_live = system_view.get("cache_age_minutes")
+    _cache_state = compute_cache_freshness(_cache_age_live)
+    cache_fresh_line = str(_cache_state.get("line", "") or "ℹ️ Cache age unknown.")
+    cache_fresh_level = str(_cache_state.get("level", "") or "info")
 
     _source_date_live = str(data.get("diariumDataDate", "") or "").strip()
-    if data.get("diariumFresh", True):
-        if _source_date_live and _source_date_live != effective_today:
-            diarium_fresh_line = f"⚠️ Journal date mismatch ({_source_date_live} vs {effective_today})."
-            diarium_fresh_level = "warn"
-        else:
-            _source_label = _source_date_live or effective_today
-            diarium_fresh_line = f"✅ Journal source is today ({_source_label})."
-            diarium_fresh_level = "ok"
-    else:
-        diarium_fresh_line = f"🔴 Journal stale (source: {_source_date_live or 'unknown'})."
-        diarium_fresh_level = "error"
+    _diarium_is_fresh = bool(data.get("diariumFresh", True))
+    _diarium_state = compute_diarium_freshness(_diarium_is_fresh, _source_date_live, effective_today)
+    diarium_fresh_line = str(_diarium_state.get("line", "") or "ℹ️ Journal freshness unknown.")
+    diarium_fresh_level = str(_diarium_state.get("level", "") or "info")
 
-    diarium_pickup = data.get("diariumPickupStatus", {}) if isinstance(data.get("diariumPickupStatus", {}), dict) else {}
-    pickup_status = str(diarium_pickup.get("status", "") or "").strip().lower()
-    pickup_reason = str(diarium_pickup.get("reason", "") or "").strip()
-    pickup_file = str(diarium_pickup.get("latest_file", "") or "").strip()
-    pickup_file_name = Path(pickup_file).name if pickup_file else "none"
-    pickup_mtime = str(diarium_pickup.get("latest_file_mtime", "") or "").strip()
-    pickup_age = diarium_pickup.get("latest_file_age_seconds")
-    try:
-        pickup_age = int(pickup_age) if pickup_age is not None else None
-    except Exception:
-        pickup_age = None
-    if pickup_age is None:
-        pickup_age_text = "?"
-    elif pickup_age < 3600:
-        pickup_age_text = f"{pickup_age // 60}m"
-    else:
-        pickup_age_text = f"{pickup_age // 3600}h"
-    pickup_mtime_text = _clock_hhmm(pickup_mtime) if pickup_mtime else ""
-    if not pickup_mtime_text:
-        pickup_mtime_text = pickup_mtime[:16] if pickup_mtime else "unknown"
-    pickup_label = pickup_status or "unknown"
-    diarium_pickup_line = f"📓 Pickup: {pickup_label} • {pickup_file_name} • mtime {pickup_mtime_text} • age {pickup_age_text}"
-    if pickup_reason:
-        diarium_pickup_line += f" • {pickup_reason}"
-    pickup_level_map = {
-        "picked_up": "ok",
-        "waiting_for_export": "info",
-        "export_seen_not_parsed": "warn",
-        "stale": "warn",
-    }
-    diarium_pickup_level = pickup_level_map.get(pickup_status, "info")
+    _diarium_pickup_state = compute_diarium_pickup_freshness(data.get("diariumPickupStatus", {}), _clock_hhmm)
+    diarium_pickup_line = str(_diarium_pickup_state.get("line", "") or "📓 Pickup status unavailable.")
+    diarium_pickup_level = str(_diarium_pickup_state.get("level", "") or "info")
 
     narrative_fresh_line = str(_narrative_freshness.get("line", "") or "ℹ️ Narrative freshness unknown.")
     narrative_fresh_level = str(_narrative_freshness.get("level", "info") or "info").lower()
     if narrative_fresh_level not in {"ok", "info", "warn", "error"}:
         narrative_fresh_level = "info"
 
-    morning_slot = str(morning.get("mood_tag", "") or "").strip().lower() or "unknown"
-    evening_slot = str(evening.get("mood_tag", "") or "").strip().lower() or "unknown"
-    if morning_slot == "unknown":
-        mood_fresh_line = "⚠️ Morning mood slot missing."
-        mood_fresh_level = "warn"
-    elif evening_slot == "unknown" and current_hour >= 20:
-        mood_fresh_line = f"⚠️ Evening mood slot still missing (morning: {morning_slot})."
-        mood_fresh_level = "warn"
-    elif evening_slot == "unknown":
-        mood_fresh_line = f"🟡 Mood slots: morning {morning_slot}, evening pending."
-        mood_fresh_level = "info"
-    else:
-        mood_fresh_line = f"✅ Mood slots split: morning {morning_slot}, evening {evening_slot}."
-        mood_fresh_level = "ok"
+    _mood_state = compute_mood_freshness(morning, evening, mood_entries, current_hour=current_hour)
+    mood_fresh_line = str(_mood_state.get("line", "") or "ℹ️ Mood freshness unknown.")
+    mood_fresh_level = str(_mood_state.get("level", "") or "info")
 
-    updates_fresh_level = updates_freshness_level if updates_freshness_level in {"ok", "info", "warn", "error"} else "info"
-    _freshness_rank = {"ok": 0, "info": 1, "warn": 2, "error": 3}
-    _overall_rank = max(
-        _freshness_rank.get(diarium_fresh_level, 1),
-        _freshness_rank.get(diarium_pickup_level, 1),
-        _freshness_rank.get(narrative_fresh_level, 1),
-        _freshness_rank.get(updates_fresh_level, 1),
-        _freshness_rank.get(mood_fresh_level, 1),
-        _freshness_rank.get(cache_fresh_level, 1),
+    ai_path_status = resolve_ai_path_status(data, _clock_hhmm)
+    ai_path_line = str(ai_path_status.get("line", "") or "ℹ️ AI path telemetry unavailable.")
+    ai_path_level = str(ai_path_status.get("level", "") or "info")
+
+    freshness_overview = compute_freshness_overview(
+        diarium_fresh_level=diarium_fresh_level,
+        diarium_pickup_level=diarium_pickup_level,
+        narrative_fresh_level=narrative_fresh_level,
+        updates_freshness_level=updates_freshness_level,
+        mood_fresh_level=mood_fresh_level,
+        cache_fresh_level=cache_fresh_level,
     )
-    if _overall_rank >= 3:
-        freshness_overall_line = "🔴 Freshness auto-check: critical issue detected."
-        freshness_overall_level = "error"
-    elif _overall_rank >= 2:
-        freshness_overall_line = "🟡 Freshness auto-check: issue detected, dashboard is guarding."
-        freshness_overall_level = "warn"
-    elif _overall_rank == 1:
-        freshness_overall_line = "🔵 Freshness auto-check: waiting for later-day inputs."
-        freshness_overall_level = "info"
-    else:
-        freshness_overall_line = "🟢 Freshness auto-check: all clear."
-        freshness_overall_level = "ok"
+    updates_fresh_level = freshness_overview["updates_fresh_level"]
+    freshness_overall_line = freshness_overview["overall_line"]
+    freshness_overall_level = freshness_overview["overall_level"]
+    freshness_watch_html = build_freshness_watch_html(
+        ai_path_line=ai_path_line,
+        ai_path_level=ai_path_level,
+        freshness_overall_line=freshness_overall_line,
+        freshness_overall_level=freshness_overall_level,
+        auto_open=bool(freshness_overview.get("auto_open")),
+        diarium_fresh_level=diarium_fresh_level,
+        diarium_fresh_line=diarium_fresh_line,
+        diarium_pickup_level=diarium_pickup_level,
+        diarium_pickup_line=diarium_pickup_line,
+        narrative_fresh_level=narrative_fresh_level,
+        narrative_fresh_line=narrative_fresh_line,
+        updates_fresh_level=updates_fresh_level,
+        updates_freshness_line=updates_freshness_line,
+        mood_fresh_level=mood_fresh_level,
+        mood_fresh_line=mood_fresh_line,
+        cache_fresh_level=cache_fresh_level,
+        cache_fresh_line=cache_fresh_line,
+    )
 
-    freshness_watch_html = f'''
-    <div id="qa-freshness-watch" class="card mt-2" style="border: 1px solid rgba(125,211,252,0.28); background: rgba(15,23,42,0.55);">
-        <p id="qa-fresh-overall" data-level="{freshness_overall_level}" class="text-sm font-semibold" style="color: #a7f3d0">{html.escape(freshness_overall_line)}</p>
-        <div class="mt-2 space-y-1">
-            <p id="qa-fresh-diarium" data-level="{diarium_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(diarium_fresh_line)}</p>
-            <p id="qa-fresh-diarium-pickup" data-level="{diarium_pickup_level}" class="text-xs" style="color: #94a3b8">{html.escape(diarium_pickup_line)}</p>
-            <p id="qa-fresh-narrative" data-level="{narrative_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(narrative_fresh_line)}</p>
-            <p id="qa-fresh-updates" data-level="{updates_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(updates_freshness_line)}</p>
-            <p id="qa-fresh-mood" data-level="{mood_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(mood_fresh_line)}</p>
-            <p id="qa-fresh-cache" data-level="{cache_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(cache_fresh_line)}</p>
-        </div>
-        <p id="qa-fresh-updated" class="text-xs mt-2" style="color: #94a3b8">Auto-check runs every 30s while this tab is open.</p>
-    </div>'''
-
-    stale_notice_html = ""
-    if not data.get("diariumFresh", True):
-        source_date = data.get("diariumDataDate") or "unknown"
-        reason = data.get("diariumFreshReason") or "Latest Diarium export does not match today's effective date."
-        stale_notice_html = f'''
-    <div class="card" style="border: 1px solid rgba(251,191,36,0.35); background: rgba(120,53,15,0.18);">
-        <p class="text-sm font-semibold" style="color: #fde68a">⚠️ Diarium data is stale</p>
-        <p class="text-xs mt-1" style="color: #fcd34d">Source date: {source_date} • {reason}</p>
-        <p class="text-xs mt-1" style="color: #9ca3af">Morning/Evening journal sections are hidden until a fresh export is detected.</p>
-    </div>'''
-
-    important_thing_warning_html = ""
-    if data.get("diariumFresh", True) and data.get("importantThingMissing", False):
-        important_thing_warning_html = '''
-    <div class="card mt-2" style="border: 1px solid rgba(251,191,36,0.35); background: rgba(120,53,15,0.16);">
-        <p class="text-sm font-semibold" style="color: #fde68a">⚠️ Missing “important thing” in morning transcription</p>
-        <p class="text-xs mt-1" style="color: #fcd34d">Add one priority action in morning pages so today’s focus can be extracted cleanly.</p>
-    </div>'''
+    stale_notice_html = build_stale_notice_html(
+        diarium_fresh=_diarium_is_fresh,
+        source_date=data.get("diariumDataDate"),
+        reason=data.get("diariumFreshReason"),
+    )
+    important_thing_warning_html = build_important_thing_warning_html(
+        diarium_fresh=_diarium_is_fresh,
+        important_thing_missing=bool(data.get("importantThingMissing", False)),
+    )
 
     ideas_status_html = ""
     ideas_payload = data.get("appleNotesIdeas", {}) if isinstance(data.get("appleNotesIdeas", {}), dict) else {}
     if ideas_payload:
-        ideas_status = str(ideas_payload.get("status", "") or "").strip().lower() or "unknown"
-        ideas_counts = ideas_payload.get("counts", {}) if isinstance(ideas_payload.get("counts", {}), dict) else {}
-        ideas_new = int(ideas_counts.get("new_items", ideas_payload.get("new_items_count", 0)) or 0)
-        ideas_created = int(ideas_counts.get("beads_created", 0) or 0)
-        ideas_failed = int(ideas_counts.get("beads_failed", 0) or 0)
-        ideas_retried = int(ideas_counts.get("retried", 0) or 0)
-        ideas_retry_queue = int(ideas_payload.get("retry_queue_count", 0) or 0)
-        ideas_last_run = str(ideas_payload.get("last_run", "") or "").strip()
-        ideas_preview = ideas_payload.get("cleaned_note_lines_preview", []) if isinstance(ideas_payload.get("cleaned_note_lines_preview", []), list) else []
-        if not ideas_preview:
-            ideas_preview = ideas_payload.get("latest_items_preview", []) if isinstance(ideas_payload.get("latest_items_preview", []), list) else []
-        ideas_context_text = str(ideas_payload.get("cleaned_note_full_text", "") or "").strip()
-        ideas_context_line_count = int(ideas_payload.get("cleaned_note_line_count", 0) or 0)
-        ideas_snapshot_at = str(ideas_payload.get("cleaned_note_snapshot_at", "") or "").strip()
-        ideas_snapshot_clock = _clock_hhmm(ideas_snapshot_at) if ideas_snapshot_at else ""
-        ideas_filtered_meta = int(ideas_payload.get("filtered_meta_lines_count", 0) or 0)
-        ideas_deduped_count = int(ideas_payload.get("deduped_lines_count", 0) or 0)
-        ideas_cleanup_closed = int(ideas_payload.get("cleanup_closed_count", 0) or 0)
-        ideas_failures = ideas_payload.get("failures", []) if isinstance(ideas_payload.get("failures", []), list) else []
-        ideas_fail_summary = ""
-        if ideas_failures:
-            first_fail = ideas_failures[0] if isinstance(ideas_failures[0], dict) else {}
-            fail_reason = str(first_fail.get("reason", "")).strip() if isinstance(first_fail, dict) else ""
-            if fail_reason:
-                ideas_fail_summary = f'<p class="text-xs mt-1" style="color: #fecaca">Latest failure: {html.escape(fail_reason[:140])}</p>'
-        ideas_preview_html = ""
-        if ideas_preview:
-            preview_items = "".join(
-                f'<li style="color: #cbd5e1;">{html.escape(str(item).strip())}</li>'
-                for item in ideas_preview[:6]
-                if str(item).strip()
-            )
-            if preview_items:
-                ideas_preview_html = f'<ul class="text-xs mt-2 space-y-1">{preview_items}</ul>'
-        ideas_context_html = ""
-        if ideas_context_text:
-            ideas_meta_bits = [f"{ideas_context_line_count} line{'s' if ideas_context_line_count != 1 else ''}"]
-            if ideas_snapshot_clock:
-                ideas_meta_bits.append(f"snapshot {ideas_snapshot_clock}")
-            ideas_meta = " • ".join(ideas_meta_bits)
-            ideas_context_html = (
-                '<details class="mt-2">'
-                f'<summary class="text-xs cursor-pointer" style="color: #93c5fd">Context: {html.escape(ideas_meta)}</summary>'
-                f'<pre class="text-xs mt-2 p-2 rounded" style="max-height: 180px; overflow: auto; white-space: pre-wrap; background: rgba(15,23,42,0.45); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.18);">{html.escape(ideas_context_text)}</pre>'
-                '</details>'
-            )
-        ideas_cleanup_html = ""
-        if ideas_cleanup_closed > 0:
-            ideas_cleanup_html = f'<p class="text-xs mt-1" style="color: #86efac">Cleanup: closed {ideas_cleanup_closed} recursive tracking bead(s).</p>'
-        ideas_clean_meta_html = (
-            f'<p class="text-xs mt-1" style="color: #94a3b8">Cleaned note lines: {ideas_context_line_count} • meta filtered {ideas_filtered_meta} • deduped {ideas_deduped_count}</p>'
-        )
-
-        status_colour = "#86efac" if ideas_status == "success" else ("#fca5a5" if ideas_status == "error" else "#fde68a")
-        ideas_status_html = f'''
-    <div class="card mt-2" style="border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.58);">
-        <p class="text-sm font-semibold" style="color: #a7f3d0">💡 Ideas pickup</p>
-        <p class="text-xs mt-1" style="color: {status_colour};">Status: {html.escape(ideas_status)} • new {ideas_new} • beads {ideas_created} • failed {ideas_failed} • retried {ideas_retried} • queue {ideas_retry_queue}</p>
-        {f'<p class="text-xs mt-1" style="color: #94a3b8">Last run: {html.escape(ideas_last_run)}</p>' if ideas_last_run else ''}
-        {ideas_clean_meta_html}
-        {ideas_fail_summary}
-        {ideas_cleanup_html}
-        {ideas_preview_html}
-        {ideas_context_html}
-    </div>'''
+        ideas_status_html = build_ideas_status_html(ideas_payload, _clock_hhmm)
 
     # Action controls (writes through local API) — rendered inside Action Points.
     # Read API token for bearer auth (iPhone iCloud file:// access)
@@ -5598,32 +5368,21 @@ def generate_html(data):
     qa_workout_post = qa_workout_checklist.get("post_workout", {}) if isinstance(qa_workout_checklist.get("post_workout"), dict) else {}
     qa_workout_feedback = qa_workout_checklist.get("session_feedback", {}) if isinstance(qa_workout_checklist.get("session_feedback"), dict) else {}
 
-    def _qa_input_num(value, min_v, max_v):
-        try:
-            if value is None or value == "":
-                return None
-            n = int(value)
-        except Exception:
-            return None
-        if n < min_v or n > max_v:
-            return None
-        return n
-
     qa_workout_checklist_state = {
         "recovery_gate": str(qa_workout_checklist.get("recovery_gate", "unknown")).strip().lower(),
         "calf_done": bool(qa_workout_checklist.get("calf_done", False)),
         "post_workout": {
-            "rpe": _qa_input_num(qa_workout_post.get("rpe"), 1, 10),
-            "pain": _qa_input_num(qa_workout_post.get("pain"), 0, 10),
-            "energy_after": _qa_input_num(qa_workout_post.get("energy_after"), 1, 10),
+            "rpe": coerce_optional_int(qa_workout_post.get("rpe"), 1, 10),
+            "pain": coerce_optional_int(qa_workout_post.get("pain"), 0, 10),
+            "energy_after": coerce_optional_int(qa_workout_post.get("energy_after"), 1, 10),
         },
         "session_feedback": {
-            "duration_minutes": _qa_input_num(qa_workout_feedback.get("duration_minutes"), 5, 240),
+            "duration_minutes": coerce_optional_int(qa_workout_feedback.get("duration_minutes"), 5, 240),
             "intensity": str(qa_workout_feedback.get("intensity", "")).strip().lower(),
             "session_type": str(qa_workout_feedback.get("session_type", "")).strip().lower(),
             "body_feel": str(qa_workout_feedback.get("body_feel", "")).strip().lower(),
             "session_note": str(qa_workout_feedback.get("session_note", "")).strip()[:280],
-            "anxiety_reduction_score": _qa_input_num(qa_workout_feedback.get("anxiety_reduction_score"), 0, 10),
+            "anxiety_reduction_score": coerce_optional_int(qa_workout_feedback.get("anxiety_reduction_score"), 0, 10),
         },
     }
     if qa_workout_checklist_state["recovery_gate"] not in {"pass", "fail", "unknown"}:
@@ -5652,19 +5411,8 @@ def generate_html(data):
         "source": qa_end_day_source,
     }
 
-    def _qa_end_day_status_text(state):
-        if not isinstance(state, dict) or not bool(state.get("done_today")):
-            return "⬜ End Day not run yet."
-        ran_at = str(state.get("ran_at", "")).strip()
-        if ran_at:
-            try:
-                return f"✅ End Day already run at {datetime.fromisoformat(ran_at).strftime('%H:%M')}."
-            except Exception:
-                pass
-        return "✅ End Day already run today."
-
     qa_end_day_done_today = bool(qa_end_day_state.get("done_today"))
-    qa_end_day_status_text = _qa_end_day_status_text(qa_end_day_state)
+    qa_end_day_status_text = end_day_status_text(qa_end_day_state)
     qa_end_day_status_color = "#6ee7b7" if qa_end_day_done_today else "#94a3b8"
     qa_today_score_raw = qa_today_day.get("anxiety_reduction_score") if isinstance(qa_today_day, dict) else None
     qa_slider_value = int(round(float(qa_today_score_raw))) if isinstance(qa_today_score_raw, (int, float)) else 5
@@ -5762,12 +5510,13 @@ def generate_html(data):
         one_emoji = _pick_content_emoji(one_text)
         one_compact = _compact_task_text(one_text, max_len=155)
         qa_one_thing_html = f'''
-        <div class="rounded-lg px-3 py-3 mb-3" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26);">
+        <div data-qa-one-thing="1" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26);">
             <p class="text-xs font-semibold mb-1" style="color: #a7f3d0">🎯 One Thing Now</p>
             <p class="text-sm mb-2" title="{html.escape(one_text, quote=True)}" style="color: #d1fae5; line-height: 1.45;">{one_emoji} {html.escape(one_compact)}</p>
             <div class="flex flex-wrap items-center gap-2">
                 <button onclick="qaStartOneThing(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.32); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">Start</button>
                 <button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" data-task-hash="{html.escape(one_hash, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">☐ Done</button>
+                <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
             </div>
         </div>
         '''
@@ -5776,7 +5525,7 @@ def generate_html(data):
         state = checklist_state if isinstance(checklist_state, dict) else {}
         feedback = state.get("session_feedback", {}) if isinstance(state.get("session_feedback"), dict) else {}
         missing = []
-        if _qa_input_num(feedback.get("duration_minutes"), 5, 240) is None:
+        if coerce_optional_int(feedback.get("duration_minutes"), 5, 240) is None:
             missing.append("duration")
         if str(feedback.get("intensity", "")).strip().lower() not in {"easy", "moderate", "hard"}:
             missing.append("intensity")
@@ -5796,11 +5545,11 @@ def generate_html(data):
         recovery = str(state.get("recovery_gate", "")).strip().lower()
         if recovery not in {"pass", "fail"}:
             missing.append("recovery gate")
-        if _qa_input_num(post.get("rpe"), 1, 10) is None:
+        if coerce_optional_int(post.get("rpe"), 1, 10) is None:
             missing.append("RPE")
-        if _qa_input_num(post.get("pain"), 0, 10) is None:
+        if coerce_optional_int(post.get("pain"), 0, 10) is None:
             missing.append("pain")
-        if _qa_input_num(post.get("energy_after"), 1, 10) is None:
+        if coerce_optional_int(post.get("energy_after"), 1, 10) is None:
             missing.append("energy")
         return missing
 
@@ -6031,6 +5780,313 @@ def generate_html(data):
         }}
         return "http://127.0.0.1:8765";
     }})();
+    const QA_IS_FILE_PROTOCOL = (typeof window !== "undefined") &&
+        window.location && (window.location.protocol || "").toLowerCase() === "file:";
+
+    function qaGetPendingCompletions() {{
+        try {{ return JSON.parse(localStorage.getItem("qa.pending_completions") || "[]"); }}
+        catch (_e) {{ return []; }}
+    }}
+    function qaAddPendingCompletion(kind, text, meta = {{}}) {{
+        const pending = qaGetPendingCompletions();
+        const key = (kind + ":" + text).toLowerCase().trim();
+        if (pending.some(p => (p.kind + ":" + p.text).toLowerCase().trim() === key)) return;
+        const row = Object.assign({{ kind, text, queued_at: new Date().toISOString() }}, (meta && typeof meta === "object") ? meta : {{}});
+        pending.push(row);
+        try {{ localStorage.setItem("qa.pending_completions", JSON.stringify(pending)); }} catch(_e) {{}}
+    }}
+    function qaRemovePendingCompletion(kind, text) {{
+        const pending = qaGetPendingCompletions();
+        const key = (kind + ":" + text).toLowerCase().trim();
+        const filtered = pending.filter(p => (p.kind + ":" + p.text).toLowerCase().trim() !== key);
+        try {{ localStorage.setItem("qa.pending_completions", JSON.stringify(filtered)); }} catch(_e) {{}}
+    }}
+    function qaCompletionKey(kind, text) {{
+        const cleanedKind = String(kind || "").trim().toLowerCase();
+        const cleanedText = String(text || "").toLowerCase().replace(/\\s+/g, " ").trim();
+        return `${{cleanedKind}}:${{cleanedText}}`;
+    }}
+    function qaLocalCompletionsStorageKey() {{
+        return `qa.local_completions.${{qaEffectiveDateKey() || "unknown"}}`;
+    }}
+    function qaGetLocalCompletions() {{
+        try {{
+            const raw = localStorage.getItem(qaLocalCompletionsStorageKey()) || "{{}}";
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === "object" ? parsed : {{}};
+        }} catch (_e) {{
+            return {{}};
+        }}
+    }}
+    function qaSetLocalCompletion(kind, text, done) {{
+        const key = qaCompletionKey(kind, text);
+        if (!key || key === ":") return;
+        const current = qaGetLocalCompletions();
+        if (done) {{
+            current[key] = new Date().toISOString();
+        }} else {{
+            delete current[key];
+        }}
+        try {{ localStorage.setItem(qaLocalCompletionsStorageKey(), JSON.stringify(current)); }} catch(_e) {{}}
+    }}
+    function qaHasLocalCompletion(kind, text) {{
+        const key = qaCompletionKey(kind, text);
+        if (!key || key === ":") return false;
+        const current = qaGetLocalCompletions();
+        return Boolean(current[key]);
+    }}
+    function qaLocalDeferredStorageKey() {{
+        return `qa.local_deferred.${{qaEffectiveDateKey() || "unknown"}}`;
+    }}
+    function qaGetLocalDeferredMap() {{
+        try {{
+            const raw = localStorage.getItem(qaLocalDeferredStorageKey()) || "{{}}";
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === "object" ? parsed : {{}};
+        }} catch (_e) {{
+            return {{}};
+        }}
+    }}
+    function qaSetLocalDeferred(text, targetDate) {{
+        const key = qaCompletionKey("todo", text);
+        if (!key || key === ":") return;
+        const current = qaGetLocalDeferredMap();
+        current[key] = {{
+            target_date: String(targetDate || "").trim(),
+            at: new Date().toISOString(),
+        }};
+        try {{ localStorage.setItem(qaLocalDeferredStorageKey(), JSON.stringify(current)); }} catch(_e) {{}}
+    }}
+    function qaGetLocalDeferred(text) {{
+        const key = qaCompletionKey("todo", text);
+        if (!key || key === ":") return null;
+        const current = qaGetLocalDeferredMap();
+        const entry = current[key];
+        return (entry && typeof entry === "object") ? entry : null;
+    }}
+    function qaFormatDeferDate(dateStr) {{
+        const raw = String(dateStr || "").trim();
+        if (!raw) return "tomorrow";
+        const parsed = new Date(raw + "T00:00:00");
+        if (Number.isNaN(parsed.getTime())) return raw;
+        return parsed.toLocaleDateString(undefined, {{ day: "numeric", month: "short" }});
+    }}
+    function qaApplyTodoDeferredUi(text, targetDate = "", isQueued = false) {{
+        const target = qaCompletionKey("todo", text);
+        if (!target) return;
+        const deferLabel = qaFormatDeferDate(targetDate);
+        document.querySelectorAll("button[data-text]").forEach((btn) => {{
+            const btnTextKey = qaCompletionKey("todo", btn.dataset.text || "");
+            if (btnTextKey !== target) return;
+            const row = btn.closest("[data-qa-row='todo']");
+            if (row) {{
+                row.style.display = "none";
+            }}
+            const oneThingWrap = btn.closest("[data-qa-one-thing='1']");
+            if (oneThingWrap) {{
+                oneThingWrap.style.display = "none";
+            }}
+        }});
+        const status = document.getElementById("qa-status");
+        if (status) {{
+            status.textContent = isQueued
+                ? `📶 Deferred locally (${{deferLabel}}); will sync when API is reachable.`
+                : `⏭️ Deferred to ${{deferLabel}}.`;
+            status.style.color = isQueued ? "#fbbf24" : "#93c5fd";
+        }}
+    }}
+    function qaApplyTodoDoneUi(text) {{
+        const target = qaCompletionKey("todo", text);
+        if (!target) return;
+        document.querySelectorAll("button[data-text]").forEach((btn) => {{
+            const onclickValue = String(btn.getAttribute("onclick") || "");
+            if (!onclickValue.includes("qaCompleteTodoFromButton")) return;
+            if (qaCompletionKey("todo", btn.dataset.text || "") !== target) return;
+            btn.disabled = true;
+            btn.textContent = "☑ Done";
+            btn.style.background = "rgba(30,64,175,0.26)";
+            btn.style.color = "#bfdbfe";
+            btn.style.borderColor = "rgba(147,197,253,0.35)";
+            const row = btn.closest("[data-qa-row='todo']");
+            if (row) {{
+                row.style.opacity = "0.55";
+                const taskLine = row.querySelector("p");
+                if (taskLine) {{
+                    taskLine.style.textDecoration = "line-through";
+                    taskLine.style.textDecorationThickness = "1.5px";
+                    taskLine.style.textDecorationColor = "rgba(148,163,184,0.85)";
+                    taskLine.style.color = "#cbd5e1";
+                }}
+                const offlineMsg = row.querySelector(".qa-offline-msg");
+                if (offlineMsg) offlineMsg.remove();
+            }}
+        }});
+    }}
+    function qaApplyLoopClosedUi(text) {{
+        const target = qaCompletionKey("loop", text);
+        if (!target) return;
+        document.querySelectorAll("button[data-text]").forEach((btn) => {{
+            const onclickValue = String(btn.getAttribute("onclick") || "");
+            if (!onclickValue.includes("qaCompleteLoopFromButton")) return;
+            if (qaCompletionKey("loop", btn.dataset.text || "") !== target) return;
+            btn.disabled = true;
+            btn.textContent = "Closed";
+            btn.style.background = "rgba(6,95,70,0.35)";
+            btn.style.color = "#6ee7b7";
+            btn.style.borderColor = "rgba(110,231,183,0.35)";
+            const row = btn.closest("[data-qa-row='loop']");
+            if (row) {{
+                row.style.opacity = "0.55";
+                const offlineMsg = row.querySelector(".qa-offline-msg");
+                if (offlineMsg) offlineMsg.remove();
+            }}
+        }});
+    }}
+    function qaApplyLocalCompletionUi() {{
+        document.querySelectorAll("button[data-text]").forEach((btn) => {{
+            const onclickValue = String(btn.getAttribute("onclick") || "");
+            const text = String(btn.dataset.text || "");
+            if (!text) return;
+            const deferred = qaGetLocalDeferred(text);
+            if (deferred) {{
+                qaApplyTodoDeferredUi(text, String(deferred.target_date || "").trim(), true);
+                return;
+            }}
+            if (onclickValue.includes("qaCompleteTodoFromButton")) {{
+                if (qaHasLocalCompletion("todo", text)) qaApplyTodoDoneUi(text);
+                return;
+            }}
+            if (onclickValue.includes("qaCompleteLoopFromButton")) {{
+                if (qaHasLocalCompletion("loop", text)) qaApplyLoopClosedUi(text);
+            }}
+        }});
+    }}
+    async function qaRetryPendingCompletions() {{
+        const pending = [...qaGetPendingCompletions()];
+        for (const item of pending) {{
+            let ok = null;
+            if (item.kind === "loop") {{
+                ok = await qaCompleteLoopText(item.text);
+            }} else if (item.kind === "todo_defer") {{
+                ok = await qaDeferTodoText(item.text, item.target_date || qaTomorrowDateKey());
+                if (ok) {{
+                    qaSetLocalDeferred(item.text, item.target_date || qaTomorrowDateKey());
+                    qaApplyTodoDeferredUi(item.text, item.target_date || qaTomorrowDateKey(), true);
+                }}
+            }} else {{
+                ok = await qaCompleteTodoText(item.text);
+            }}
+            if (ok) qaRemovePendingCompletion(item.kind, item.text);
+        }}
+    }}
+    function qaGetPendingScratch() {{
+        try {{ return JSON.parse(localStorage.getItem("qa.pending_scratch") || "[]"); }}
+        catch (_e) {{ return []; }}
+    }}
+    function qaAddPendingScratch(section, text) {{
+        const pending = qaGetPendingScratch();
+        const key = (section + ":" + text).toLowerCase().trim();
+        if (pending.some(p => (p.section + ":" + p.text).toLowerCase().trim() === key)) return;
+        pending.push({{ section, text, queued_at: new Date().toISOString() }});
+        try {{ localStorage.setItem("qa.pending_scratch", JSON.stringify(pending)); }} catch(_e) {{}}
+    }}
+    function qaRemovePendingScratch(section, text) {{
+        const pending = qaGetPendingScratch();
+        const key = (section + ":" + text).toLowerCase().trim();
+        const filtered = pending.filter(p => (p.section + ":" + p.text).toLowerCase().trim() !== key);
+        try {{ localStorage.setItem("qa.pending_scratch", JSON.stringify(filtered)); }} catch(_e) {{}}
+    }}
+    async function qaSaveScratchText(sectionId, text) {{
+        const cleaned = String(text || "").trim();
+        if (!cleaned) return null;
+        const ui = await qaPostWithRetry("/v1/ui/journal/scratch", {{
+            section: sectionId,
+            text: cleaned,
+        }}, {{ retries: 1, label: "scratch save" }});
+        if (ui && ui.status === "ok") return ui;
+        return await qaPostWithRetry("/v1/journal/scratch", {{
+            section: sectionId,
+            text: cleaned,
+        }}, {{ retries: 1, label: "scratch save" }});
+    }}
+    async function qaRetryPendingScratch() {{
+        const pending = [...qaGetPendingScratch()];
+        for (const item of pending) {{
+            const ok = await qaSaveScratchText(item.section, item.text);
+            if (ok && ok.status === "ok") {{
+                qaRemovePendingScratch(item.section, item.text);
+                if (typeof qaApplyNarrativeFromScratch === "function") {{
+                    qaApplyNarrativeFromScratch(item.section, item.text);
+                }}
+                if (typeof qaSyncTodayFromApi === "function") {{
+                    qaSyncTodayFromApi({{ force: true }}).catch(() => {{}});
+                }}
+                if (typeof qaSyncRenderStatus === "function") {{
+                    qaSyncRenderStatus({{ force: true }}).catch(() => {{}});
+                }}
+            }}
+        }}
+    }}
+    function qaSaveScratchPad(el) {{
+        if (!el || !el.dataset.storageKey) return;
+        try {{ localStorage.setItem(el.dataset.storageKey, el.value); }} catch(_e) {{}}
+    }}
+    async function qaScratchSubmit(sectionId) {{
+        const textarea = document.getElementById("qa-scratch-" + sectionId);
+        const btn = document.getElementById("qa-scratch-submit-" + sectionId);
+        const statusEl = document.getElementById("qa-scratch-status-" + sectionId);
+        if (!textarea || !textarea.value.trim()) {{
+            if (statusEl) {{ statusEl.textContent = "Nothing to save"; statusEl.style.color = "#fbbf24"; }}
+            return;
+        }}
+        if (btn) btn.disabled = true;
+        if (statusEl) {{ statusEl.textContent = "Saving…"; statusEl.style.color = "#93c5fd"; }}
+        const scratchText = textarea.value.trim();
+        const data = await qaSaveScratchText(sectionId, scratchText);
+        if (data && data.status === "ok") {{
+            qaRemovePendingScratch(sectionId, scratchText);
+            if (statusEl) {{ statusEl.textContent = "✓ Saved to journal"; statusEl.style.color = "#6ee7b7"; }}
+            try {{ localStorage.removeItem(textarea.dataset.storageKey); }} catch(_e) {{}}
+            if (typeof qaApplyNarrativeFromScratch === "function") {{
+                qaApplyNarrativeFromScratch(sectionId, scratchText);
+            }}
+            textarea.value = "";
+            if (typeof qaSyncTodayFromApi === "function") {{
+                qaSyncTodayFromApi({{ force: true }}).catch(() => {{}});
+            }}
+            if (typeof qaSyncRenderStatus === "function") {{
+                qaSyncRenderStatus({{ force: true }}).catch(() => {{}});
+            }}
+            setTimeout(() => {{ if (statusEl) statusEl.textContent = ""; }}, 4000);
+        }} else {{
+            qaAddPendingScratch(sectionId, scratchText);
+            if (statusEl) {{
+                statusEl.textContent = "📶 Queued — will sync when API is reachable";
+                statusEl.style.color = "#fbbf24";
+            }}
+        }}
+        if (btn) btn.disabled = false;
+    }}
+    function qaLoadScratchPads() {{
+        document.querySelectorAll("textarea[data-storage-key]").forEach(ta => {{
+            try {{
+                const saved = localStorage.getItem(ta.dataset.storageKey);
+                if (saved !== null) ta.value = saved;
+            }} catch(_e) {{}}
+        }});
+    }}
+    document.addEventListener("DOMContentLoaded", function() {{
+        qaLoadScratchPads();
+    }});
+    if (typeof window !== "undefined") {{
+        window.addEventListener("online", () => {{ qaRetryPendingScratch(); }});
+        window.addEventListener("focus", () => {{ qaRetryPendingScratch(); }});
+    }}
+    if (typeof document !== "undefined") {{
+        document.addEventListener("visibilitychange", () => {{
+            if (!document.hidden) qaRetryPendingScratch();
+        }});
+    }}
     const QA_MINDFULNESS_DATE = "{qa_today}";
     const QA_MINDFULNESS_TARGET = {qa_mindfulness_target};
     const QA_MINDFULNESS_INITIAL = {json.dumps(qa_mindfulness_state)};
@@ -6312,6 +6368,231 @@ def generate_html(data):
         }}
     }}
 
+    function qaNarrativeLooksNoisy(line) {{
+        const low = String(line || "").toLowerCase();
+        if (!low) return true;
+        if (/test[-_ ]?(item|entry|stub|dummy|does)|doesnotexist|abc123|~{{2,}}/.test(low)) return true;
+        if (/internalised\\s+\\d+\\s+item\\(s\\)/.test(low)) return true;
+        if (/\\[[a-f0-9]{{6,}}\\]$/.test(low)) return true;
+        return false;
+    }}
+
+    function qaTruncateSentenceSafe(rawText, maxLen = 360) {{
+        const text = String(rawText || "").replace(/\\s+/g, " ").trim();
+        if (!text || text.length <= maxLen) return text;
+        const cuts = [
+            text.lastIndexOf(". ", maxLen),
+            text.lastIndexOf("! ", maxLen),
+            text.lastIndexOf("? ", maxLen),
+        ];
+        const cut = Math.max(...cuts);
+        if (cut >= Math.floor(maxLen * 0.6)) {{
+            return text.slice(0, cut + 1).trim();
+        }}
+        return text.slice(0, maxLen).replace(/[ ,;:-]+$/, "") + "…";
+    }}
+
+    function qaBuildScratchNarrativeSentence(sectionId, rawText) {{
+        const section = String(sectionId || "").toLowerCase().trim();
+        const raw = String(rawText || "").trim();
+        if (!raw) return "";
+        const seen = new Set();
+        const lines = [];
+        for (const chunk of raw.split(/\\n+/)) {{
+            let line = String(chunk || "").trim();
+            if (!line) continue;
+            if (/^\\*\\[\\d{{1,2}}:\\d{{2}}\\s+via dashboard\\]\\*$/i.test(line)) continue;
+            line = line.replace(/^[\\-\\*•]\\s*/, "").trim();
+            if (!line) continue;
+            if (/^\\*\\*ta-?dah list:\\*\\*$/i.test(line)) continue;
+            if (qaNarrativeLooksNoisy(line)) continue;
+            const key = line.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            lines.push(line.replace(/[.]+$/, ""));
+            if (section === "updates" && lines.length >= 3) break;
+            if (section !== "updates" && lines.length >= 1) break;
+        }}
+        if (!lines.length) return "";
+        let sentence = "";
+        if (section === "morning") sentence = `Morning focus: ${{lines[0]}}.`;
+        else if (section === "evening") sentence = `Evening reflection: ${{lines[0]}}.`;
+        else sentence = `Day updates: ${{lines.join("; ")}}.`;
+        return qaTruncateSentenceSafe(sentence, 380);
+    }}
+
+    function qaInjectNarrativeSentence(sentence, options = {{}}) {{
+        const body = document.getElementById("qa-day-narrative-body");
+        if (!body) return;
+        const text = String(sentence || "").trim();
+        if (!text) return;
+        const replace = Boolean(options && options.replace);
+        const bodyNorm = String(body.textContent || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const sentNorm = text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        if (sentNorm && bodyNorm.includes(sentNorm.slice(0, 48))) return;
+        const p = document.createElement("p");
+        p.style.color = "#e5e7eb";
+        p.style.fontSize = "0.9rem";
+        p.style.lineHeight = "1.75";
+        p.style.marginBottom = "0.75rem";
+        p.textContent = text;
+        if (replace) body.innerHTML = "";
+        body.appendChild(p);
+    }}
+
+    function qaApplyNarrativeFromScratch(sectionId, scratchText) {{
+        const sentence = qaBuildScratchNarrativeSentence(sectionId, scratchText);
+        if (!sentence) return;
+        qaInjectNarrativeSentence(sentence, {{ replace: false }});
+    }}
+
+    function qaApplyNarrativeFromToday(snapshot) {{
+        const body = document.getElementById("qa-day-narrative-body");
+        if (!body) return;
+        const safe = (snapshot && typeof snapshot === "object") ? snapshot : null;
+        if (!safe) return;
+        const meta = (safe.narrative_meta && typeof safe.narrative_meta === "object") ? safe.narrative_meta : {{}};
+        const freshness = String(meta.freshness_state || "").toLowerCase();
+        const sections = [
+            qaBuildScratchNarrativeSentence("morning", safe.morning_note || ""),
+            qaBuildScratchNarrativeSentence("updates", safe.diary_updates || ""),
+            qaBuildScratchNarrativeSentence("evening", safe.evening_note || ""),
+        ].filter(Boolean);
+        if (!sections.length) return;
+        const replace = freshness !== "fresh";
+        sections.forEach((sentence, index) => {{
+            qaInjectNarrativeSentence(sentence, {{ replace: replace && index === 0 }});
+        }});
+    }}
+
+    let qaRenderStatusToken = "";
+    let qaRenderStatusInFlight = false;
+
+    function qaShouldSkipLivePatch(sectionEl) {{
+        if (!sectionEl) return true;
+        if (dashboardIsBusyForRefresh()) return true;
+        const active = document.activeElement;
+        if (active && typeof sectionEl.contains === "function" && sectionEl.contains(active)) {{
+            const tag = String(active.tagName || "").toUpperCase();
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || active.isContentEditable) {{
+                return true;
+            }}
+        }}
+        return false;
+    }}
+
+    function qaCaptureScratchDrafts(sectionEl) {{
+        const drafts = [];
+        if (!sectionEl) return drafts;
+        sectionEl.querySelectorAll("textarea[data-storage-key]").forEach((ta) => {{
+            drafts.push({{
+                key: String(ta.dataset.storageKey || ""),
+                value: String(ta.value || ""),
+                id: String(ta.id || ""),
+            }});
+        }});
+        return drafts;
+    }}
+
+    function qaRestoreScratchDrafts(sectionEl, drafts) {{
+        if (!sectionEl || !Array.isArray(drafts) || !drafts.length) return;
+        const textareas = Array.from(sectionEl.querySelectorAll("textarea[data-storage-key]"));
+        drafts.forEach((entry) => {{
+            const key = String(entry && entry.key || "");
+            const value = String(entry && entry.value || "");
+            if (!key || !value) return;
+            const match = textareas.find((ta) => String(ta.dataset.storageKey || "") === key || String(ta.id || "") === String(entry.id || ""));
+            if (match) {{
+                match.value = value;
+            }}
+        }});
+    }}
+
+    function qaPatchSectionFromDoc(doc, sectionId) {{
+        const current = document.getElementById(sectionId);
+        const incoming = doc ? doc.getElementById(sectionId) : null;
+        if (!current || !incoming) return false;
+        if (qaShouldSkipLivePatch(current)) return false;
+        const drafts = qaCaptureScratchDrafts(current);
+        current.innerHTML = incoming.innerHTML;
+        qaRestoreScratchDrafts(current, drafts);
+        return true;
+    }}
+
+    function qaPatchNarrativeFromDoc(doc) {{
+        const current = document.getElementById("qa-day-narrative-body");
+        const incoming = doc ? doc.getElementById("qa-day-narrative-body") : null;
+        if (!current || !incoming) return false;
+        const parentSection = current.closest("section");
+        if (parentSection && qaShouldSkipLivePatch(parentSection)) return false;
+        current.innerHTML = incoming.innerHTML;
+        return true;
+    }}
+
+    async function qaFetchDashboardHtmlDoc() {{
+        const targetUrl = `${{QA_API_BASE}}/dashboard?_=${{Date.now()}}`;
+        const headers = new Headers();
+        if (QA_API_TOKEN) headers.set("Authorization", `Bearer ${{QA_API_TOKEN}}`);
+        const response = await fetch(targetUrl, {{
+            method: "GET",
+            headers,
+            credentials: "include",
+            cache: "no-store",
+        }});
+        if (!response.ok) return null;
+        const htmlText = await response.text();
+        if (!htmlText) return null;
+        const parser = new DOMParser();
+        return parser.parseFromString(htmlText, "text/html");
+    }}
+
+    async function qaPullRenderedSections(reason = "render_status") {{
+        const doc = await qaFetchDashboardHtmlDoc();
+        if (!doc) return false;
+        const patched = [
+            qaPatchSectionFromDoc(doc, "morning"),
+            qaPatchSectionFromDoc(doc, "updates"),
+            qaPatchSectionFromDoc(doc, "evening"),
+            qaPatchNarrativeFromDoc(doc),
+        ].some(Boolean);
+        if (patched) {{
+            qaApplyLocalCompletionUi();
+            qaLoadScratchPads();
+            const status = document.getElementById("qa-status");
+            if (status) {{
+                status.textContent = reason === "scratch" ? "✅ Dashboard sections refreshed." : "🔄 Synced latest sections.";
+                status.style.color = "#93c5fd";
+            }}
+        }}
+        return patched;
+    }}
+
+    async function qaSyncRenderStatus(options = {{}}) {{
+        const force = Boolean(options && options.force);
+        if (!force && qaIsLiveSyncPaused()) return;
+        if (!qaCanRunNetworkPoll({{ force }})) return;
+        if (qaRenderStatusInFlight) return;
+        qaRenderStatusInFlight = true;
+        try {{
+            const payload = await qaGet("/v1/ui/render/status", {{ coalesce: true }});
+            const render = (payload && payload.render && typeof payload.render === "object") ? payload.render : null;
+            if (!render) return;
+            const token = String(render.render_token || "").trim();
+            if (!token) return;
+            if (!qaRenderStatusToken) {{
+                qaRenderStatusToken = token;
+                return;
+            }}
+            if (token === qaRenderStatusToken) return;
+            qaRenderStatusToken = token;
+            await qaPullRenderedSections(force ? "scratch" : "render_status");
+        }} catch (_err) {{
+            // Best-effort sync only; keep dashboard usable when API/html pull is unavailable.
+        }} finally {{
+            qaRenderStatusInFlight = false;
+        }}
+    }}
+
     function qaApplyLiveToday(today) {{
         const snapshot = (today && typeof today === "object") ? today : null;
         if (!snapshot) return;
@@ -6368,6 +6649,7 @@ def generate_html(data):
             qaApplyCalendarState(snapshot.calendar);
         }}
         qaUpdateFreshnessFromToday(snapshot);
+        qaApplyNarrativeFromToday(snapshot);
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
     }}
 
@@ -6786,6 +7068,7 @@ def generate_html(data):
             }}
             qaUpdateSyncPauseUi();
             qaSyncTodayFromApi({{ force: true }});
+            qaSyncRenderStatus({{ force: true }});
             if (typeof window.pollSystemStatus === "function") {{
                 window.pollSystemStatus();
             }} else if (typeof pollSystemStatus === "function") {{
@@ -6844,6 +7127,18 @@ def generate_html(data):
         if (maxLevel === "warn") text = "🟡 Freshness auto-check: issue detected, dashboard is guarding.";
         if (maxLevel === "error") text = "🔴 Freshness auto-check: critical issue detected.";
         qaSetFreshnessLine("qa-fresh-overall", text, maxLevel);
+        const overallEl = document.getElementById("qa-fresh-overall");
+        const freshDetails = document.querySelector("#qa-freshness-watch details");
+        if (freshDetails) {{
+            const lvl = overallEl ? (overallEl.dataset.level || "ok") : "ok";
+            if (lvl === "warn" || lvl === "error") {{
+                freshDetails.setAttribute("open", "");
+                freshDetails.dataset.autoOpened = "1";
+            }} else if (freshDetails.dataset.autoOpened === "1") {{
+                freshDetails.removeAttribute("open");
+                delete freshDetails.dataset.autoOpened;
+            }}
+        }}
     }}
 
     function qaPrimeFreshnessStateFromDom() {{
@@ -6860,6 +7155,14 @@ def generate_html(data):
             if (!el) return;
             qaFreshnessState[key] = qaNormalizeFreshLevel(el.dataset.level || "info");
         }});
+        const aiPathEl = document.getElementById("qa-fresh-ai-path");
+        if (aiPathEl) {{
+            qaSetFreshnessLine("qa-fresh-ai-path", aiPathEl.textContent || "", aiPathEl.dataset.level || "info");
+        }}
+        const aiPathInlineEl = document.getElementById("qa-fresh-ai-path-inline");
+        if (aiPathInlineEl) {{
+            qaSetFreshnessLine("qa-fresh-ai-path-inline", aiPathInlineEl.textContent || "", aiPathInlineEl.dataset.level || "info");
+        }}
         qaRefreshFreshnessOverall();
     }}
 
@@ -6932,8 +7235,13 @@ def generate_html(data):
             narrativeLevel = "warn";
             narrativeLine = "⚠️ Cached day narrative missing same-day sources.";
         }} else if (Number.isFinite(nGeneratedTs) && Number.isFinite(nSourceMaxTs) && nGeneratedTs < nSourceMaxTs) {{
-            narrativeLevel = "warn";
-            narrativeLine = "⚠️ Cached day narrative older than latest same-day source.";
+            if ((new Date()).getHours() < 18) {{
+                narrativeLevel = "info";
+                narrativeLine = "🟡 Narrative refresh pending after recent updates.";
+            }} else {{
+                narrativeLevel = "warn";
+                narrativeLine = "⚠️ Cached day narrative older than latest same-day source.";
+            }}
         }} else if (nGenerated) {{
             const when = qaFormatClockTime(nGenerated);
             narrativeLevel = "info";
@@ -6948,7 +7256,7 @@ def generate_html(data):
         if (updatesRaw) {{
             const hasDump = /^(?:\\s*(?:📊\\s*)?Dashboard\\s*[—\\-:|])/im.test(updatesRaw)
                 && (/\\n\\s*🌅\\s*Morning\\b/im.test(updatesRaw) || /\\n\\s*🌙\\s*Evening\\b/im.test(updatesRaw));
-            const hasBullets = /(?m)^[\\-\\*]|\\[\\s*[xX ]?\\s*\\]|\\d+\\.\\s/.test(updatesRaw);
+            const hasBullets = /(^[\\-\\*]|\\[\\s*[xX ]?\\s*\\]|\\d+\\.\\s)/m.test(updatesRaw);
             const isProse = updatesRaw.length > 150 && !hasBullets;
             if (hasDump) {{
                 updatesLevel = "warn";
@@ -6985,6 +7293,70 @@ def generate_html(data):
         }}
         qaFreshnessState.mood = moodLevel;
         qaSetFreshnessLine("qa-fresh-mood", moodLine, moodLevel);
+
+        const aiPathStatus = (snapshot.ai_path_status && typeof snapshot.ai_path_status === "object")
+            ? snapshot.ai_path_status
+            : {{}};
+        let aiPathRaw = String(aiPathStatus.last_path || "").trim();
+        const aiTimestamp = String(aiPathStatus.last_timestamp || "").trim();
+        const aiClock = qaFormatClockTime(aiTimestamp);
+        let aiState = String(aiPathStatus.status || "").trim().toLowerCase();
+        const aiRecentCount = Number(aiPathStatus.recent_count);
+        if (!aiPathRaw) {{
+            const aiInsights = (snapshot.ai_insights && typeof snapshot.ai_insights === "object") ? snapshot.ai_insights : {{}};
+            const intervention = (aiInsights.intervention_selector && typeof aiInsights.intervention_selector === "object")
+                ? aiInsights.intervention_selector
+                : {{}};
+            const schedule = (snapshot.schedule_analysis && typeof snapshot.schedule_analysis === "object")
+                ? snapshot.schedule_analysis
+                : {{}};
+            const diariumAnalysis = (snapshot.diarium_analysis && typeof snapshot.diarium_analysis === "object")
+                ? snapshot.diarium_analysis
+                : {{}};
+            const fallbackPairs = [
+                ["ai_insights.generator_path", String(aiInsights.generator_path || "").trim()],
+                ["ai_insights.intervention_selector.path", String(intervention.path || "").trim()],
+                ["schedule_analysis.path", String(schedule.path || "").trim()],
+                ["diarium.analysis_path", String(diariumAnalysis.analysis_path || "").trim()],
+            ];
+            for (const [label, candidate] of fallbackPairs) {{
+                if (!candidate) continue;
+                const key = candidate.toLowerCase();
+                if (!(key.startsWith("ai_") || key.startsWith("heuristic") || key.startsWith("error"))) continue;
+                aiPathRaw = candidate;
+                aiState = "cached_fallback";
+                break;
+            }}
+        }}
+        let aiPathLevel = "info";
+        let aiPathLine = "ℹ️ AI path telemetry unavailable.";
+        if (aiPathRaw) {{
+            const key = aiPathRaw.toLowerCase();
+            let pathName = "Unknown";
+            if (key.startsWith("ai_claude_cli")) {{
+                pathName = "Claude CLI";
+                aiPathLevel = "ok";
+            }} else if (key.startsWith("ai_codex_cli")) {{
+                pathName = "Codex CLI";
+            }} else if (key.startsWith("ai_codex")) {{
+                pathName = "Codex API";
+            }} else if (key.startsWith("ai_claude_api")) {{
+                pathName = "Claude API";
+            }} else if (key.startsWith("heuristic")) {{
+                pathName = "Heuristic fallback";
+                aiPathLevel = "warn";
+            }} else if (key.startsWith("error")) {{
+                pathName = "Error fallback";
+                aiPathLevel = "error";
+            }}
+            aiPathLine = `🤖 AI path last run: ${{pathName}}`;
+            if (aiClock) aiPathLine += ` • ${{aiClock}}`;
+            if (Number.isFinite(aiRecentCount) && aiRecentCount > 0) aiPathLine += ` • ${{aiRecentCount}} events`;
+        }} else if (aiState === "empty") {{
+            aiPathLine = "ℹ️ AI path telemetry ready (no calls yet this run).";
+        }}
+        qaSetFreshnessLine("qa-fresh-ai-path", aiPathLine, aiPathLevel);
+        qaSetFreshnessLine("qa-fresh-ai-path-inline", aiPathLine, aiPathLevel);
 
         const updatedLine = document.getElementById("qa-fresh-updated");
         if (updatedLine) {{
@@ -7125,6 +7497,17 @@ def generate_html(data):
         return await qaPostWithRetry("/v1/actions/complete", {{ kind: "loop", text: cleaned }}, {{ retries: 1, label: "loop close" }});
     }}
 
+    function qaTomorrowDateKey() {{
+        const baseKey = qaEffectiveDateKey();
+        const parsed = new Date(`${{baseKey}}T00:00:00`);
+        if (Number.isNaN(parsed.getTime())) return "";
+        parsed.setDate(parsed.getDate() + 1);
+        const yyyy = String(parsed.getFullYear());
+        const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+        const dd = String(parsed.getDate()).padStart(2, "0");
+        return `${{yyyy}}-${{mm}}-${{dd}}`;
+    }}
+
     async function qaCompleteTodoText(text) {{
         const cleaned = String(text || "").trim();
         if (!cleaned) return null;
@@ -7133,6 +7516,20 @@ def generate_html(data):
         const direct = await qaPostWithRetry("/complete-todo", {{ text: cleaned }}, {{ retries: 1, label: "todo close" }});
         if (direct) return direct;
         return await qaPostWithRetry("/v1/actions/complete", {{ kind: "todo", text: cleaned }}, {{ retries: 1, label: "todo close" }});
+    }}
+
+    async function qaDeferTodoText(text, targetDate = "") {{
+        const cleaned = String(text || "").trim();
+        if (!cleaned) return null;
+        const target = String(targetDate || qaTomorrowDateKey()).trim();
+        const payload = {{
+            text: cleaned,
+            target_date: target,
+            days: 1,
+        }};
+        const ui = await qaPostWithRetry("/v1/ui/actions/defer", payload, {{ retries: 1, label: "todo defer" }});
+        if (ui) return ui;
+        return await qaPostWithRetry("/v1/actions/defer", payload, {{ retries: 1, label: "todo defer" }});
     }}
 
     async function qaCompleteLoop() {{
@@ -7158,49 +7555,121 @@ def generate_html(data):
     async function qaCompleteLoopFromButton(button) {{
         const text = ((button && button.dataset && button.dataset.text) || "").trim();
         if (!text) return;
-        const prevText = button ? button.textContent : "";
         if (button) {{
             button.disabled = true;
             button.textContent = "Saving...";
         }}
         const ok = await qaCompleteLoopText(text);
         if (ok && button) {{
-            button.disabled = true;
-            button.textContent = "Closed";
-            const row = button.closest("[data-qa-row='loop']");
-            if (row) row.style.opacity = "0.55";
+            qaRemovePendingCompletion("loop", text);
+            qaSetLocalCompletion("loop", text, true);
+            qaApplyLoopClosedUi(text);
         }} else if (button) {{
-            button.disabled = false;
-            button.textContent = prevText || "Retry";
+            qaAddPendingCompletion("loop", text);
+            if (QA_IS_FILE_PROTOCOL) {{
+                qaSetLocalCompletion("loop", text, true);
+                qaApplyLoopClosedUi(text);
+                const status = document.getElementById("qa-status");
+                if (status) {{
+                    status.textContent = "📶 Saved locally; loop close queued for sync when API is reachable.";
+                    status.style.color = "#fbbf24";
+                }}
+                return;
+            }}
+            button.disabled = true;
+            button.textContent = "📶 Queued";
+            button.style.background = "rgba(120,53,15,0.35)";
+            button.style.color = "#fde68a";
+            button.style.borderColor = "rgba(251,191,36,0.35)";
+            const row = button.closest("[data-qa-row='loop']");
+            if (row) {{
+                row.style.opacity = "0.75";
+                let msg = row.querySelector(".qa-offline-msg");
+                if (!msg) {{
+                    msg = document.createElement("p");
+                    msg.className = "qa-offline-msg text-xs mt-1";
+                    msg.style.color = "#fde68a";
+                    msg.textContent = "Queued — will sync when API is reachable.";
+                    const flexOne = row.querySelector(".flex-1");
+                    if (flexOne) flexOne.appendChild(msg);
+                }}
+            }}
         }}
     }}
 
     async function qaCompleteTodoFromButton(button) {{
         const text = ((button && button.dataset && button.dataset.text) || "").trim();
         if (!text) return;
-        const prevText = button ? button.textContent : "";
         if (button) {{
             button.disabled = true;
             button.textContent = "Saving...";
         }}
         const ok = await qaCompleteTodoText(text);
         if (ok && button) {{
+            qaRemovePendingCompletion("todo", text);
+            qaSetLocalCompletion("todo", text, true);
+            qaApplyTodoDoneUi(text);
+        }} else if (button) {{
+            qaAddPendingCompletion("todo", text);
+            if (QA_IS_FILE_PROTOCOL) {{
+                qaSetLocalCompletion("todo", text, true);
+                qaApplyTodoDoneUi(text);
+                const status = document.getElementById("qa-status");
+                if (status) {{
+                    status.textContent = "📶 Saved locally; action item completion queued for sync when API is reachable.";
+                    status.style.color = "#fbbf24";
+                }}
+                return;
+            }}
             button.disabled = true;
-            button.textContent = "☑ Done";
+            button.textContent = "📶 Queued";
+            button.style.background = "rgba(120,53,15,0.35)";
+            button.style.color = "#fde68a";
+            button.style.borderColor = "rgba(251,191,36,0.35)";
             const row = button.closest("[data-qa-row='todo']");
             if (row) {{
-                row.style.opacity = "0.55";
-                const taskLine = row.querySelector("p");
-                if (taskLine) {{
-                    taskLine.style.textDecoration = "line-through";
-                    taskLine.style.textDecorationThickness = "1.5px";
-                    taskLine.style.textDecorationColor = "rgba(148,163,184,0.85)";
-                    taskLine.style.color = "#cbd5e1";
+                row.style.opacity = "0.75";
+                let msg = row.querySelector(".qa-offline-msg");
+                if (!msg) {{
+                    msg = document.createElement("p");
+                    msg.className = "qa-offline-msg text-xs mt-1";
+                    msg.style.color = "#fde68a";
+                    msg.textContent = "Queued — will sync when API is reachable.";
+                    const flexOne = row.querySelector(".flex-1");
+                    if (flexOne) flexOne.appendChild(msg);
                 }}
             }}
-        }} else if (button) {{
-            button.disabled = false;
-            button.textContent = prevText || "Retry";
+        }}
+    }}
+
+    async function qaDeferTodoFromButton(button) {{
+        const text = ((button && button.dataset && button.dataset.text) || "").trim();
+        if (!text) return;
+        const targetDate = qaTomorrowDateKey();
+        if (button) {{
+            button.disabled = true;
+            button.textContent = "Deferring...";
+        }}
+        const ok = await qaDeferTodoText(text, targetDate);
+        if (ok) {{
+            qaRemovePendingCompletion("todo_defer", text);
+            qaSetLocalDeferred(text, targetDate);
+            qaApplyTodoDeferredUi(text, targetDate, false);
+            return;
+        }}
+
+        qaAddPendingCompletion("todo_defer", text, {{ target_date: targetDate }});
+        if (QA_IS_FILE_PROTOCOL) {{
+            qaSetLocalDeferred(text, targetDate);
+            qaApplyTodoDeferredUi(text, targetDate, true);
+            return;
+        }}
+        if (button) {{
+            button.disabled = true;
+            button.textContent = "📶 Queued";
+            button.style.background = "rgba(120,53,15,0.35)";
+            button.style.color = "#fde68a";
+            button.style.borderColor = "rgba(251,191,36,0.35)";
         }}
     }}
 
@@ -8597,10 +9066,37 @@ def generate_html(data):
     qaLoadSyncPauseState();
     qaUpdateSyncPauseUi();
     qaUpdateQuickDoneMeta();
+    qaApplyLocalCompletionUi();
     qaStartLeaderCoordination();
     qaSyncTodayFromApi({{ force: !qaLeaderModeEnabled() || qaIsPollLeader }});
+    setTimeout(() => {{ qaRetryPendingCompletions(); }}, 2000);
+    setTimeout(() => {{ qaRetryPendingScratch(); }}, 2200);
 	    </script>
 	    '''
+
+    def _scratch_pad_html(section_id, label, today_str):
+        storage_key = f"dashboard.scratch.{today_str}.{section_id}"
+        sid = html.escape(section_id)
+        return f'''<details class="mt-3">
+        <summary class="text-xs cursor-pointer" style="color: #94a3b8; user-select: none">📝 {html.escape(label)} scratch pad</summary>
+        <textarea id="qa-scratch-{sid}"
+            rows="3" maxlength="500"
+            data-storage-key="{html.escape(storage_key)}"
+            data-section="{sid}"
+            class="mt-1 w-full rounded px-2 py-1.5 text-xs"
+            style="background: rgba(15,23,42,0.85); border: 1px solid rgba(148,163,184,0.24); color: #e5e7eb; resize: vertical; font-family: inherit;"
+            placeholder="Quick notes..."
+            oninput="qaSaveScratchPad(this)"></textarea>
+        <div class="mt-1 flex items-center gap-2">
+            <button id="qa-scratch-submit-{sid}"
+                onclick="qaScratchSubmit('{sid}')"
+                class="px-3 py-1 rounded text-xs"
+                style="background: rgba(110,231,183,0.18); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                Save to journal
+            </button>
+            <span id="qa-scratch-status-{sid}" class="text-xs" style="color: #94a3b8;"></span>
+        </div>
+    </details>'''
 
     controls_open_attr = " open" if system_needs_attention else ""
     optional_pills_default = bool(system_needs_attention or weekly_needs_generation or qa_yoga_prompt_needed)
@@ -9103,6 +9599,7 @@ def generate_html(data):
         {morning_card_html}
     </div>
     {morning_insights_html}
+    {_scratch_pad_html("morning", "Morning", effective_today)}
     </section>
 
 
@@ -9112,6 +9609,7 @@ def generate_html(data):
         {updates_card_html}
         {updates_insights_html}
         {completed_updates_html}
+        {_scratch_pad_html("updates", "Updates", effective_today)}
     </section>
 
     {(f'<section id="guidance" class="dashboard-section phase-day" data-focus="morning day evening">{guidance_section_html}</section>') if guidance_section_html else ''}
@@ -9128,6 +9626,7 @@ def generate_html(data):
     {evening_insights_html}
     {how_felt_html}
     {suggestions_html}
+    {_scratch_pad_html("evening", "Evening", effective_today)}
     </section>
 
     <!-- Calendar + Ta-Dah (with wins merged) -->
@@ -9711,6 +10210,7 @@ def generate_html(data):
         if (!qaIsLiveSyncPaused()) {{
             pollSystemStatus();
             qaSyncTodayFromApi();
+            qaSyncRenderStatus();
         }} else {{
             qaUpdateSyncPauseUi();
         }}
@@ -9725,6 +10225,7 @@ def generate_html(data):
                 if (document.hidden) return;
                 if (!qaIsLiveSyncPaused() && !dashboardIsBusyForRefresh()) {{
                     qaSyncTodayFromApi();
+                    qaSyncRenderStatus();
                 }} else {{
                     qaUpdateSyncPauseUi();
                 }}
@@ -9738,6 +10239,7 @@ def generate_html(data):
             if (!document.hidden && !qaIsLiveSyncPaused() && !dashboardIsBusyForRefresh()) {{
                 pollSystemStatus();
                 qaSyncTodayFromApi();
+                qaSyncRenderStatus();
             }}
         }});
     }})();
@@ -9749,10 +10251,13 @@ def generate_html(data):
 
 def _get_evening_data(diarium):
     """Get evening data from diarium cache. Returns whatever is available."""
+    updates_text = str(diarium.get("updates", "") or "").strip()
+    if not updates_text:
+        updates_text = _parse_updates_from_journal(get_effective_date())
     return {
         "three_things": diarium.get("three_things", []),
         "tomorrow": diarium.get("tomorrow", ""),
-        "updates": diarium.get("updates", ""),
+        "updates": updates_text,
         "brave": diarium.get("brave", ""),
         "evening_reflections": diarium.get("evening_reflections", ""),
         "remember_tomorrow": diarium.get("remember_tomorrow", ""),
@@ -9847,7 +10352,19 @@ def main():
                 return label
         return ""
 
+    def _latest_diarium_mood_any_context():
+        for entry in reversed(mood_log_entries):
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("source", "")).strip().lower() != "diarium":
+                continue
+            label = str(entry.get("label", "")).strip()
+            if label:
+                return label
+        return ""
+
     diarium_slots = diarium_display.get("mood_slots", {}) if isinstance(diarium_display.get("mood_slots", {}), dict) else {}
+    ai_mood_slots = ai_today.get("mood_slots", {}) if isinstance(ai_today.get("mood_slots", {}), dict) else {}
 
     def _slot_value(*candidates):
         for candidate in candidates:
@@ -9856,19 +10373,47 @@ def main():
                 return value
         return ""
 
-    allow_unscoped_morning_fallback = now.hour < 18
+    allow_unscoped_morning_fallback = now.hour < 20
+    latest_diarium_any_mood = _latest_diarium_mood_any_context()
     morning_mood_tag = _slot_value(
+        ai_mood_slots.get("morning", ""),
         diarium_slots.get("morning", ""),
         diarium_display.get("mood_tag_morning", ""),
         _latest_diarium_context_mood("morning"),
+        (_latest_diarium_context_mood("diarium") if allow_unscoped_morning_fallback else ""),
+        (latest_diarium_any_mood if allow_unscoped_morning_fallback else ""),
+        (ai_mood_slots.get("unscoped", "") if allow_unscoped_morning_fallback else ""),
         (diarium_slots.get("unscoped", "") if allow_unscoped_morning_fallback else ""),
         (diarium_display.get("mood_tag", "") if allow_unscoped_morning_fallback else ""),
     )
     evening_mood_tag = _slot_value(
+        ai_mood_slots.get("evening", ""),
         diarium_slots.get("evening", ""),
         diarium_display.get("mood_tag_evening", ""),
         _latest_diarium_context_mood("evening"),
     )
+    if not morning_mood_tag:
+        for _entry in reversed(mood_log_entries):
+            if not isinstance(_entry, dict):
+                continue
+            _label = str(_entry.get("label", "") or _entry.get("mood", "")).strip()
+            _context = str(_entry.get("context", "")).strip().lower()
+            if not _label:
+                continue
+            if _context in {"morning", "general", ""}:
+                morning_mood_tag = _label
+                break
+    if not evening_mood_tag:
+        for _entry in reversed(mood_log_entries):
+            if not isinstance(_entry, dict):
+                continue
+            _label = str(_entry.get("label", "") or _entry.get("mood", "")).strip()
+            _context = str(_entry.get("context", "")).strip().lower()
+            if not _label:
+                continue
+            if _context == "evening":
+                evening_mood_tag = _label
+                break
     if not morning_mood_tag:
         morning_mood_tag = "unknown"
     if not evening_mood_tag:
@@ -9962,6 +10507,7 @@ def main():
         "finch": finch,
         "runtimeStatus": runtime_status,
         "remoteAccess": runtime_status.get("remote_access", {}),
+        "aiPathStatus": cache.get("ai_path_status", {}) if isinstance(cache.get("ai_path_status", {}), dict) else {},
         "anxietyCorrelation": anxiety_correlation,
         "weeklyDigest": weekly_digest_payload,
     }
@@ -10181,21 +10727,6 @@ def main():
     ai_workout_post = ai_workout_checklist.get("post_workout", {}) if isinstance(ai_workout_checklist.get("post_workout"), dict) else {}
     ai_workout_feedback = ai_workout_checklist.get("session_feedback", {}) if isinstance(ai_workout_checklist.get("session_feedback"), dict) else {}
 
-    def _coerce_optional_int(value, min_val, max_val):
-        try:
-            if value is None or value == "":
-                return None
-            n = int(value)
-        except Exception:
-            return None
-        if n < min_val or n > max_val:
-            return None
-        return n
-
-    def _coerce_choice(value, allowed):
-        raw = str(value or "").strip().lower()
-        return raw if raw in allowed else None
-
     recovery_gate = str(ai_workout_checklist.get("recovery_gate", "unknown")).strip().lower()
     if recovery_gate not in {"pass", "fail", "unknown"}:
         recovery_gate = "unknown"
@@ -10204,15 +10735,15 @@ def main():
         "recovery_gate": recovery_gate,
         "calf_done": bool(ai_workout_checklist.get("calf_done", False)),
         "post_workout": {
-            "rpe": _coerce_optional_int(ai_workout_post.get("rpe"), 1, 10),
-            "pain": _coerce_optional_int(ai_workout_post.get("pain"), 0, 10),
-            "energy_after": _coerce_optional_int(ai_workout_post.get("energy_after"), 1, 10),
+            "rpe": coerce_optional_int(ai_workout_post.get("rpe"), 1, 10),
+            "pain": coerce_optional_int(ai_workout_post.get("pain"), 0, 10),
+            "energy_after": coerce_optional_int(ai_workout_post.get("energy_after"), 1, 10),
         },
         "session_feedback": {
-            "duration_minutes": _coerce_optional_int(ai_workout_feedback.get("duration_minutes"), 5, 240),
-            "intensity": _coerce_choice(ai_workout_feedback.get("intensity"), {"easy", "moderate", "hard"}),
-            "session_type": _coerce_choice(ai_workout_feedback.get("session_type"), {"somatic", "yin", "flow", "mobility", "restorative", "other"}),
-            "body_feel": _coerce_choice(ai_workout_feedback.get("body_feel"), {"relaxed", "neutral", "tight", "sore", "energised", "fatigued"}),
+            "duration_minutes": coerce_optional_int(ai_workout_feedback.get("duration_minutes"), 5, 240),
+            "intensity": coerce_choice(ai_workout_feedback.get("intensity"), {"easy", "moderate", "hard"}),
+            "session_type": coerce_choice(ai_workout_feedback.get("session_type"), {"somatic", "yin", "flow", "mobility", "restorative", "other"}),
+            "body_feel": coerce_choice(ai_workout_feedback.get("body_feel"), {"relaxed", "neutral", "tight", "sore", "energised", "fatigued"}),
             "session_note": str(ai_workout_feedback.get("session_note", "")).strip()[:280] or None,
             "anxiety_reduction_score": _to_float(ai_workout_feedback.get("anxiety_reduction_score")),
         },
@@ -10235,7 +10766,7 @@ def main():
     recovery_signal = "unknown"
     recovery_signal_detail = "No HRV/sleep gate signal yet."
     hrv_latest_raw = healthfit.get("hrv_latest")
-    hrv_latest = _coerce_optional_int(hrv_latest_raw, 1, 200)
+    hrv_latest = coerce_optional_int(hrv_latest_raw, 1, 200)
     sleep_hours = extract_healthfit_sleep_hours(healthfit, effective_today)
 
     if isinstance(hrv_latest, int) and isinstance(sleep_hours, (int, float)):

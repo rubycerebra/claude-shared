@@ -117,6 +117,9 @@ effective_today = (now - timedelta(days=1)).strftime('%Y-%m-%d') if now.hour < 3
 cache['diarium_fresh'] = False
 cache['diarium_fresh_reason'] = 'No fresh Diarium export detected in this trigger run.'
 cache.setdefault('diarium_source_date', '')
+existing_diarium_cache = cache.get('diarium', {}) if isinstance(cache.get('diarium', {}), dict) else {}
+existing_source_date = str(cache.get('diarium_source_date', '') or '').strip()
+existing_diarium_is_today = bool(existing_diarium_cache and existing_source_date == effective_today)
 
 # ── Reset stale completed-todos.json at day boundary ──
 _completed_f = Path.home() / '.claude/cache/completed-todos.json'
@@ -146,8 +149,40 @@ for p in ['HEALTH', 'TODO', 'WORK']:
 
 if parser:
     try:
-        result = subprocess.run(['python3', str(parser), '--json'], capture_output=True, text=True, timeout=15)
-        if result.returncode == 0 and 'No Diarium entry found' not in result.stdout:
+        result = None
+        parser_err = ''
+        for timeout_s in (15, 30):
+            try:
+                attempt = subprocess.run(
+                    ['python3', str(parser), '--json'],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_s
+                )
+                result = attempt
+                if attempt.returncode == 0:
+                    break
+                parser_err = (attempt.stderr or f'Parser exited {attempt.returncode}').strip().split('\\n')[0][:160]
+            except subprocess.TimeoutExpired:
+                parser_err = f'timed out after {timeout_s}s'
+                result = None
+                continue
+            except Exception as parser_exc:
+                parser_err = str(parser_exc)
+                result = None
+                break
+
+        if result is None and parser_err:
+            if existing_diarium_is_today:
+                cache['diarium_fresh'] = True
+                cache['diarium_source_date'] = existing_source_date
+                cache['diarium_fresh_reason'] = f'Parser unavailable ({parser_err}); keeping last same-day Diarium cache.'
+                print(f'  ⚠️  Diarium parser unavailable ({parser_err}) — keeping cached same-day data')
+            else:
+                cache['diarium_fresh'] = False
+                cache['diarium_fresh_reason'] = f'Parser failed: {parser_err}'
+                print(f'  ⚠️  Diarium parser failed (marked stale): {parser_err}')
+        elif result and result.returncode == 0 and 'No Diarium entry found' not in result.stdout:
             data = json.loads(result.stdout)
             sections = data.get('sections', {})
             analysis = data.get('analysis_context', {})
@@ -315,15 +350,21 @@ if parser:
             else:
                 cache['diarium_fresh_reason'] = 'Diarium source date missing; waiting for fresh export.'
             print('  ✅ Diarium refreshed (AI-cleaned fields preserved)')
-        elif result.returncode == 0:
+        elif result and result.returncode == 0:
             cache['diarium_fresh'] = False
             cache['diarium_fresh_reason'] = f'No Diarium entry found for effective date {effective_today}.'
             print(f'  ⚠️  No Diarium entry found for {effective_today} (marked stale)')
         else:
-            cache['diarium_fresh'] = False
-            stderr = (result.stderr or 'Parser failed').strip().split('\\n')[0][:160]
-            cache['diarium_fresh_reason'] = f'Parser failed: {stderr}'
-            print(f'  ⚠️  Diarium parser failed (marked stale): {stderr}')
+            stderr = (result.stderr or parser_err or 'Parser failed').strip().split('\\n')[0][:160]
+            if existing_diarium_is_today:
+                cache['diarium_fresh'] = True
+                cache['diarium_source_date'] = existing_source_date
+                cache['diarium_fresh_reason'] = f'Parser unavailable ({stderr}); keeping last same-day Diarium cache.'
+                print(f'  ⚠️  Diarium parser unavailable ({stderr}) — keeping cached same-day data')
+            else:
+                cache['diarium_fresh'] = False
+                cache['diarium_fresh_reason'] = f'Parser failed: {stderr}'
+                print(f'  ⚠️  Diarium parser failed (marked stale): {stderr}')
     except Exception as e:
         cache['diarium_fresh'] = False
         cache['diarium_fresh_reason'] = f'Parser exception: {e}'
