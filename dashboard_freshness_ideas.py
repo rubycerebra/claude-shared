@@ -258,7 +258,7 @@ def compute_freshness_overview(
         "updates_fresh_level": updates_fresh_level,
         "overall_line": overall_line,
         "overall_level": overall_level,
-        "auto_open": overall_level in {"warn", "error"},
+        "auto_open": overall_level == "error",
     }
 
 

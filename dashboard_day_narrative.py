@@ -78,8 +78,43 @@ def compose_day_narrative_sentence(
     return truncate_fn(text, max_len=max_len)
 
 
+def polish_day_narrative_text(narrative: str) -> str:
+    text = str(narrative or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        return ""
+    text = re.sub(r"^\s*#{1,6}\s+[^\n]+\n*", "", text, flags=re.MULTILINE).strip()
+
+    raw_paras = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+    if not raw_paras:
+        raw_paras = [text]
+
+    polished = []
+    for para in raw_paras:
+        line = str(para).strip()
+        line = re.sub(r"\s+", " ", line)
+        line = re.sub(r";\s+", ", ", line)
+        line = re.sub(r"\bDuring the day, you noticed that you\b", "During the day, you noticed you", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bYou also noticed that you\b", "You also noticed you", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bAlongside that,\b", "Along the way,", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bOn the laptop side,\b", "On the work side,", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bYou moved through the day by\b", "You spent part of the day", line, flags=re.IGNORECASE)
+        line = re.sub(
+            r"(which can happen with autism masking) but you still felt",
+            r"\1. Even so, you felt",
+            line,
+            flags=re.IGNORECASE,
+        )
+        line = re.sub(r"\s+", " ", line).strip()
+        if line and line[-1] not in ".!?":
+            line += "."
+        polished.append(line)
+
+    return "\n\n".join(polished).strip()
+
+
 def split_day_narrative_paragraphs(narrative: str) -> list[str]:
-    parts = [p.strip() for p in re.split(r"\n\n+|\n(?=[A-Z])", str(narrative or "")) if p.strip()]
+    polished = polish_day_narrative_text(str(narrative or ""))
+    parts = [p.strip() for p in re.split(r"\n\n+|\n(?=[A-Z])", polished) if p.strip()]
     return parts if parts else ([str(narrative or "").strip()] if str(narrative or "").strip() else [])
 
 
@@ -150,7 +185,7 @@ def evaluate_cached_narrative(
 
     if not reasons:
         clean_cached = re.sub(r"^\s*#{1,6}\s+[^\n]+\n*", "", cached, count=1).strip()
-        narrative = clean_cached or cached
+        narrative = polish_day_narrative_text(clean_cached or cached)
         contradiction = contradiction_reason_fn(narrative)
         if contradiction:
             return "", {
@@ -226,25 +261,102 @@ def compose_day_narrative(
     morning_data = data.get("morning", {}) if isinstance(data.get("morning"), dict) else {}
     evening_data = data.get("evening", {}) if isinstance(data.get("evening"), dict) else {}
 
+    def _normalise_clause(bit: str) -> str:
+        text = re.sub(r"\s+", " ", str(bit or "")).strip(" \t\r\n;:,.")
+        if not text:
+            return ""
+        # Remove leading connectors that read awkwardly mid-sentence.
+        text = re.sub(r"^(?:because|and|but)\s+", "", text, flags=re.IGNORECASE)
+        # Normalize perspective so fallback narrative stays in second person.
+        text = re.sub(r"\bI['’]m\b", "you're", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bI['’]ve\b", "you've", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bI am\b", "you are", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bI was\b", "you were", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bmy\b", "your", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bmyself\b", "yourself", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bme\b", "you", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bI\b", "you", text, flags=re.IGNORECASE)
+        text = re.sub(r"^\s*they bring you joy", "supporting them brings you joy", text, flags=re.IGNORECASE)
+        if re.fullmatch(r"your girls", text, flags=re.IGNORECASE):
+            text = "supporting your girls"
+
+        imperative_starts = (
+            ("turn up ", "turning up "),
+            ("be ", "being "),
+            ("get ", "getting "),
+        )
+        lowered = text.lower()
+        for start, replacement in imperative_starts:
+            if lowered.startswith(start):
+                text = replacement + text[len(start):]
+                lowered = text.lower()
+                break
+
+        if re.match(r"^(went|felt|thought|noticed|managed|fixed|built|completed|deferred|showered|tidied|made|added)\b", text, flags=re.IGNORECASE):
+            text = f"you {text[0].lower()}{text[1:]}"
+        text = re.sub(r",\s*be\s+", ", being ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\band\s+show\b", "and showing", text, flags=re.IGNORECASE)
+        text = re.sub(r"\band\s+tidy\b", "and tidying", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bself conscious\b", "self-conscious", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bbut that comes with\b", "which can come with", text, flags=re.IGNORECASE)
+        text = re.sub(r"\byou felt pretty self-conscious talking too much\b", "you felt self-conscious about talking too much", text, flags=re.IGNORECASE)
+        text = re.sub(r"being overly confident which can come with autism masking", "worrying about sounding overly confident, which can happen with autism masking", text, flags=re.IGNORECASE)
+        text = re.sub(r"and you don['’]t think you did a bad job", "but you still felt you handled it well", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s+", " ", text).strip(" ;:,.")
+        if not text:
+            return ""
+        return text
+
     def _narrative_join(bits):
+        def _token_signature(value: str) -> set[str]:
+            return {
+                token
+                for token in re.findall(r"[a-z0-9']+", str(value or "").lower())
+                if len(token) > 2
+            }
+
         clean_bits = []
+        seen_keys = set()
+        seen_token_sets = []
         for bit in bits:
-            clean = str(bit or "").strip().rstrip(" .")
-            if clean:
-                clean_bits.append(clean)
+            clean = _normalise_clause(str(bit or ""))
+            if not clean:
+                continue
+            key = day_narrative_line_key(clean)
+            if not key or key in seen_keys:
+                continue
+            token_set = _token_signature(clean)
+            if token_set:
+                is_near_duplicate = False
+                for prior in seen_token_sets:
+                    overlap = len(token_set & prior) / max(1, min(len(token_set), len(prior)))
+                    if overlap >= 0.62:
+                        is_near_duplicate = True
+                        break
+                if is_near_duplicate:
+                    continue
+            seen_keys.add(key)
+            clean_bits.append(clean)
+            if token_set:
+                seen_token_sets.append(token_set)
         if not clean_bits:
             return ""
         if len(clean_bits) == 1:
             return clean_bits[0]
         if len(clean_bits) == 2:
-            return f"{clean_bits[0]} and {clean_bits[1]}"
+            if clean_bits[1].lower().startswith("supporting your girls"):
+                return f"{clean_bits[0]}, while {clean_bits[1]}"
+            return f"{clean_bits[0]}, and {clean_bits[1]}"
         return f"{clean_bits[0]}, {clean_bits[1]}, and {clean_bits[2]}"
 
-    def _narrative_sentence(starter, bits, max_len):
+    def _narrative_sentence(starter, bits, max_len, *, use_colon=True):
         body = _narrative_join(bits)
         if not body:
             return ""
-        sentence = f"{starter} {body}".strip()
+        if use_colon:
+            sentence = f"{starter}: {body}".strip()
+        else:
+            sentence = f"{starter} {body}".strip()
         if sentence and sentence[-1] not in ".!?":
             sentence += "."
         return truncate_sentence_safe(sentence, max_len=max_len)
@@ -259,40 +371,92 @@ def compose_day_narrative(
             morning_data.get("morning_pages", ""),
             morning_data.get("morning_reflections", ""),
         ],
-        max_items=3,
+        max_items=2,
         split_sentences=True,
     )
-    morning_sentence = _narrative_sentence("You started the day focusing on", morning_bits, max_len=520)
+    morning_sentence = _narrative_sentence(
+        "You opened the day focused on",
+        morning_bits,
+        max_len=520,
+        use_colon=False,
+    )
     if morning_sentence:
         parts.append(morning_sentence)
 
-    updates_lines = collect_day_narrative_lines([updates_text], max_items=3, split_sentences=True)
+    updates_lines = collect_day_narrative_lines([updates_text], max_items=2, split_sentences=True)
     updates_lines = [line for line in updates_lines if not is_updates_verification_noise_text(line)]
     done_source = [item for item in tadah_flat if not looks_like_test_noise(item)]
     done_lines = collect_day_narrative_lines(done_source, max_items=4, split_sentences=False)
-    day_sentences = []
+
+    def _as_progress_fragment(raw_line: str) -> str:
+        fragment = _normalise_clause(raw_line)
+        fragment = re.sub(r"^you\s+", "", fragment, flags=re.IGNORECASE).strip()
+        fragment = re.sub(r"^added\b", "adding", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^improved\b", "improving", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^made\b", "making", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^fixed\b", "fixing", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^built\b", "building", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^completed\b", "completing", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^got\b", "getting", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^get\b", "getting", fragment, flags=re.IGNORECASE)
+        fragment = re.sub(r"^tidied\b", "tidying", fragment, flags=re.IGNORECASE)
+        return fragment[:1].lower() + fragment[1:] if fragment else ""
+
+    def _as_observation_fragment(raw_line: str) -> str:
+        fragment = _normalise_clause(raw_line)
+        fragment = str(fragment or "").strip()
+        if not fragment:
+            return ""
+        if re.match(r"^you\b", fragment, flags=re.IGNORECASE):
+            return fragment[:1].lower() + fragment[1:]
+        if re.match(r"^(went|felt|thought|noticed|managed|fixed|built|completed|deferred|showered|tidied|made|added|improved)\b", fragment, flags=re.IGNORECASE):
+            return f"you {fragment[0].lower()}{fragment[1:]}"
+        return fragment[:1].lower() + fragment[1:]
+
+    day_observation = ""
     if updates_lines:
-        line = _narrative_sentence("During the day, you noted", updates_lines, max_len=560)
-        if line:
-            day_sentences.append(line)
+        update_fragments = [_as_observation_fragment(item) for item in updates_lines[:2]]
+        update_fragments = [item for item in update_fragments if item]
+        if update_fragments:
+            if len(update_fragments) == 1:
+                day_observation = truncate_sentence_safe(
+                    f"During the day, you noticed that {update_fragments[0]}.",
+                    max_len=560,
+                )
+            else:
+                day_observation = truncate_sentence_safe(
+                    f"During the day, you noticed that {update_fragments[0]}. You also noticed that {update_fragments[1]}.",
+                    max_len=620,
+                )
+    if day_observation:
+        parts.append(day_observation)
+
+    day_activity_sentences = []
     if done_lines:
-        line = _narrative_sentence("You also got through", done_lines[:3], max_len=480)
+        done_fragments = [_as_progress_fragment(item) for item in done_lines[:2]]
+        done_fragments = [item for item in done_fragments if item]
+        line = _narrative_sentence(
+            "Alongside that, you moved a few things forward",
+            done_fragments,
+            max_len=480,
+            use_colon=True,
+        )
         if line:
-            day_sentences.append(line)
+            day_activity_sentences.append(line)
 
     walk = any("walk" in str(t).lower() or "coco" in str(t).lower() for t in tadah_flat)
     if steps_val > 10000:
-        day_sentences.append(f"You kept moving with {steps_val:,} steps logged.")
+        day_activity_sentences.append(f"You kept moving, with {steps_val:,} steps logged.")
     elif steps_val > 5000 or walk:
-        day_sentences.append("You kept moving and got out for a walk.")
+        day_activity_sentences.append("You kept moving and got out for a walk.")
 
     if session_type and str(session_type).lower() not in ("none", ""):
         workout_label = str(session_type).replace("_", " ").lower()
         dur = f" for {session_dur} minutes" if session_dur else ""
-        day_sentences.append(f"You logged a {workout_label} workout session{dur}.")
+        day_activity_sentences.append(f"You logged a {workout_label} workout session{dur}.")
 
-    if day_sentences:
-        parts.append(" ".join(truncate_sentence_safe(str(s), max_len=380) for s in day_sentences if str(s).strip()))
+    if day_activity_sentences:
+        parts.append(" ".join(str(s).strip() for s in day_activity_sentences if str(s).strip()))
 
     evening_values = []
     three = evening_data.get("three_things", [])
@@ -312,9 +476,10 @@ def compose_day_narrative(
         parts.append(evening_sentence)
 
     if pieces_count > 0:
-        parts.append(f"On the laptop side, you logged {pieces_count} dev session{'s' if pieces_count != 1 else ''}.")
+        parts.append(f"You also put in {pieces_count} focused laptop session{'s' if pieces_count != 1 else ''}.")
 
     fallback_text = "\n\n".join([p.strip() for p in parts if str(p).strip()]) if parts else ""
+    fallback_text = polish_day_narrative_text(fallback_text)
     if fallback_text:
         if cached_state.get("status") == "stale":
             return fallback_text, {

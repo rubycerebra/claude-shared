@@ -5324,6 +5324,8 @@ def generate_html(data):
             return "127.0.0.1"
 
     qa_local_ip = _get_local_ip()
+    _qa_remote = data.get("remoteAccess", {}) if isinstance(data.get("remoteAccess"), dict) else {}
+    qa_cf_url = str(_qa_remote.get("cloudflare_url", "") or _qa_remote.get("tailscale_url", "")).strip()
 
     qa_today = get_effective_date()
     qa_ai = data.get("aiInsights", {}) if isinstance(data.get("aiInsights", {}), dict) else {}
@@ -5767,13 +5769,18 @@ def generate_html(data):
     <script>
     const QA_API_TOKEN = "{qa_api_token}";
     const QA_LOCAL_IP = "{qa_local_ip}";
+    const QA_CF_URL = "{qa_cf_url}";
     const QA_API_BASE = (() => {{
         if (typeof window !== "undefined" && window.location) {{
             const protocol = (window.location.protocol || "").toLowerCase();
             if (protocol === "http:" || protocol === "https:") {{
                 return window.location.origin;
             }}
-            // file:// — iPhone via iCloud or Mac local. Use LAN IP if available.
+            // file:// — iPhone via iCloud or Mac local.
+            // Prefer Cloudflare/Tailscale URL (https://) — file:// can't reach http:// on iOS/Mac.
+            if (typeof QA_CF_URL !== "undefined" && QA_CF_URL) {{
+                return QA_CF_URL;
+            }}
             if (typeof QA_LOCAL_IP !== "undefined" && QA_LOCAL_IP && QA_LOCAL_IP !== "127.0.0.1") {{
                 return `http://${{QA_LOCAL_IP}}:8765`;
             }}

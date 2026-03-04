@@ -306,21 +306,17 @@ When anxiety says "I've done nothing" - read this file.
 When anxiety says "I'm behind" - check the numbers.
 Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: Interview secured and completed successfully. Check journal entries for evidence.
 
-### Auto completion sync (2026-02-26)
-**Thursday Feb 26:**
-- Plan for the rest of the week
+
 
 ### Auto completion sync (2026-02-26)
 **Thursday Feb 26:**
+- Plan for the rest of the week
 - Plan for the weekend
 
 ### Auto completion sync (2026-02-27)
 **Friday Feb 27:**
 - Review what 'everything done' actually means—write down non-negotiable tasks vs. nice-to-haves to test
-
-### Auto completion sync (2026-02-27)
-**Friday Feb 27:**
-- Review what everything done actually meanswrite down nonnegotiable tasks vs nicetohaves to test~~
+- Review what everything done actually meanswrite down nonnegotiable tasks vs nicetohaves to test
 - [2026-02-28] Integrated Akiflow into Phase 7 of AI system with task matching logic (via Pieces)
 - [2026-02-28] Connected Codex CLI with Claude for direct bash execution via new claude-to-codex.sh script (via Pieces)
 - [2026-02-28] Debugged and fixed Pieces daemon cache bug preventing persona_summary persistence (via Pieces)
@@ -493,23 +489,21 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 ### Auto completion sync (2026-03-01)
 **Sunday Mar 1:**
 - Change is this: i don't need to act on every feeling immediately
-
-### Auto completion sync (2026-03-01)
-**Sunday Mar 1:**
 - Get moving
+- Change is this: i don't need to act on every feeling immediately
+- Get moving
+- Change is this i dont need to act on every feeling immediately
+- Change is i dont need to act on every feeling immediately
+- Finish sketch during tomorrow's longer day (go club window)
+- Complete all financial concerns tomorrow
+- Tidy study + garden organisation during go club slots tomorrow
+- Finish sketch during tomorrows longer day go club window
+- Complete all financial concerns tomorrow
+- Tidy study garden organisation during go club slots tomorrow
+- Tidy study + garden organisation during go club slots tomorrow
 - [2026-03-01] Booked VIP cinema tickets for family outing and coordinated with loved ones (via Pieces)
 - [2026-03-01] Had a metacognitive breakthrough recognizing distraction-as-regulation patterns (via Pieces)
 - [2026-03-01] Completed 3D model slicing and uploaded print job (7h36m project) (via Pieces)
-
-### Auto completion sync (2026-03-01)
-**Sunday Mar 1:**
-- Change is this: i don't need to act on every feeling immediately~~
-- Get moving~~
-
-### Auto completion sync (2026-03-01)
-**Sunday Mar 1:**
-- Change is this i dont need to act on every feeling immediately~~
-- Change is i dont need to act on every feeling immediately~~
 - [2026-03-01] Successfully coordinated and booked a full family cinema outing with VIP tickets and calendar setup (via Pieces)
 - [2026-03-01] Had a metacognitive breakthrough during morning journaling—explicitly naming patterns of distraction-as-regulation (via Pieces)
 - [2026-03-01] Managed to stay focused and present playing with Tilly despite ADHD activation anxiety (via Pieces)
@@ -523,25 +517,6 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-01] Stayed focused and present playing with Tilly despite ADHD activation anxiety (via Pieces)
 - [2026-03-01] Completed a full family outing plan (shopping, playground, cinema) and executed it (via Pieces)
 - [2026-03-01] Made a 3D print from model prep to upload—start to finish technical follow-through (via Pieces)
-
-### Auto completion sync (2026-03-01)
-**Sunday Mar 1:**
-- Finish sketch during tomorrow's longer day (go club window)
-
-### Auto completion sync (2026-03-01)
-**Sunday Mar 1:**
-- Complete all financial concerns tomorrow
-
-### Auto completion sync (2026-03-01)
-**Sunday Mar 1:**
-- Tidy study + garden organisation during go club slots tomorrow
-
-### Auto completion sync (2026-03-01)
-**Sunday Mar 1:**
-- Finish sketch during tomorrows longer day go club window~~
-- Complete all financial concerns tomorrow~~
-- Tidy study garden organisation during go club slots tomorrow~~
-- Tidy study + garden organisation during go club slots tomorrow~~
 - [2026-03-01] Managed to stay focused and present playing with Tilly—genuine presence with family (via Pieces)
 - [2026-03-01] Successfully debugged and enhanced the dashboard narrative system with 5 key fixes (via Pieces)
 - [2026-03-01] Cooked a nice dinner and sourced healthy snacks at Aldi (via Pieces)
@@ -694,13 +669,26 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 ### Auto completion sync (2026-03-02)
 **Monday Mar 2:**
 - Do scheduling session after tidying to externalize task-loop and clear mental clutter
+- Do scheduling session after tidying to externalize taskloop and clear mental clutter
+- Check in with blossom about club worries—clarify pickup timing and her concerns specifically
+- Pack work bag for sony office tomorrow (9–7 shift). include: pass, lunch plan, weights reminder note
+- Schedule on the calendar
+- Pack work bag for sony office tomorrow (9–7 shift). include: pass, lunch plan, weights reminder note
+- Schedule on the calendar
+- Check in with blossom about club worries—clarify pickup timing and her concerns specifically
+- Schedule on calendar
+- Pack my bag
+- Pack my bag
+- Pack work bag for sony office shift (9–7 tomorrow)
+- Pack work bag for sony office shift (9–7 tomorrow)
+- Pack work bag for sony office shift 97 tomorrow
+- Check in with blossom about club worriesclarify pickup timing and her concerns specifically
+- Schedule acuflow tasks onto calendar first thing before sony shift
+- Schedule acuflow tasks onto calendar first thing before sony shift
+- Pack work bag for sony office tomorrow 97 shift include pass lunch plan weights reminder note
 - [2026-03-02] Cleared 13.4 GB of junk from your computer—seriously cleaning house (via Pieces)
 - [2026-03-02] Sorted and prioritized your entire Akiflow task list, ditching what doesn't matter (via Pieces)
 - [2026-03-02] Got a faulty product return sorted with Amazon and confirmed the pickup (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Do scheduling session after tidying to externalize taskloop and clear mental clutter~~
 - [2026-03-02] Freed up 13.4 GB of junk files and optimized your whole computer—that's going to help it run faster (via Pieces)
 - [2026-03-02] Fixed your 3D printer's internet connection through the router settings (via Pieces)
 - [2026-03-02] Sorted out the faulty ear cleaner return with Amazon and confirmed the pickup date (via Pieces)
@@ -754,47 +742,20 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-02] Freed up 13.4 GB of storage by cleaning up your computer—it'll run smoother now (via Pieces)
 - [2026-03-02] Got the Flashforge printer working again by fixing its network settings (via Pieces)
 - [2026-03-02] Sorted out a faulty product return and confirmed the collection date (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Check in with blossom about club worries—clarify pickup timing and her concerns specifically
 - [2026-03-02] Freed up 13.4 GB of space by cleaning out junk files—your computer will run smoother (via Pieces)
 - [2026-03-02] Fixed the printer's network connection so it's ready to use (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack work bag for sony office tomorrow (9–7 shift). include: pass, lunch plan, weights reminder note
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Schedule on the calendar
 - [2026-03-02] Fixed the Flashforge printer's network connection (via Pieces)
 - [2026-03-02] Cleaned 13.4 GB of junk files off your computer (via Pieces)
 - [2026-03-02] Sorted through and reorganized your entire task list in Akiflow (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack work bag for sony office tomorrow (9–7 shift). include: pass, lunch plan, weights reminder note~~
-- Schedule on the calendar~~
-- Check in with blossom about club worries—clarify pickup timing and her concerns specifically~~
-- Schedule on calendar~~
 - [2026-03-02] Printed toys for the girls and a dragon for Simone (via Pieces)
 - [2026-03-02] Cleaned the doorstep, did laundry, and put away all clothes (via Pieces)
 - [2026-03-02] Fixed the printer and got Amazon refund sorted for the faulty ear cleaner (via Pieces)
 - [2026-03-02] Fixed the printer's network setup so it's ready to go (via Pieces)
 - [2026-03-02] Processed a refund for the faulty ear cleaner and arranged the return (via Pieces)
 - [2026-03-02] Cleared 13.4 GB of junk files off your computer (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack my bag
 - [2026-03-02] Fixed the Flashforge printer's connection (via Pieces)
 - [2026-03-02] Fixed the printer's network connection (via Pieces)
 - [2026-03-02] Sorted through and cleared out your entire task list in Akiflow (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack my bag~~
 - [2026-03-02] Cleaned out 13.4 GB of junk files from your computer (via Pieces)
 - [2026-03-02] Processed an Amazon return and confirmed the collection date (via Pieces)
 - [2026-03-02] Printed toys and a dragon for Simone and the girls (via Pieces)
@@ -880,21 +841,9 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-02] Debugged and fixed 6+ issues on your personal dashboard in one focused session (via Pieces)
 - [2026-03-02] Fixed your 3D printer's network connection (via Pieces)
 - [2026-03-02] Cleaned the whole house, doorstep, and got laundry sorted (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack work bag for sony office shift (9–7 tomorrow)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack work bag for sony office shift (9–7 tomorrow)~~
 - [2026-03-02] Sorted out the Amazon return for the faulty ear cleaner and got a collection date arranged (via Pieces)
 - [2026-03-02] Fixed the printer's network connection through the router settings (via Pieces)
 - [2026-03-02] Debugged and implemented 6 fixes to your dashboard, getting mood tracking and task displays working properly (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack work bag for sony office shift 97 tomorrow~~
 - [2026-03-02] Fixed the printer's network settings so it actually connects (via Pieces)
 - [2026-03-02] Processed an Amazon return for the faulty ear cleaner (via Pieces)
 - [2026-03-02] Debugged and fixed 6 issues in your dashboard so mood/mindfulness tracking actually sticks (via Pieces)
@@ -950,10 +899,6 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-02] Got the faulty ear cleaner return processed with Amazon (via Pieces)
 - [2026-03-02] Cleaned the house, sorted all tasks, and got laundry done (via Pieces)
 - [2026-03-02] Debugged and fixed multiple dashboard issues to improve how your daily task list works (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Check in with blossom about club worriesclarify pickup timing and her concerns specifically~~
 - [2026-03-02] Got the Flashforge printer working properly by fixing its network settings (via Pieces)
 - [2026-03-02] Cleaned the whole house and got laundry sorted (via Pieces)
 - [2026-03-02] Cleaned the house, doorstep, and managed laundry—got your space sorted (via Pieces)
@@ -985,14 +930,6 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-02] Got the Flashforge printer working again by fixing its network setup (via Pieces)
 - [2026-03-02] Cleaned the entire house, sorted all your tasks, and did laundry (via Pieces)
 - [2026-03-02] Printed gifts for Simone and the girls (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Schedule acuflow tasks onto calendar first thing before sony shift
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Schedule acuflow tasks onto calendar first thing before sony shift~~
 - [2026-03-02] Got the printer's internet connection properly set up (via Pieces)
 - [2026-03-02] Cleaned the entire house and sorted all your tasks (via Pieces)
 - [2026-03-02] Debugged and fixed 6+ issues in your dashboard — solid troubleshooting work (via Pieces)
@@ -1035,10 +972,6 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-02] Cleaned the house, sorted laundry, and printed toys for the kids (via Pieces)
 - [2026-03-02] Sorted and organized all your tasks for the week (via Pieces)
 - [2026-03-02] Got the house cleaned and laundry done (via Pieces)
-
-### Auto completion sync (2026-03-02)
-**Monday Mar 2:**
-- Pack work bag for sony office tomorrow 97 shift include pass lunch plan weights reminder note~~
 - [2026-03-02] Cleaned the doorstep, put on laundry, and got all clothes away (via Pieces)
 - [2026-03-02] Cleaned the whole house and sorted all tasks (via Pieces)
 - [2026-03-02] Got the Flashforge printer working properly with router setup (via Pieces)
@@ -1728,69 +1661,33 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 ### Auto completion sync (2026-03-03)
 **Tuesday Mar 3:**
 - Sort out priorities without doing too much in one day
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
 - Review schedule and identify 2-3 priority tasks for today
+- Glasses
+- Review schedule and identify 23 priority tasks for today
+- Review today’s schedule and mark the top 3 priorities
+- Set a clear workload cap for today before starting tasks
+- Review todays schedule and mark top 3 priorities
+- Set clear workload cap for today before starting tasks
+- Look at my schedule
+- Do other than walk coco
 - [2026-03-03] Configured and placed your glasses reglazing order (including lens and frame refurbishment) (via Pieces)
 - [2026-03-03] Committed and pushed a substantial round of improvements to your personal AI workflow (via Pieces)
 - [2026-03-03] Set up a one-tap way to refresh your dashboard and sync your daily note immediately (via Pieces)
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Review schedule and identify 2-3 priority tasks for today~~ [326de8]
-- Sort out priorities without doing too much in one day~~ [c9cb7e]
-- Glasses~~ [215207]
 - [2026-03-03] Completed and shipped a major improvement to your personal AI workflow, including safer usage-limit handling (via Pieces)
 - [2026-03-03] Set up a quick command to force an immediate daily note/dashboard sync when needed (via Pieces)
 - [2026-03-03] Placed and completed the glasses reglazing order end-to-end (£54.90) (via Pieces)
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Review schedule and identify 23 priority tasks for today~~ [326de8]
-- Review schedule and identify 23 priority tasks for today 326de8~~ [227e12]
-- Sort out priorities without doing too much in one day c9cb7e~~ [c5a97f]
-- Glasses 215207~~ [f07566]
 - [2026-03-03] Completed and deployed a major AI routing redesign with handover notes (via Pieces)
 - [2026-03-03] Built a one-click personal command to force an immediate daily note sync (via Pieces)
 - [2026-03-03] Placed and paid for your glasses reglazing order (including frame refurbishment) (via Pieces)
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Review today’s schedule and mark the top 3 priorities
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Set a clear workload cap for today before starting tasks
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Review schedule and identify 23 priority tasks for today 326de8 227e12~~ [e6e343]
-- Sort out priorities without doing too much in one day c9cb7e c5a97f~~ [4f2720]
-- Glasses 215207 f07566~~ [bf6c73]
 - [2026-03-03] Completed and shipped a major upgrade to how your AI tools are routed and controlled (via Pieces)
 - [2026-03-03] Set up a quick command to instantly sync your daily note updates (via Pieces)
 - [2026-03-03] Placed and paid for your glasses reglazing order (via Pieces)
 - [2026-03-03] Completed and placed your glasses reglazing order (including lens/coating choices and frame refurbishment). (via Pieces)
 - [2026-03-03] Researched the upcoming Project Hail Mary film and clarified details like reception and runtime. (via Pieces)
 - [2026-03-03] Created a quick-trigger command to force an immediate daily note sync, making your system more usable day-to-day. (via Pieces)
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Review todays schedule and mark top 3 priorities~~ [c3272c]
-- Set clear workload cap for today before starting tasks~~ [6f8479]
-- Review schedule and identify 23 priority tasks for today 326de8 227e12 e6e343~~ [d2dd0a]
 - [2026-03-03] Placed your glasses reglazing order end-to-end (including frame refurbishment) (via Pieces)
 - [2026-03-03] Built and rolled out better daily update flow so your notes and dashboard stay in sync (via Pieces)
 - [2026-03-03] Fixed a timeout issue that was blocking insight generation, so your daily system feels smoother (via Pieces)
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Look at my schedule
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Look at my schedule~~ [4e6ef6]
 - [2026-03-03] Placed and paid for your glasses reglazing order (including lens upgrade and frame refurbishment). (via Pieces)
 - [2026-03-03] Shipped meaningful improvements to your personal dashboard flow so key tasks carry over and updates are more reliable. (via Pieces)
 - [2026-03-03] Committed and pushed a solid round of routing and replay improvements to your AI workspace. (via Pieces)
@@ -1857,10 +1754,6 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-03] Debugged and got your mindfulness logging flow working end-to-end (via Pieces)
 - [2026-03-03] Got food for work (via Pieces)
 - [2026-03-03] Debugged and got your mindfulness/health logging flow working (via Pieces)
-
-### Auto completion sync (2026-03-03)
-**Tuesday Mar 3:**
-- Do other than walk coco
 - [2026-03-03] Did my habits diary (via Pieces)
 - [2026-03-03] Debugged and got your mindfulness logging flow working (via Pieces)
 - [2026-03-03] Fixed key issues in your personal AI setup so your daily updates and insights are more dependable (via Pieces)
@@ -2124,79 +2017,27 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 
 ### Auto completion sync (2026-03-04)
 **Wednesday Mar 4:**
-- Test-item-that-does-not-exist
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Test-does-not-exist-abc123
+- Get ready for my meetings
+- Get home and tidy the main living area
+- Tidy up at home before the meetings
+- Tidy up, shower
+- Tidy the main room before your meetings
 - [2026-03-04] Stabilized and improved the personal dashboard so its daily guidance is more accurate and useful (via Pieces)
 - [2026-03-04] Tracked down and fixed multiple long-running dashboard issues in one concentrated push (via Pieces)
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Testitemthatdoesnotexist~~ [bf9cb2]
-- Testdoesnotexistabc123~~ [12c2f3]
-- Testdoesnotexist~~ [c51a4b]
 - [2026-03-04] Completed a successful 3D print of an articulated crystal dragon model (via Pieces)
 - [2026-03-04] Made major same-day progress stabilizing and improving your personal dashboard experience (via Pieces)
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Testitemthatdoesnotexist bf9cb2~~ [f2cacc]
-- Testdoesnotexistabc123 12c2f3~~ [d4c503]
-- Testdoesnotexist c51a4b~~ [8607fc]
 - [2026-03-04] Completed a successful 3D printing session, including the articulated crystal dragon model (via Pieces)
 - [2026-03-04] Stabilised and improved the personal dashboard so daily information and action items are more trustworthy (via Pieces)
 - [2026-03-04] Started building a new scratchpad-to-journal flow to make daily capture easier (via Pieces)
 - [2026-03-04] Completed a successful 3D printing session for the articulated crystal dragon tail and infinity cube models (via Pieces)
 - [2026-03-04] Made major progress stabilizing your personal dashboard so entries and action items are more reliable (via Pieces)
 - [2026-03-04] Started building a scratchpad-to-journal flow to make capturing and using your thoughts easier (via Pieces)
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Testitemthatdoesnotexist bf9cb2 f2cacc~~ [7c81ac]
-- Testdoesnotexistabc123 12c2f3 d4c503~~ [dd37c7]
-- Testdoesnotexist c51a4b 8607fc~~ [63cc7d]
 - [2026-03-04] Completed a 3D print job (including the articulated crystal dragon tail work) in OrcaSlicer (via Pieces)
 - [2026-03-04] Stabilized your personal dashboard by fixing stale diary data and duplicate action-item problems (via Pieces)
 - [2026-03-04] Started building a new scratchpad-to-journal flow to make capturing thoughts easier (via Pieces)
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Testitemthatdoesnotexist bf9cb2 f2cacc 7c81ac~~ [37165d]
-- Testdoesnotexistabc123 12c2f3 d4c503 dd37c7~~ [e19e62]
-- Testdoesnotexist c51a4b 8607fc 63cc7d~~ [553162]
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Get ready for my meetings
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Get home and tidy the main living area
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Tidy up at home before the meetings
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Tidy up, shower
 - [2026-03-04] Successfully completed a 3D print for the articulated crystal dragon enhanced tail model and set up an infinity cube print. (via Pieces)
 - [2026-03-04] Worked through a long, focused block to stabilize the dashboard and reduce duplicate/stale daily items. (via Pieces)
 - [2026-03-04] Started building a scratchpad-to-journal feature to make capturing and using your thoughts easier. (via Pieces)
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Tidy the main room before your meetings
-
-### Auto completion sync (2026-03-04)
-**Wednesday Mar 4:**
-- Tidy the main room before your meetings~~ [f8dd61]
-- Get ready for my meetings~~ [60f60b]
-- Tidy up at home before the meetings~~ [4754e1]
-- Get home and tidy the main living area~~ [c2f996]
-- Tidy up, shower~~ [b5bb19]
 - [2026-03-04] Stabilized the daily dashboard so duplicated or broken items are far less likely to derail your day (via Pieces)
 - [2026-03-04] Built out a scratchpad-to-journal feature so quick thoughts can turn into useful daily entries (via Pieces)
 - [2026-03-04] Fixed the save-to-journal actions and improved completion-item cleanup so the system feels more trustworthy (via Pieces)
@@ -2279,3 +2120,92 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-04] Fixed multiple critical dashboard issues so core sections and buttons worked reliably again (via Pieces)
 - [2026-03-04] Made strong progress on the new scratchpad-to-journal flow to better capture and use your thoughts (via Pieces)
 - [2026-03-04] Got ready for meetings and tidied your living space, including showering and reset tasks (via Pieces)
+- [2026-03-04] Fit in a tidy-up and shower before meetings (via Pieces)
+- [2026-03-04] Fixed critical dashboard issues that were blocking key actions like saving to journal (via Pieces)
+- [2026-03-04] Built out the scratchpad-to-journal flow so daily notes and insights connect properly (via Pieces)
+- [2026-03-04] Got ready for meetings and tidied up at home (including shower and living area) (via Pieces)
+- [2026-03-04] Fixed major dashboard issues so key actions (like saving to journal) started working again (via Pieces)
+- [2026-03-04] Improved reliability so daily update sections populated properly from journal activity (via Pieces)
+- [2026-03-04] Got ready for meetings and tidied your living space before/after them (via Pieces)
+- [2026-03-04] Fixed major dashboard issues so important action buttons worked again (via Pieces)
+- [2026-03-04] Built and connected a scratchpad-to-journal flow to capture your day more smoothly (via Pieces)
+- [2026-03-04] Did a strong reliability/refactor pass to make the dashboard clearer and more dependable (via Pieces)
+- [2026-03-04] Fixed a critical crash that was blocking dashboard action buttons like “Save to journal.” (via Pieces)
+- [2026-03-04] Made daily sections update more reliably from journal entries, improving trust in the dashboard. (via Pieces)
+- [2026-03-04] Got ready for meetings and tidied up at home before and after them. (via Pieces)
+- [2026-03-04] Tidied up and had a shower before meetings (via Pieces)
+- [2026-03-04] Fixed critical dashboard issues so key actions (like saving to journal) worked reliably again (via Pieces)
+- [2026-03-04] Made a strong architecture push by breaking out core dashboard logic into cleaner, reusable parts (via Pieces)
+- [2026-03-04] Knocked out real-life reset tasks too (meeting prep, tidying, shower), which helped support the whole day (via Pieces)
+- [2026-03-04] Fixed major dashboard issues so key actions worked again and daily sections updated correctly (via Pieces)
+- [2026-03-04] Built out a scratchpad-to-journal flow to make capturing thoughts and turning them into insights easier (via Pieces)
+- [2026-03-04] Got ready for meetings and tidied up at home, including showering and resetting the living space (via Pieces)
+- [2026-03-04] Fixed a major issue that was blocking key dashboard buttons, so important actions started working again (via Pieces)
+- [2026-03-04] Built out the scratchpad-to-journal flow so quick thoughts can feed into your daily reflection (via Pieces)
+- [2026-03-04] Did a strong tidy-up/refactor pass that made the dashboard logic more reliable and easier to maintain (via Pieces)
+- [2026-03-04] Fixed the dashboard issues that were blocking important actions, so your flow works again (via Pieces)
+- [2026-03-04] Refactored and organized the dashboard logic to make future changes cleaner and easier (via Pieces)
+- [2026-03-04] Got the “Save to journal” flow working again after fixing blocking issues. (via Pieces)
+- [2026-03-04] Improved the daily view so updates populated properly and duplicate/completed items were handled more cleanly. (via Pieces)
+- [2026-03-04] Got ready for meetings and tidied the main living area. (via Pieces)
+- [2026-03-04] Tidied the main living area before/after meetings (via Pieces)
+- [2026-03-04] Showered and reset your space while handling the day (via Pieces)
+- [2026-03-04] Fit in a shower and reset while handling a busy day (via Pieces)
+- [2026-03-04] Fixed the dashboard blockers that were stopping key buttons and sections from working (via Pieces)
+- [2026-03-04] Refactored and organized the dashboard work so it’s easier to maintain going forward (via Pieces)
+- [2026-03-04] Got yourself ready for meetings and tidied up at home (via Pieces)
+- [2026-03-04] Fixed the crash that was blocking key dashboard buttons, so saving and actions worked again (via Pieces)
+- [2026-03-04] Refactored the dashboard into cleaner pieces, making it easier to maintain and improve (via Pieces)
+- [2026-03-04] Got ready for meetings and tidied up at home before and after, keeping life moving too (via Pieces)
+- [2026-03-04] Fixed major issues that were blocking key dashboard actions, so the flow works when you need it (via Pieces)
+- [2026-03-04] Refined and reorganized the dashboard work into clearer chunks, making future progress easier (via Pieces)
+- [2026-03-04] Managed a full personal reset (tidy up and shower) before meetings (via Pieces)
+- [2026-03-04] Fixed the issue that was blocking key dashboard actions from working (via Pieces)
+- [2026-03-04] Refactored and organized the dashboard work into clearer chunks for easier future updates (via Pieces)
+- [2026-03-04] Got ready for meetings and tidied/showered to reset your environment (via Pieces)
+- [2026-03-04] Fit in a shower and reset during a demanding work block (via Pieces)
+- [2026-03-04] Cleared multiple critical issues that were stopping key dashboard actions from working (via Pieces)
+- [2026-03-04] Turned a lot of messy dashboard logic into cleaner building blocks, making future work easier (via Pieces)
+- [2026-03-04] Got yourself meeting-ready and still handled home reset tasks (tidy-up and shower) (via Pieces)
+- [2026-03-04] Unblocked key dashboard actions so saving and tracking worked again (via Pieces)
+- [2026-03-04] Improved dashboard reliability so important daily sections populated properly (via Pieces)
+- [2026-03-04] Restructured major dashboard logic to make future changes easier (via Pieces)
+- [2026-03-04] Completed a long, focused dashboard improvement sprint across multiple sessions (via Pieces)
+- [2026-03-04] Turned repeated dashboard issues into stable, cleaner behavior instead of quick one-off fixes (via Pieces)
+- [2026-03-04] Got yourself meeting-ready and tidied the living area at home (via Pieces)
+- [2026-03-04] Built real momentum with a long, focused dashboard improvement session across several hours (via Pieces)
+- [2026-03-04] Cleared practical self-management tasks like getting ready and tidying up before meetings (via Pieces)
+- [2026-03-04] Did an evening home reset (tidy up and shower), which supports a calmer next day (via Pieces)
+- [2026-03-04] Unblocked key dashboard buttons so saving and actions started working again (via Pieces)
+- [2026-03-04] Made the daily dashboard and report flow more reliable and easier to trust (via Pieces)
+- [2026-03-04] Got yourself meeting-ready and reset your home space (tidy-up + shower) (via Pieces)
+- [2026-03-04] Stabilized the daily dashboard so important sections populate properly again (via Pieces)
+- [2026-03-04] Added clearer freshness/status signals so it’s easier to see what ran and when (via Pieces)
+- [2026-03-04] Did meaningful home reset work (tidying/shower/getting meeting-ready) alongside project progress (via Pieces)
+- [2026-03-04] Fixed key dashboard issues so important sections started showing up properly again (via Pieces)
+- [2026-03-04] Improved how the dashboard tells the story of your day, including freshness and daily reporting (via Pieces)
+- [2026-03-04] Got home and reset your space (tidy-up + shower), which supports a calmer evening (via Pieces)
+- [2026-03-04] Fixed a major dashboard issue that was blocking important action buttons (via Pieces)
+- [2026-03-04] Restored daily update sections so journal-based insights populate correctly (via Pieces)
+- [2026-03-04] Improved live freshness/status behavior and reorganized dashboard logic to be easier to maintain (via Pieces)
+- [2026-03-04] Resolved critical dashboard issues that were blocking key actions, so your system works when you need it (via Pieces)
+- [2026-03-04] Added clearer freshness/status info so you can trust what the dashboard is showing at a glance (via Pieces)
+- [2026-03-04] Did a major cleanup/restructure of the dashboard logic to make future maintenance easier (via Pieces)
+
+### Auto completion sync (2026-03-04)
+**Wednesday Mar 4:**
+- Testitemthatdoesnotexist~~ [bf9cb2]
+- Testdoesnotexistabc123~~ [12c2f3]
+- Testdoesnotexist~~ [c51a4b]
+- Testitemthatdoesnotexist bf9cb2~~ [f2cacc]
+- Testdoesnotexistabc123 12c2f3~~ [d4c503]
+- Testdoesnotexist c51a4b~~ [8607fc]
+- Testitemthatdoesnotexist bf9cb2 f2cacc~~ [7c81ac]
+- Testdoesnotexistabc123 12c2f3 d4c503~~ [dd37c7]
+- Testdoesnotexist c51a4b 8607fc~~ [63cc7d]
+- Testitemthatdoesnotexist bf9cb2 f2cacc 7c81ac~~ [37165d]
+- Testdoesnotexistabc123 12c2f3 d4c503 dd37c7~~ [e19e62]
+- Testdoesnotexist c51a4b 8607fc 63cc7d~~ [553162]
+- [2026-03-04] Resolved multiple dashboard issues that were blocking key daily actions (via Pieces)
+- [2026-03-04] Added clearer freshness/status signals so it’s easier to trust what’s up to date (via Pieces)
+- [2026-03-04] Refactored major dashboard logic into cleaner parts to improve stability and maintainability (via Pieces)
