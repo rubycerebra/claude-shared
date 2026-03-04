@@ -118,6 +118,24 @@ cache['diarium_fresh'] = False
 cache['diarium_fresh_reason'] = 'No fresh Diarium export detected in this trigger run.'
 cache.setdefault('diarium_source_date', '')
 
+# ── Reset stale completed-todos.json at day boundary ──
+_completed_f = Path.home() / '.claude/cache/completed-todos.json'
+if _completed_f.exists():
+    try:
+        _ct = json.loads(_completed_f.read_text(encoding='utf-8', errors='replace'))
+        if isinstance(_ct, dict) and str(_ct.get('date', '')).strip() != effective_today:
+            _completed_f.write_text(json.dumps({
+                'date': effective_today,
+                'completed': [],
+                'completed_texts': [],
+                'completed_labels': [],
+                'completed_at': {},
+                'completed_source': {}
+            }, indent=2), encoding='utf-8')
+            print(f'  ♻️  Reset completed-todos.json for {effective_today}')
+    except Exception:
+        pass
+
 # Re-parse Diarium (find parser)
 parser = None
 for p in ['HEALTH', 'TODO', 'WORK']:
@@ -139,7 +157,7 @@ if parser:
             location_clean = re.sub(r'^\\s*:\\s*', '', location_raw).strip()
             # Use _raw versions for proper list splitting (voice transcription cleanup collapses newlines)
             ta_dah_raw = sections.get('ta_dah_raw', sections.get('ta_dah', ''))
-            ta_dah_list = [item.strip() for item in ta_dah_raw.split('\n\n') if item.strip()] if ta_dah_raw else []
+            ta_dah_list = [re.sub(r'^(?:\d+[.)]\s*|[-*\u2022\u2219\u2023]\s*)', '', item).strip() for item in re.split(r'\n+', ta_dah_raw) if item.strip()] if ta_dah_raw else []
 
             def _extract_source_date(payload):
                 explicit = str(payload.get('source_date', '') or '').strip()
@@ -166,7 +184,7 @@ if parser:
             diarium_is_fresh = bool(source_date and source_date == effective_today and not fallback_used)
 
             three_things_raw = sections.get('three_things_raw', sections.get('three_things', ''))
-            three_things_list = [item.strip() for item in three_things_raw.split('\n\n') if item.strip()] if three_things_raw else []
+            three_things_list = [re.sub(r'^(?:\d+[.)]\s*|[-*\u2022\u2219\u2023]\s*)', '', item).strip() for item in re.split(r'\n+', three_things_raw) if item.strip()] if three_things_raw else []
 
             # Preserve AI-cleaned fields: if existing diarium has _raw fields,
             # keep the cleaned text and _raw originals instead of overwriting

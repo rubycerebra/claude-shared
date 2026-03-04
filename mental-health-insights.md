@@ -237,16 +237,15 @@ The Excel tracker contains:
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-02 (hash: b085a292cb5fce60)*
+*Auto-synced from Pieces persona summary on 2026-03-04 (hash: 76802b59863d06ba)*
 
 ### Job search anxiety patterns
-- What You Work On
-- Professional & Core Responsibilities:** Your professional work continues to involve **AI-driven health solutions**. This includes the maintenance and forward compatibility of data collection systems, as evidenced by your work in `data_collector.py` to ensure seamless transitions 
-- Beyond your professional work, a significant portion of your active engagement is dedicated to:
+- What You Work On**
+- James continues his self-employed work in **AI-driven health solutions**, evidenced by his Python development activity focused on fetching health metrics and workout data, with a clear plan for automated version upgrades. His engagement with AI tools is further highlighted by his
 
 ### Coping mechanisms Pieces has observed
-- You are James Cherry, a highly analytical and deeply responsible self-employed professional. Your core identity remains firmly rooted in providing a stable and optimized environment for your family, which includes your partner, two young children (ages 8 and 5), and your dog. Whi
-- Who You Are
+- You are James Cherry, a self-employed professional residing in London, whose life is currently dominated by an intensive, highly analytical, and persistent effort to manage significant household financial challenges. Living with his partner, two young children, and a dog, James b
+- Who You Are**
 
 ### Work habits Pieces has observed
-- Key Projects & Focus Areas:**
+- James continues his self-employed work in **AI-driven health solutions**, evidenced by his Python development activity focused on fetching health metrics and workout data, with a clear plan for automated version upgrades. His engagement with AI tools is further highlighted by his

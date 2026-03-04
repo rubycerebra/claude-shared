@@ -48,6 +48,77 @@ JOURNAL_DIR = SHARED_DIR / "journal"  # Used only for hyperlinks, not for readin
 OUTPUT_FILE = SHARED_DIR / "dashboard.html"
 COMPLETED_TODOS_FILE = Path.home() / ".claude" / "cache" / "completed-todos.json"
 
+DASHBOARD_DUMP_MARKER_PATTERNS = (
+    r"^\s*(?:📊\s*)?Dashboard\s*[—\-:|]",
+    r"^\s*🗓️?\s*\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\s*$",
+    r"^\s*🌅\s*Morning\b",
+    r"^\s*🌙\s*Evening\b",
+    r"^\s*💡\s*Today[’']s Guidance\b",
+    r"^\s*✅\s*Completed today\b",
+)
+
+
+def _iso_to_ts(raw):
+    try:
+        return datetime.fromisoformat(str(raw).strip()).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _clock_hhmm(raw):
+    try:
+        stamp = datetime.fromisoformat(str(raw).strip())
+    except Exception:
+        return ""
+    return stamp.strftime("%H:%M")
+
+
+def _dashboard_dump_start_index(raw_text):
+    raw = str(raw_text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not raw:
+        return None
+
+    earliest = None
+    for pattern in DASHBOARD_DUMP_MARKER_PATTERNS:
+        match = re.search(pattern, raw, flags=re.IGNORECASE | re.MULTILINE)
+        if match and (earliest is None or match.start() < earliest):
+            earliest = match.start()
+
+    if earliest is None:
+        return None
+
+    suffix = raw[earliest:].strip()
+    heading_hits = sum(
+        1
+        for pattern in DASHBOARD_DUMP_MARKER_PATTERNS
+        if re.search(pattern, suffix, flags=re.IGNORECASE | re.MULTILINE)
+    )
+    suffix_lower = suffix.lower()
+    strong_signals = sum(
+        1
+        for token in (
+            "dashboard",
+            "morning insights",
+            "today's guidance",
+            "todays guidance",
+            "what you did today",
+            "mood + anxiety",
+        )
+        if token in suffix_lower
+    )
+    looks_like_dump = heading_hits >= 2 or strong_signals >= 2 or len(suffix) >= 600
+    return earliest if looks_like_dump else None
+
+
+def _strip_dashboard_dump_suffix(raw_text):
+    raw = str(raw_text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not raw:
+        return "", False
+    dump_start = _dashboard_dump_start_index(raw)
+    if dump_start is None:
+        return raw, False
+    return raw[:dump_start].rstrip(), True
+
 
 def _dedupe_insights_for_display(insights):
     """Deduplicate insights for dashboard display by topic phrase.
@@ -205,7 +276,9 @@ def _strip_updates_metadata(text):
 
         kept_lines.append(line)
 
-    return "\n".join(kept_lines).strip()
+    cleaned = "\n".join(kept_lines).strip()
+    cleaned, _ = _strip_dashboard_dump_suffix(cleaned)
+    return cleaned
 
 
 def _is_effectively_empty_updates_text(text):
@@ -223,6 +296,23 @@ def _is_effectively_empty_updates_text(text):
 def _is_stale_diarium_fallback_line(text):
     lowered = re.sub(r"\s+", " ", str(text or "").strip().lower())
     return "diarium is stale" in lowered and "live activity context" in lowered
+
+
+def _is_tracker_metadata_leak_text(text):
+    lowered = re.sub(r"\s+", " ", str(text or "").strip().lower())
+    if not lowered:
+        return False
+    if "tracker says" in lowered and "mood" in lowered:
+        return True
+    leak_patterns = (
+        r"\bmood marker is\b",
+        r"\btracker:\s*mood\b",
+        r"\bmorning mood(?:\s*tag)?\s*:",
+        r"\bevening mood(?:\s*tag)?\s*:",
+        r"\bmood(?:\s*tag)?\s*:\s*(ready|ok|calm|anxious|tired|stressed|good|bad|sad|happy)\b",
+        r"\brating:\s*[★*]",
+    )
+    return any(re.search(pattern, lowered) for pattern in leak_patterns)
 
 
 def _time_to_minutes_hhmm(value):
@@ -1728,6 +1818,18 @@ def generate_html(data):
     film_data = data.get("film_data", {}) if isinstance(data.get("film_data"), dict) else {}
     if film_data.get("status") == "success" and not (film_data.get("stale") and film_data.get("export_age_days", 0) > 180):
         import html as _html
+        def _format_lb_rating(raw_rating):
+            if raw_rating in (None, ""):
+                return ""
+            try:
+                rating_num = float(raw_rating)
+                if rating_num <= 0:
+                    return ""
+                return f"★{rating_num:g}"
+            except Exception:
+                rating_text = str(raw_rating).strip()
+                return f"★{rating_text}" if rating_text else ""
+
         wl_count = film_data.get("counts", {}).get("watchlist") or film_data.get("full_watchlist_count", 0)
         recent_watched = film_data.get("recent_watched", [])[:5]
         recent_watchlist = film_data.get("recent_watchlist", [])[:5]
@@ -1740,7 +1842,11 @@ def generate_html(data):
             title = _html.escape(str(item.get("title", "")))
             year = _html.escape(str(item.get("year", "")))
             date = _html.escape(str(item.get("date", "")))
-            watched_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#c4b5fd">🎬</span><span class="text-sm" style="color:#e5e7eb">{title} <span style="color:#6b7280">({year})</span></span><span class="text-xs ml-auto" style="color:#4b5563">{date}</span></div>'
+            rating_label = _format_lb_rating(item.get("rating"))
+            rating_html = f'<span class="text-xs" style="color:#fbbf24">{_html.escape(rating_label)}</span>' if rating_label else ""
+            date_html = f'<span class="text-xs" style="color:#4b5563">{date}</span>' if date else ""
+            meta_html = f'<span class="ml-auto flex items-center gap-2">{rating_html}{date_html}</span>' if (rating_html or date_html) else ""
+            watched_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#c4b5fd">🎬</span><span class="text-sm" style="color:#e5e7eb">{title} <span style="color:#6b7280">({year})</span></span>{meta_html}</div>'
 
         # Watchlist recently added
         watchlist_items_html = ""
@@ -1753,6 +1859,14 @@ def generate_html(data):
 
         watched_summary = f"{len(recent_watched)} diary entries" if recent_watched else "No recent diary"
         wl_str = f"{wl_count:,}" if isinstance(wl_count, int) else str(wl_count or "?")
+        latest_item = recent_watched[0] if recent_watched else {}
+        latest_title = str(latest_item.get("title", "")).strip()
+        latest_rating_label = _format_lb_rating(latest_item.get("rating"))
+        latest_summary_html = ""
+        if latest_title:
+            latest_title_html = _html.escape(latest_title)
+            latest_rating_html = f' <span style="color:#fbbf24">{_html.escape(latest_rating_label)}</span>' if latest_rating_label else ""
+            latest_summary_html = f" · Latest: {latest_title_html}{latest_rating_html}"
 
         watched_block = f'<p class="text-xs font-semibold mb-2" style="color:#c4b5fd">Recently watched</p>{watched_items_html}' if watched_items_html else ""
         wl_block = f'<p class="text-xs font-semibold mb-2 mt-3" style="color:#f9a8d4">Recently added to watchlist</p>{watchlist_items_html}' if watchlist_items_html else ""
@@ -1760,7 +1874,7 @@ def generate_html(data):
         film_html = f'''<details class="card rounded-xl p-5 mb-4" style="background:rgba(88,28,135,0.12);border:1px solid rgba(196,181,253,0.18)">
   <summary class="cursor-pointer flex items-center gap-2">
     <span class="text-lg font-semibold" style="color:#c4b5fd">🎬 Film</span>
-    <span class="text-sm ml-2" style="color:#9ca3af">{watched_summary} · {wl_str} watchlist</span>
+    <span class="text-sm ml-2" style="color:#9ca3af">{watched_summary} · {wl_str} watchlist{latest_summary_html}</span>
   </summary>
   <div class="mt-3">
     {watched_block}
@@ -1828,8 +1942,12 @@ def generate_html(data):
 
     # --- Akiflow today tasks (non-routine, for action items injection) ---
     _akiflow_raw_sa = data.get("akiflow_tasks", {})
-    _akiflow_routine_lower = {"weights", "yoga", "walk dog", "walk the dog", "get ready", "meditation", "stretch"}
+    _akiflow_routine_lower = {
+        "weights", "yoga", "walk dog", "walk the dog", "get ready", "meditation", "stretch",
+        "break", "lunch", "dinner", "breakfast", "shower", "morning routine", "evening routine",
+    }
     _akiflow_today_items = []
+    _akiflow_seen_summary = set()
     if isinstance(_akiflow_raw_sa, dict) and _akiflow_raw_sa.get("status") == "ok":
         for _t in _akiflow_raw_sa.get("tasks", []):
             if _t.get("days_from_now") != 0:
@@ -1837,7 +1955,11 @@ def generate_html(data):
             _summary = _t.get("summary", "").strip()
             if not _summary or _summary.lower() in _akiflow_routine_lower:
                 continue
+            _summary_key = re.sub(r"\s+", " ", _summary.lower()).strip()
+            if _summary_key in _akiflow_seen_summary:
+                continue
             _time_est = "30m"
+            _start_iso = str(_t.get("start", "")).strip()
             try:
                 from datetime import datetime as _dt_sa
                 _s = _dt_sa.fromisoformat(_t["start"].replace("Z", "+00:00"))
@@ -1849,7 +1971,14 @@ def generate_html(data):
                                  else f"{_mins//60}h")
             except Exception:
                 pass
-            _akiflow_today_items.append({"summary": _summary, "time_est": _time_est})
+            _akiflow_seen_summary.add(_summary_key)
+            _akiflow_today_items.append({"summary": _summary, "time_est": _time_est, "start": _start_iso})
+    _akiflow_today_items.sort(
+        key=lambda row: (
+            str(row.get("start", "")).strip(),
+            re.sub(r"\s+", " ", str(row.get("summary", "")).strip().lower()),
+        )
+    )
 
     # --- Schedule analysis extraction (feasibility_map populated after _task_match_key) ---
     _sa = data.get("schedule_analysis", {})
@@ -1862,7 +1991,8 @@ def generate_html(data):
     def _task_match_key(raw_text):
         """Normalize task/loop text so small punctuation differences do not duplicate rows."""
         text = re.sub(r"\s+", " ", str(raw_text or "").strip().lower())
-        text = re.sub(r"[^a-z0-9\s]", "", text)
+        text = re.sub(r"[^a-z0-9\s]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
         return text
 
     # Pending task guard: tasks still in genuine_todos are never "done" even if a stale
@@ -2040,6 +2170,10 @@ def generate_html(data):
             return False
         if any(phrase in lower for phrase in ("can wait", "could wait", "should wait", "wait for later", "wait until later", "at some point", "eventually")):
             return False
+        # Reject items where the text qualifies itself out of being a task:
+        # e.g. "Fix toys, but that's obviously not the most important thing today"
+        if any(phrase in lower for phrase in ("obviously not", "not the most important", ", but that's not", ", but that is not", "but obviously")):
+            return False
         if any(marker in lower for marker in ("i'm a terrible person", "denigrate", "feel bad about", "childish")):
             return False
         candidate = re.sub(
@@ -2182,30 +2316,47 @@ def generate_html(data):
             continue
         _append_action_item(done_text, priority="Medium", time_est="", source="completed", category="maintenance", force_done=True)
 
+    # Akiflow time-blocked tasks (non-routine) -> action items (core source)
+    for _ak in _akiflow_today_items:
+        _append_action_item(
+            _ak["summary"],
+            priority="High",
+            time_est=_ak["time_est"],
+            source="akiflow",
+            category="standard",
+        )
+
+    core_sources_present = any(
+        str(item.get("source", "")).strip().lower() in {"daemon", "apple_notes", "akiflow"}
+        for item in all_action_items
+        if isinstance(item, dict)
+    )
+
     try:
         _effective_today_dt = datetime.strptime(_effective_today, "%Y-%m-%d")
     except Exception:
         _effective_today_dt = None
-    for todo in (ai_todos or []):
-        text = todo.get("text", "") if isinstance(todo, dict) else str(todo)
-        category = todo.get("category", "standard") if isinstance(todo, dict) else "standard"
-        target_date = str(todo.get("rollover_target_date", "")).strip() if isinstance(todo, dict) else ""
-        due_today_override = False
-        try:
-            target_dt = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
-        except Exception:
-            target_dt = None
-        if _effective_today_dt and target_dt and target_dt <= _effective_today_dt:
-            due_today_override = True
-        _append_action_item(
-            text,
-            priority="Medium",
-            time_est="15m",
-            source="ai",
-            category=category,
-            due_today_override=due_today_override,
-            target_date=target_date,
-        )
+    if not core_sources_present:
+        for todo in (ai_todos or []):
+            text = todo.get("text", "") if isinstance(todo, dict) else str(todo)
+            category = todo.get("category", "standard") if isinstance(todo, dict) else "standard"
+            target_date = str(todo.get("rollover_target_date", "")).strip() if isinstance(todo, dict) else ""
+            due_today_override = False
+            try:
+                target_dt = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+            except Exception:
+                target_dt = None
+            if _effective_today_dt and target_dt and target_dt <= _effective_today_dt:
+                due_today_override = True
+            _append_action_item(
+                text,
+                priority="Medium",
+                time_est="15m",
+                source="ai",
+                category=category,
+                due_today_override=due_today_override,
+                target_date=target_date,
+            )
 
     if weekly_report_due:
         _append_action_item(
@@ -2217,7 +2368,7 @@ def generate_html(data):
         )
 
     # Also pull todo-type from all_insights that aren't already captured (date-gated)
-    if _ai_is_today:
+    if _ai_is_today and not core_sources_present:
         existing_texts = set(a["task"].lower() for a in all_action_items)
         for item in ai_today.get("all_insights", []):
             candidate_text = str(item.get("text", "") or "")
@@ -2229,17 +2380,16 @@ def generate_html(data):
                 category = item.get("category", "standard")
                 _append_action_item(candidate_text, priority="Medium", time_est="15m", source="ai", category=category)
 
-    # Akiflow time-blocked tasks (non-routine) → action items
-    for _ak in _akiflow_today_items:
-        _append_action_item(
-            _ak["summary"],
-            priority="High",
-            time_est=_ak["time_est"],
-            source="akiflow",
-            category="standard",
-        )
-
     if all_action_items:
+        _category_rank = {"quick_win": 0, "standard": 1, "maintenance": 2, "system": 3}
+        all_action_items.sort(
+            key=lambda item: (
+                bool(item.get("done")),
+                _category_rank.get(str(item.get("category", "standard")).strip().lower(), 1),
+                _task_match_key(item.get("task", "")),
+                str(item.get("source", "")).strip().lower(),
+            )
+        )
         # Group by category: quick_win, maintenance, standard, system (claude)
         quick_items = []
         maintenance_items = []
@@ -2450,6 +2600,8 @@ def generate_html(data):
             text = str(item.get("text", "")).strip()
             if _is_stale_missing_reflection_signal(text):
                 continue
+            if _is_tracker_metadata_leak_text(text):
+                continue
             itype = item.get("type", "other")
             if itype not in grouped:
                 grouped[itype] = []
@@ -2564,8 +2716,21 @@ def generate_html(data):
                     daily_guidance["lines"] = filtered_lines
 
         # Morning synthesis (morning data only)
-        # daily_guidance contains AI-generated prescriptive analysis of morning diary entries
-        # (grateful, intent, body check, letting go, affirmation) — this IS Morning Insights content
+        # Guard: if daily_guidance was generated after 20:00 (or before 03:00), it was
+        # produced from full-day content during an evening re-run and should NOT be
+        # shown as "Morning Insights" — fall through to heuristic synthesis instead.
+        morning_daily_guidance = daily_guidance
+        if isinstance(daily_guidance, dict):
+            _gen_at = daily_guidance.get("generated_at", "")
+            if _gen_at:
+                try:
+                    from datetime import datetime as _dt
+                    _gen_hour = _dt.fromisoformat(_gen_at).hour
+                    if _gen_hour >= 20 or _gen_hour < 3:
+                        morning_daily_guidance = None
+                except Exception:
+                    pass
+
         morning_synthesis = synthesise_top_insights(
             morning_entries, [],  # No evening data for morning synthesis
             data.get("engagementHints", []),
@@ -2573,9 +2738,13 @@ def generate_html(data):
             {"status": "found", "items": data.get("openLoopItems", [])} if data.get("openLoopItems") else {},
             data.get("aiInsights", {}).get("therapy_homework", []),
             max_length=500,
-            daily_guidance=daily_guidance  # AI morning diary analysis goes here
+            daily_guidance=morning_daily_guidance
         )
-        morning_synthesis = [line for line in morning_synthesis if not _is_stale_missing_reflection_signal(line)]
+        morning_synthesis = [
+            line for line in morning_synthesis
+            if not _is_stale_missing_reflection_signal(line)
+            and not _is_tracker_metadata_leak_text(line)
+        ]
 
         # Evening synthesis (evening data only)
         evening_synthesis = synthesise_top_insights(
@@ -2587,7 +2756,11 @@ def generate_html(data):
             max_length=500,
             daily_guidance=None  # Daily guidance goes with morning
         )
-        evening_synthesis = [line for line in evening_synthesis if not _is_stale_missing_reflection_signal(line)]
+        evening_synthesis = [
+            line for line in evening_synthesis
+            if not _is_stale_missing_reflection_signal(line)
+            and not _is_tracker_metadata_leak_text(line)
+        ]
 
         # Build Morning Insights card
         morning_sections = ""
@@ -2649,7 +2822,7 @@ def generate_html(data):
             all_updates_insights = []
             for entry in updates_entries:
                 summary = entry.get("emotional_summary", "").strip()
-                if summary and not _is_stale_missing_reflection_signal(summary):
+                if summary and not _is_stale_missing_reflection_signal(summary) and not _is_tracker_metadata_leak_text(summary):
                     update_summaries.append(summary)
                 all_updates_insights.extend(entry.get("insights", []))
 
@@ -2866,7 +3039,6 @@ def generate_html(data):
             confidence = str(best_now.get("confidence", "medium")).strip().lower()
             why = str(best_now.get("why", "")).strip()
             path_used = str(selector.get("path", "")).strip().lower()
-            weekly_rank = selector.get("weekly_rank", []) if isinstance(selector.get("weekly_rank", []), list) else []
 
             if isinstance(predicted, (int, float)):
                 relief_text = f"{float(predicted):.1f} / 10"
@@ -2886,26 +3058,6 @@ def generate_html(data):
                     continue
                 steps_html += f'<li class="text-sm mb-1" style="color: #e2e8f0; line-height: 1.45;">{html.escape(step_text)}</li>'
 
-            ranking_html = ""
-            for row in weekly_rank[:5]:
-                if not isinstance(row, dict):
-                    continue
-                row_name = str(row.get("technique", "")).strip()
-                if not row_name:
-                    continue
-                row_avg = row.get("avg_relief")
-                row_days = row.get("evidence_days")
-                row_note = str(row.get("note", "")).strip()
-                avg_text = f"{float(row_avg):.1f}/10" if isinstance(row_avg, (int, float)) else "n/a"
-                days_text = f"{int(row_days)}d" if isinstance(row_days, (int, float)) else "0d"
-                ranking_html += f'''
-                <div class="flex items-center justify-between gap-2 text-xs mb-1.5">
-                    <span style="color: #dbeafe">{html.escape(row_name)}</span>
-                    <span style="color: #93c5fd">{avg_text} • {days_text}</span>
-                </div>'''
-                if row_note:
-                    ranking_html += f'<p class="text-xs mb-1.5" style="color: #64748b">{html.escape(row_note)}</p>'
-
             intervention_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(2,132,199,0.14); border: 1px solid rgba(125,211,252,0.24);">
                 <div class="flex items-start justify-between gap-3 mb-2">
@@ -2919,7 +3071,6 @@ def generate_html(data):
                 </div>
                 {f'<p class="text-sm mb-2" style="color: #e2e8f0; line-height: 1.5;">{html.escape(why)}</p>' if why else ''}
                 {f'<ul style="margin: 0; padding-left: 1rem;">{steps_html}</ul>' if steps_html else ''}
-                {f'<div class="mt-3 pt-2" style="border-top: 1px solid rgba(125,211,252,0.22);"><p class="text-xs mb-2" style="color: #93c5fd; font-weight: 600;">Weekly effectiveness rank</p>{ranking_html}</div>' if ranking_html else ''}
             </div>'''
 
     # Detect WT day (for jobs section collapse)
@@ -4228,11 +4379,16 @@ def generate_html(data):
     )
 
     # Updates card (middle section between morning insights and evening)
-    updates_text = _strip_updates_metadata(evening.get("updates", ""))
+    _raw_updates_text = str(evening.get("updates", "") or "")
+    _raw_updates_dump_start = _dashboard_dump_start_index(_raw_updates_text)
+    updates_text = _strip_updates_metadata(_raw_updates_text)
+    _updates_dump_filtered = _raw_updates_dump_start is not None and _dashboard_dump_start_index(updates_text) is None
     if _is_effectively_empty_updates_text(updates_text):
         updates_text = ""
     updates_card_html = ""
     completed_updates_html = ""
+    updates_freshness_line = "ℹ️ No updates logged yet."
+    updates_freshness_level = "info"
     # Guard: if the Updates section contains a pasted journal/evening entry (prose, no bullets,
     # > 150 chars) skip rendering it — user pastes transcribed entries there due to Diarium
     # template constraints and it's not actual update items.
@@ -4242,6 +4398,12 @@ def generate_html(data):
         updates_emoji = _pick_content_emoji(updates_text)
         updates_text_html = html.escape(updates_text).replace("\n", "<br>")
         if _updates_is_prose:
+            if _updates_dump_filtered:
+                updates_freshness_line = "⚠️ Dashboard dump detected in updates and stripped automatically."
+                updates_freshness_level = "warn"
+            else:
+                updates_freshness_line = "🟡 Long updates prose condensed automatically."
+                updates_freshness_level = "info"
             updates_preview = _truncate_sentence_safe(updates_text, max_len=260)
             updates_preview_html = html.escape(updates_preview).replace("\n", "<br>")
             updates_card_html = f'''
@@ -4249,13 +4411,16 @@ def generate_html(data):
         <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
         <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border-left: 3px solid #60a5fa">
             <p class="text-sm mb-2" style="color: #e5e7eb">{updates_emoji} {updates_preview_html}</p>
-            <details>
-                <summary class="text-xs cursor-pointer" style="color: #93c5fd">View full cleaned updates text</summary>
-                <p class="text-sm mt-2" style="color: #cbd5e1; line-height: 1.65;">{updates_text_html}</p>
-            </details>
+            <p class="text-xs" style="color: #93c5fd">Condensed for readability.</p>
         </div>
     </div>'''
         else:
+            if _updates_dump_filtered:
+                updates_freshness_line = "⚠️ Dashboard dump detected in updates and stripped automatically."
+                updates_freshness_level = "warn"
+            else:
+                updates_freshness_line = "✅ Updates feed looks clean."
+                updates_freshness_level = "ok"
             updates_card_html = f'''
     <div class="card mb-4">
         <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
@@ -4443,6 +4608,10 @@ def generate_html(data):
 
     # Evening reflections (from Diarium evening template)
     evening_reflections_text = evening.get("evening_reflections", "")
+    if isinstance(evening_reflections_text, str):
+        evening_reflections_text = re.sub(r'^\s*Tracker\s*:.*$', '', evening_reflections_text, flags=re.IGNORECASE | re.MULTILINE)
+        evening_reflections_text = re.sub(r'^\s*Rating\s*:.*$', '', evening_reflections_text, flags=re.IGNORECASE | re.MULTILINE)
+        evening_reflections_text = re.sub(r'\n{3,}', '\n\n', evening_reflections_text).strip()
     if evening_reflections_text:
         evening_raw_html += f'''
             <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.08); border-left: 3px solid rgba(196,181,253,0.5)">
@@ -4494,15 +4663,131 @@ def generate_html(data):
     _body_feel = (_sf.get("body_feel", "") or "").strip()
     _p_count2 = _pieces_d.get("count", 0) if isinstance(_pieces_d, dict) else 0
 
+    _effective_today_key = get_effective_date()
+
+    def _narrative_contradiction_reason(raw_text):
+        text = str(raw_text or "").strip().lower()
+        if not text:
+            return ""
+        if current_hour < 18 and re.search(r"\b(end(?:ed)?\s+(?:the\s+)?day|end of (?:the )?day)\b", text):
+            return "contains end-of-day claim before evening window"
+        if current_hour < 18 and re.search(r"\b(no\s+ta[\-\s]?dah|no\s+movement|no\s+health|untracked)\b", text):
+            return "contains absence claim before evening window"
+        no_tadah_patterns = (
+            r"\bno\s+ta[\-\s]?dah\b",
+            r"\bno\s+ta[\-\s]?dah\s+items\b",
+            r"\bwithout\s+ta[\-\s]?dah\b",
+        )
+        if int(_tadah_total or 0) > 0 and any(re.search(pattern, text) for pattern in no_tadah_patterns):
+            return "claims no ta-dah despite recorded ta-dah items"
+        has_movement_data = bool(
+            (_steps_val and _steps_val > 0)
+            or (_ex_val and _ex_val > 0)
+            or str(_session_type or "").strip()
+        )
+        no_movement_patterns = (
+            r"\bno health(?:\s+or\s+movement)?\b",
+            r"\bno movement\b",
+            r"\bno health or movement updates logged\b",
+            r"\bremained?\s+untracked\b",
+            r"\bleft\s+those\s+parts\s+of\s+the\s+day\s+untracked\b",
+            r"\bwithout\s+(?:any\s+)?(?:health|movement)\s+updates\b",
+        )
+        if has_movement_data and any(re.search(pattern, text) for pattern in no_movement_patterns):
+            return "claims no movement/health tracking despite movement data"
+        return ""
+
+    def _evaluate_cached_narrative():
+        cached = str(_today_ai.get("day_activity_narrative", "") or "").strip() if isinstance(_today_ai, dict) else ""
+        if not cached:
+            return "", {
+                "status": "missing",
+                "level": "info",
+                "line": "ℹ️ Waiting for AI day narrative.",
+            }
+
+        entries = _today_ai.get("entries", []) if isinstance(_today_ai.get("entries", []), list) else []
+        source_max_iso = ""
+        source_max_ts = 0.0
+        source_includes_today = False
+        morning_generated_iso = ""
+        morning_generated_ts = 0.0
+        for row in entries:
+            if not isinstance(row, dict):
+                continue
+            row_date = str(row.get("date", "")).strip()
+            if row_date == _effective_today_key:
+                source_includes_today = True
+            row_generated = str(row.get("generated_at", "")).strip()
+            row_ts = _iso_to_ts(row_generated)
+            if row_ts > source_max_ts:
+                source_max_ts = row_ts
+                source_max_iso = row_generated
+            if str(row.get("source", "")).strip() == "morning" and row_ts > morning_generated_ts:
+                morning_generated_ts = row_ts
+                morning_generated_iso = row_generated
+
+        meta = _today_ai.get("narrative_meta", {}) if isinstance(_today_ai.get("narrative_meta"), dict) else {}
+        meta_source_date = str(meta.get("source_date", "")).strip()
+        meta_generated_iso = str(meta.get("generated_at", "")).strip()
+        meta_source_max_iso = str(meta.get("source_max_ts", "")).strip()
+        meta_source_includes_today = meta.get("source_includes_today")
+        generated_iso = meta_generated_iso or morning_generated_iso
+        generated_ts = _iso_to_ts(generated_iso)
+        latest_source_iso = meta_source_max_iso or source_max_iso
+        latest_source_ts = _iso_to_ts(latest_source_iso)
+        if isinstance(meta_source_includes_today, bool):
+            source_includes_today = bool(meta_source_includes_today)
+
+        reasons = []
+        if meta_source_date and meta_source_date != _effective_today_key:
+            reasons.append(f"source date {meta_source_date} ≠ {_effective_today_key}")
+        if not source_includes_today:
+            reasons.append("same-day sources missing")
+        if generated_ts <= 0:
+            reasons.append("generated_at missing")
+        if latest_source_ts > 0 and generated_ts > 0 and generated_ts < latest_source_ts:
+            reasons.append("older than latest same-day source")
+
+        if not reasons:
+            clean_cached = re.sub(r'^\s*#{1,6}\s+[^\n]+\n*', '', cached, count=1).strip()
+            narrative = clean_cached or cached
+            contradiction = _narrative_contradiction_reason(narrative)
+            if contradiction:
+                return "", {
+                    "status": "stale",
+                    "level": "warn",
+                    "line": f"⚠️ Cached day narrative invalid ({contradiction}); fallback active.",
+                    "generated_at": generated_iso,
+                    "source_max_ts": latest_source_iso,
+                }
+            if narrative:
+                when = _clock_hhmm(generated_iso)
+                line = "✅ What you did today is fresh."
+                if when:
+                    line = f"✅ What you did today is fresh ({when})."
+                return narrative, {
+                    "status": "fresh",
+                    "level": "ok",
+                    "line": line,
+                    "generated_at": generated_iso,
+                    "source_max_ts": latest_source_iso,
+                }
+
+        reason_text = reasons[0] if reasons else "cache mismatch"
+        return "", {
+            "status": "stale",
+            "level": "warn",
+            "line": f"⚠️ Cached day narrative stale ({reason_text}); fallback active.",
+            "generated_at": generated_iso,
+            "source_max_ts": latest_source_iso,
+        }
+
     def _compose_day_narrative():
         """Return AI-generated narrative from cache, or rich structured fallback."""
-        # Prefer AI-generated narrative cached by daemon (Haiku writes a full paragraph
-        # that already weaves Pieces/dev work naturally into the prose)
-        _cached_narrative = ""
-        if isinstance(_today_ai, dict):
-            _cached_narrative = str(_today_ai.get("day_activity_narrative", "") or "").strip()
-        if _cached_narrative:
-            return _cached_narrative
+        cached_narrative, cached_state = _evaluate_cached_narrative()
+        if cached_narrative:
+            return cached_narrative, cached_state
 
         # Fallback: build a paragraph from structured data (used before daemon generates)
         parts = []
@@ -4541,9 +4826,23 @@ def generate_html(data):
         if _p_count2 > 0:
             parts.append(f"You had {_p_count2} dev session{'s' if _p_count2 != 1 else ''} on the laptop today.")
 
-        return " ".join(parts) if parts else ""
+        fallback_text = " ".join(parts) if parts else ""
+        if fallback_text:
+            if cached_state.get("status") == "stale":
+                return fallback_text, {
+                    **cached_state,
+                    "status": "fallback",
+                    "level": "warn",
+                    "line": str(cached_state.get("line", "")).strip() or "⚠️ Cached day narrative stale; fallback active.",
+                }
+            return fallback_text, {
+                "status": "fallback",
+                "level": "info",
+                "line": "🟡 Using structured fallback narrative until AI rewrite lands.",
+            }
+        return "", cached_state
 
-    _narrative = _compose_day_narrative()
+    _narrative, _narrative_freshness = _compose_day_narrative()
 
     # Standalone "What you did today" card — shown always (not gated by evening)
     _has_day_data = bool(_narrative or _p_digest2 or _p_summaries2)
@@ -4715,6 +5014,17 @@ def generate_html(data):
         {guidance_items_html}
     </div>'''
 
+    # Lean mode (default): reduce repeated suggestion surfaces to one ranked intervention card.
+    feature_flags_payload = data.get("feature_flags", {}) if isinstance(data.get("feature_flags", {}), dict) else {}
+    lean_mode_enabled = bool(feature_flags_payload.get("dashboard_lean_mode", True))
+    if lean_mode_enabled:
+        guidance_section_html = intervention_html or todays_guidance_html or insights_fallback_html
+        support_section_html = ""
+        suggestions_html = ""
+    else:
+        guidance_section_html = f"{todays_guidance_html}{insights_fallback_html}"
+        support_section_html = f"{support_html}{intervention_html}"
+
     # === Ta-Dah Categorisation (theme breakdown) ===
     # Recompute themes from actual ta-dah items using dashboard's own categoriser
     # This ensures ALL categories appear (daemon's ta_dah_categorised can miss some)
@@ -4777,18 +5087,23 @@ def generate_html(data):
     eve_felt_entry = None
     for entry in reversed(eve_felt_entries):
         summary = str(entry.get("emotional_summary", "")).strip()
-        if summary and not _looks_like_weekly_digest_summary(summary):
+        if summary and not _looks_like_weekly_digest_summary(summary) and not _is_tracker_metadata_leak_text(summary):
             eve_felt_summary = summary
             eve_felt_entry = entry
             break
     if eve_felt_entry is None and eve_felt_entries:
         eve_felt_entry = eve_felt_entries[-1]
     eve_felt_insights = eve_felt_entry.get("insights", []) if isinstance(eve_felt_entry, dict) else []
-    eve_patterns = [i for i in eve_felt_insights if i.get("type") == "pattern"]
+    eve_patterns = [
+        i for i in eve_felt_insights
+        if i.get("type") == "pattern"
+        and not _is_tracker_metadata_leak_text(i.get("text", ""))
+    ]
     eve_signals = [
         i for i in eve_felt_insights
         if i.get("type") == "signal"
         and not _is_stale_missing_reflection_signal(i.get("text", ""))
+        and not _is_tracker_metadata_leak_text(i.get("text", ""))
     ]
 
     # Always show if we have ANY data
@@ -5015,6 +5330,122 @@ def generate_html(data):
         </div>
     </section>'''
 
+    _cache_age_live = runtime.get("cache_age_minutes") if isinstance(runtime.get("cache_age_minutes"), int) else None
+    if isinstance(_cache_age_live, int) and _cache_age_live <= 10:
+        cache_fresh_line = f"✅ Cache age healthy ({_cache_age_live}m)."
+        cache_fresh_level = "ok"
+    elif isinstance(_cache_age_live, int) and _cache_age_live <= 60:
+        cache_fresh_line = f"🟡 Cache aging ({_cache_age_live}m) — watching."
+        cache_fresh_level = "info"
+    elif isinstance(_cache_age_live, int):
+        cache_fresh_line = f"⚠️ Cache stale ({_cache_age_live}m) — refresh recommended."
+        cache_fresh_level = "warn"
+    else:
+        cache_fresh_line = "ℹ️ Cache age unknown."
+        cache_fresh_level = "info"
+
+    _source_date_live = str(data.get("diariumDataDate", "") or "").strip()
+    if data.get("diariumFresh", True):
+        if _source_date_live and _source_date_live != effective_today:
+            diarium_fresh_line = f"⚠️ Journal date mismatch ({_source_date_live} vs {effective_today})."
+            diarium_fresh_level = "warn"
+        else:
+            _source_label = _source_date_live or effective_today
+            diarium_fresh_line = f"✅ Journal source is today ({_source_label})."
+            diarium_fresh_level = "ok"
+    else:
+        diarium_fresh_line = f"🔴 Journal stale (source: {_source_date_live or 'unknown'})."
+        diarium_fresh_level = "error"
+
+    diarium_pickup = data.get("diariumPickupStatus", {}) if isinstance(data.get("diariumPickupStatus", {}), dict) else {}
+    pickup_status = str(diarium_pickup.get("status", "") or "").strip().lower()
+    pickup_reason = str(diarium_pickup.get("reason", "") or "").strip()
+    pickup_file = str(diarium_pickup.get("latest_file", "") or "").strip()
+    pickup_file_name = Path(pickup_file).name if pickup_file else "none"
+    pickup_mtime = str(diarium_pickup.get("latest_file_mtime", "") or "").strip()
+    pickup_age = diarium_pickup.get("latest_file_age_seconds")
+    try:
+        pickup_age = int(pickup_age) if pickup_age is not None else None
+    except Exception:
+        pickup_age = None
+    if pickup_age is None:
+        pickup_age_text = "?"
+    elif pickup_age < 3600:
+        pickup_age_text = f"{pickup_age // 60}m"
+    else:
+        pickup_age_text = f"{pickup_age // 3600}h"
+    pickup_mtime_text = _clock_hhmm(pickup_mtime) if pickup_mtime else ""
+    if not pickup_mtime_text:
+        pickup_mtime_text = pickup_mtime[:16] if pickup_mtime else "unknown"
+    pickup_label = pickup_status or "unknown"
+    diarium_pickup_line = f"📓 Pickup: {pickup_label} • {pickup_file_name} • mtime {pickup_mtime_text} • age {pickup_age_text}"
+    if pickup_reason:
+        diarium_pickup_line += f" • {pickup_reason}"
+    pickup_level_map = {
+        "picked_up": "ok",
+        "waiting_for_export": "info",
+        "export_seen_not_parsed": "warn",
+        "stale": "warn",
+    }
+    diarium_pickup_level = pickup_level_map.get(pickup_status, "info")
+
+    narrative_fresh_line = str(_narrative_freshness.get("line", "") or "ℹ️ Narrative freshness unknown.")
+    narrative_fresh_level = str(_narrative_freshness.get("level", "info") or "info").lower()
+    if narrative_fresh_level not in {"ok", "info", "warn", "error"}:
+        narrative_fresh_level = "info"
+
+    morning_slot = str(morning.get("mood_tag", "") or "").strip().lower() or "unknown"
+    evening_slot = str(evening.get("mood_tag", "") or "").strip().lower() or "unknown"
+    if morning_slot == "unknown":
+        mood_fresh_line = "⚠️ Morning mood slot missing."
+        mood_fresh_level = "warn"
+    elif evening_slot == "unknown" and current_hour >= 20:
+        mood_fresh_line = f"⚠️ Evening mood slot still missing (morning: {morning_slot})."
+        mood_fresh_level = "warn"
+    elif evening_slot == "unknown":
+        mood_fresh_line = f"🟡 Mood slots: morning {morning_slot}, evening pending."
+        mood_fresh_level = "info"
+    else:
+        mood_fresh_line = f"✅ Mood slots split: morning {morning_slot}, evening {evening_slot}."
+        mood_fresh_level = "ok"
+
+    updates_fresh_level = updates_freshness_level if updates_freshness_level in {"ok", "info", "warn", "error"} else "info"
+    _freshness_rank = {"ok": 0, "info": 1, "warn": 2, "error": 3}
+    _overall_rank = max(
+        _freshness_rank.get(diarium_fresh_level, 1),
+        _freshness_rank.get(diarium_pickup_level, 1),
+        _freshness_rank.get(narrative_fresh_level, 1),
+        _freshness_rank.get(updates_fresh_level, 1),
+        _freshness_rank.get(mood_fresh_level, 1),
+        _freshness_rank.get(cache_fresh_level, 1),
+    )
+    if _overall_rank >= 3:
+        freshness_overall_line = "🔴 Freshness auto-check: critical issue detected."
+        freshness_overall_level = "error"
+    elif _overall_rank >= 2:
+        freshness_overall_line = "🟡 Freshness auto-check: issue detected, dashboard is guarding."
+        freshness_overall_level = "warn"
+    elif _overall_rank == 1:
+        freshness_overall_line = "🔵 Freshness auto-check: waiting for later-day inputs."
+        freshness_overall_level = "info"
+    else:
+        freshness_overall_line = "🟢 Freshness auto-check: all clear."
+        freshness_overall_level = "ok"
+
+    freshness_watch_html = f'''
+    <div id="qa-freshness-watch" class="card mt-2" style="border: 1px solid rgba(125,211,252,0.28); background: rgba(15,23,42,0.55);">
+        <p id="qa-fresh-overall" data-level="{freshness_overall_level}" class="text-sm font-semibold" style="color: #a7f3d0">{html.escape(freshness_overall_line)}</p>
+        <div class="mt-2 space-y-1">
+            <p id="qa-fresh-diarium" data-level="{diarium_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(diarium_fresh_line)}</p>
+            <p id="qa-fresh-diarium-pickup" data-level="{diarium_pickup_level}" class="text-xs" style="color: #94a3b8">{html.escape(diarium_pickup_line)}</p>
+            <p id="qa-fresh-narrative" data-level="{narrative_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(narrative_fresh_line)}</p>
+            <p id="qa-fresh-updates" data-level="{updates_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(updates_freshness_line)}</p>
+            <p id="qa-fresh-mood" data-level="{mood_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(mood_fresh_line)}</p>
+            <p id="qa-fresh-cache" data-level="{cache_fresh_level}" class="text-xs" style="color: #cbd5e1">{html.escape(cache_fresh_line)}</p>
+        </div>
+        <p id="qa-fresh-updated" class="text-xs mt-2" style="color: #94a3b8">Auto-check runs every 30s while this tab is open.</p>
+    </div>'''
+
     stale_notice_html = ""
     if not data.get("diariumFresh", True):
         source_date = data.get("diariumDataDate") or "unknown"
@@ -5045,7 +5476,16 @@ def generate_html(data):
         ideas_retried = int(ideas_counts.get("retried", 0) or 0)
         ideas_retry_queue = int(ideas_payload.get("retry_queue_count", 0) or 0)
         ideas_last_run = str(ideas_payload.get("last_run", "") or "").strip()
-        ideas_preview = ideas_payload.get("latest_items_preview", []) if isinstance(ideas_payload.get("latest_items_preview", []), list) else []
+        ideas_preview = ideas_payload.get("cleaned_note_lines_preview", []) if isinstance(ideas_payload.get("cleaned_note_lines_preview", []), list) else []
+        if not ideas_preview:
+            ideas_preview = ideas_payload.get("latest_items_preview", []) if isinstance(ideas_payload.get("latest_items_preview", []), list) else []
+        ideas_context_text = str(ideas_payload.get("cleaned_note_full_text", "") or "").strip()
+        ideas_context_line_count = int(ideas_payload.get("cleaned_note_line_count", 0) or 0)
+        ideas_snapshot_at = str(ideas_payload.get("cleaned_note_snapshot_at", "") or "").strip()
+        ideas_snapshot_clock = _clock_hhmm(ideas_snapshot_at) if ideas_snapshot_at else ""
+        ideas_filtered_meta = int(ideas_payload.get("filtered_meta_lines_count", 0) or 0)
+        ideas_deduped_count = int(ideas_payload.get("deduped_lines_count", 0) or 0)
+        ideas_cleanup_closed = int(ideas_payload.get("cleanup_closed_count", 0) or 0)
         ideas_failures = ideas_payload.get("failures", []) if isinstance(ideas_payload.get("failures", []), list) else []
         ideas_fail_summary = ""
         if ideas_failures:
@@ -5057,11 +5497,29 @@ def generate_html(data):
         if ideas_preview:
             preview_items = "".join(
                 f'<li style="color: #cbd5e1;">{html.escape(str(item).strip())}</li>'
-                for item in ideas_preview[:3]
+                for item in ideas_preview[:6]
                 if str(item).strip()
             )
             if preview_items:
                 ideas_preview_html = f'<ul class="text-xs mt-2 space-y-1">{preview_items}</ul>'
+        ideas_context_html = ""
+        if ideas_context_text:
+            ideas_meta_bits = [f"{ideas_context_line_count} line{'s' if ideas_context_line_count != 1 else ''}"]
+            if ideas_snapshot_clock:
+                ideas_meta_bits.append(f"snapshot {ideas_snapshot_clock}")
+            ideas_meta = " • ".join(ideas_meta_bits)
+            ideas_context_html = (
+                '<details class="mt-2">'
+                f'<summary class="text-xs cursor-pointer" style="color: #93c5fd">Context: {html.escape(ideas_meta)}</summary>'
+                f'<pre class="text-xs mt-2 p-2 rounded" style="max-height: 180px; overflow: auto; white-space: pre-wrap; background: rgba(15,23,42,0.45); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.18);">{html.escape(ideas_context_text)}</pre>'
+                '</details>'
+            )
+        ideas_cleanup_html = ""
+        if ideas_cleanup_closed > 0:
+            ideas_cleanup_html = f'<p class="text-xs mt-1" style="color: #86efac">Cleanup: closed {ideas_cleanup_closed} recursive tracking bead(s).</p>'
+        ideas_clean_meta_html = (
+            f'<p class="text-xs mt-1" style="color: #94a3b8">Cleaned note lines: {ideas_context_line_count} • meta filtered {ideas_filtered_meta} • deduped {ideas_deduped_count}</p>'
+        )
 
         status_colour = "#86efac" if ideas_status == "success" else ("#fca5a5" if ideas_status == "error" else "#fde68a")
         ideas_status_html = f'''
@@ -5069,8 +5527,11 @@ def generate_html(data):
         <p class="text-sm font-semibold" style="color: #a7f3d0">💡 Ideas pickup</p>
         <p class="text-xs mt-1" style="color: {status_colour};">Status: {html.escape(ideas_status)} • new {ideas_new} • beads {ideas_created} • failed {ideas_failed} • retried {ideas_retried} • queue {ideas_retry_queue}</p>
         {f'<p class="text-xs mt-1" style="color: #94a3b8">Last run: {html.escape(ideas_last_run)}</p>' if ideas_last_run else ''}
+        {ideas_clean_meta_html}
         {ideas_fail_summary}
+        {ideas_cleanup_html}
         {ideas_preview_html}
+        {ideas_context_html}
     </div>'''
 
     # Action controls (writes through local API) — rendered inside Action Points.
@@ -5420,6 +5881,7 @@ def generate_html(data):
                     <input id="qa-quick-mood-check" type="checkbox" {qa_quick_mood_checked} onchange="qaToggleMoodQuick(this)" class="h-3.5 w-3.5">
                     🙂 {html.escape(qa_quick_mood_habit)}
                 </label>
+                <span id="qa-mood-save-state" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
                 {qa_quick_end_day_html}
             </div>
             <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: #93c5fd">{html.escape(qa_quick_meta)}</p>
@@ -5437,9 +5899,9 @@ def generate_html(data):
         <div class="mt-4 pt-4" style="border-top: 1px solid rgba(251,191,36,0.16);">
             <label class="text-xs block mb-1" style="color: #fbbf24">📉 Rate today's anxiety relief (0-10)</label>
             <div class="flex items-center gap-3">
-                <input id="qa-anxiety-score" type="range" min="0" max="10" step="1" value="{qa_slider_value}" class="flex-1" oninput="document.getElementById('qa-anxiety-score-val').textContent=this.value">
+                <input id="qa-anxiety-score" type="range" min="0" max="10" step="1" value="{qa_slider_value}" class="flex-1" oninput="qaOnAnxietyInput(this)" onchange="qaOnAnxietyInput(this, true)">
                 <span id="qa-anxiety-score-val" class="text-sm font-semibold" style="color: #fcd34d">{qa_slider_value}</span>
-                <button onclick="qaRateAnxiety()" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(120,53,15,0.35); color: #fcd34d; border: 1px solid rgba(251,191,36,0.35);">Save</button>
+                <span id="qa-anxiety-save-state" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
             </div>
             {qa_yoga_evening_hint_html}
             {qa_week_summary_html}
@@ -5592,6 +6054,9 @@ def generate_html(data):
     let qaCurrentWorkoutDone = Boolean(QA_WORKOUT_DONE_INITIAL);
     const qaAnxietySeed = Number(QA_ANXIETY_SCORE_INITIAL);
     let qaCurrentAnxietyScore = Number.isFinite(qaAnxietySeed) ? qaAnxietySeed : null;
+    let qaAnxietySaveTimer = null;
+    let qaAnxietySaveInFlight = false;
+    let qaAnxietyPendingScore = null;
     let qaYogaPromptAutoOpened = false;
     let qaLiveSyncPausedUntil = 0;
     let qaEndDayState = (QA_END_DAY_INITIAL && typeof QA_END_DAY_INITIAL === "object") ? QA_END_DAY_INITIAL : {{ done_today: false, date: "", ran_at: "", source: "" }};
@@ -5599,6 +6064,14 @@ def generate_html(data):
     let qaSystemStatusFailureCount = 0;
     let qaSystemPollInFlight = false;
     let qaTodaySyncInFlight = false;
+    let qaFreshnessState = {{
+        diarium: "info",
+        diarium_pickup: "info",
+        narrative: "info",
+        updates: "info",
+        mood: "info",
+        cache: "info",
+    }};
     const qaGetInFlight = new Map();
     const QA_TAB_ID = `tab-${{Math.random().toString(36).slice(2)}}-${{Date.now().toString(36)}}`;
     const QA_LEADER_DISABLE_KEY = "dashboard.live.sync.leader.disabled.v1";
@@ -5845,10 +6318,12 @@ def generate_html(data):
         if (snapshot.end_day && typeof snapshot.end_day === "object") {{
             qaApplyEndDayState(snapshot.end_day);
         }}
+        const anxietyBusy = Boolean(qaAnxietySaveInFlight || qaAnxietyPendingScore !== null || qaAnxietySaveTimer);
         const liveScore = Number(snapshot.anxiety_reduction_score);
-        if (Number.isFinite(liveScore)) {{
+        if (!anxietyBusy && Number.isFinite(liveScore)) {{
             qaApplyAnxietyScore(liveScore);
-        }} else {{
+            qaSetAnxietySaveState("synced");
+        }} else if (!anxietyBusy) {{
             qaCurrentAnxietyScore = null;
         }}
         if (snapshot.workout_checklist && typeof snapshot.workout_checklist === "object") {{
@@ -5887,10 +6362,12 @@ def generate_html(data):
         }}
         if (!qaMoodSaving && snapshot.mood_checkin && typeof snapshot.mood_checkin === "object") {{
             qaApplyMoodState(snapshot.mood_checkin);
+            qaSetMoodSaveState("synced");
         }}
         if (Array.isArray(snapshot.calendar)) {{
             qaApplyCalendarState(snapshot.calendar);
         }}
+        qaUpdateFreshnessFromToday(snapshot);
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
     }}
 
@@ -6328,6 +6805,219 @@ def generate_html(data):
         qaUpdateSyncPauseUi();
     }}
 
+    function qaNormalizeFreshLevel(level) {{
+        const raw = String(level || "").toLowerCase();
+        return ["ok", "info", "warn", "error"].includes(raw) ? raw : "info";
+    }}
+
+    function qaFreshLevelColor(level) {{
+        const normalized = qaNormalizeFreshLevel(level);
+        if (normalized === "ok") return "#6ee7b7";
+        if (normalized === "warn") return "#fbbf24";
+        if (normalized === "error") return "#fca5a5";
+        return "#93c5fd";
+    }}
+
+    function qaSetFreshnessLine(id, text, level) {{
+        const el = document.getElementById(id);
+        if (!el) return;
+        const normalized = qaNormalizeFreshLevel(level);
+        el.dataset.level = normalized;
+        el.textContent = String(text || "").trim();
+        el.style.color = qaFreshLevelColor(normalized);
+    }}
+
+    function qaRefreshFreshnessOverall() {{
+        const rank = {{ ok: 0, info: 1, warn: 2, error: 3 }};
+        const levels = Object.values(qaFreshnessState || {{}}).map((v) => qaNormalizeFreshLevel(v));
+        let maxLevel = "info";
+        let maxRank = 1;
+        for (const level of levels) {{
+            const value = rank[level] ?? 1;
+            if (value > maxRank) {{
+                maxRank = value;
+                maxLevel = level;
+            }}
+        }}
+        let text = "🔵 Freshness auto-check: waiting for later-day inputs.";
+        if (maxLevel === "ok") text = "🟢 Freshness auto-check: all clear.";
+        if (maxLevel === "warn") text = "🟡 Freshness auto-check: issue detected, dashboard is guarding.";
+        if (maxLevel === "error") text = "🔴 Freshness auto-check: critical issue detected.";
+        qaSetFreshnessLine("qa-fresh-overall", text, maxLevel);
+    }}
+
+    function qaPrimeFreshnessStateFromDom() {{
+        const mapping = {{
+            diarium: "qa-fresh-diarium",
+            diarium_pickup: "qa-fresh-diarium-pickup",
+            narrative: "qa-fresh-narrative",
+            updates: "qa-fresh-updates",
+            mood: "qa-fresh-mood",
+            cache: "qa-fresh-cache",
+        }};
+        Object.entries(mapping).forEach(([key, id]) => {{
+            const el = document.getElementById(id);
+            if (!el) return;
+            qaFreshnessState[key] = qaNormalizeFreshLevel(el.dataset.level || "info");
+        }});
+        qaRefreshFreshnessOverall();
+    }}
+
+    function qaUpdateFreshnessFromToday(today) {{
+        const snapshot = (today && typeof today === "object") ? today : null;
+        if (!snapshot) return;
+        const effective = String(snapshot.effective_date || qaEffectiveDateKey() || "").trim();
+
+        const diariumFresh = snapshot.diarium_fresh !== false;
+        const diariumDate = String(snapshot.diarium_source_date || "").trim();
+        let diariumLevel = "info";
+        let diariumLine = "ℹ️ Journal freshness unknown.";
+        if (!diariumFresh) {{
+            diariumLevel = "error";
+            diariumLine = `🔴 Journal stale (source: ${{diariumDate || "unknown"}}).`;
+        }} else if (diariumDate && effective && diariumDate !== effective) {{
+            diariumLevel = "warn";
+            diariumLine = `⚠️ Journal date mismatch (${{diariumDate}} vs ${{effective}}).`;
+        }} else {{
+            diariumLevel = "ok";
+            diariumLine = `✅ Journal source is today (${{diariumDate || effective || "today"}}).`;
+        }}
+        qaFreshnessState.diarium = diariumLevel;
+        qaSetFreshnessLine("qa-fresh-diarium", diariumLine, diariumLevel);
+
+        const pickup = (snapshot.diarium_pickup_status && typeof snapshot.diarium_pickup_status === "object")
+            ? snapshot.diarium_pickup_status
+            : {{}};
+        const pickupStatus = String(pickup.status || "").trim().toLowerCase();
+        const pickupReason = String(pickup.reason || "").trim();
+        const pickupFile = String(pickup.latest_file || "").trim();
+        const pickupFileName = pickupFile ? pickupFile.split("/").pop() : "none";
+        const pickupMtimeRaw = String(pickup.latest_file_mtime || "").trim();
+        const pickupMtime = qaFormatClockTime(pickupMtimeRaw) || (pickupMtimeRaw ? pickupMtimeRaw.slice(0, 16) : "unknown");
+        let pickupAgeText = "?";
+        if (Number.isFinite(Number(pickup.latest_file_age_seconds))) {{
+            const age = Math.max(0, Number(pickup.latest_file_age_seconds));
+            pickupAgeText = age < 3600 ? `${{Math.floor(age / 60)}}m` : `${{Math.floor(age / 3600)}}h`;
+        }}
+        let pickupLevel = "info";
+        if (pickupStatus === "picked_up") pickupLevel = "ok";
+        else if (pickupStatus === "export_seen_not_parsed" || pickupStatus === "stale") pickupLevel = "warn";
+        const pickupLabel = pickupStatus || "unknown";
+        let pickupLine = `📓 Pickup: ${{pickupLabel}} • ${{pickupFileName}} • mtime ${{pickupMtime}} • age ${{pickupAgeText}}`;
+        if (pickupReason) pickupLine += ` • ${{pickupReason}}`;
+        qaFreshnessState.diarium_pickup = pickupLevel;
+        qaSetFreshnessLine("qa-fresh-diarium-pickup", pickupLine, pickupLevel);
+
+        const meta = (snapshot.narrative_meta && typeof snapshot.narrative_meta === "object") ? snapshot.narrative_meta : {{}};
+        const nState = String(meta.freshness_state || "").toLowerCase();
+        const nSourceDate = String(meta.source_date || "").trim();
+        const nGenerated = String(meta.generated_at || "").trim();
+        const nSourceMax = String(meta.source_max_ts || "").trim();
+        const nIncludesToday = meta.source_includes_today;
+        const nGeneratedTs = nGenerated ? Date.parse(nGenerated) : NaN;
+        const nSourceMaxTs = nSourceMax ? Date.parse(nSourceMax) : NaN;
+        let narrativeLevel = "info";
+        let narrativeLine = "ℹ️ Waiting for AI day narrative.";
+        if (nState === "fresh") {{
+            const when = qaFormatClockTime(nGenerated);
+            narrativeLevel = "ok";
+            narrativeLine = when ? `✅ What you did today is fresh (${{when}}).` : "✅ What you did today is fresh.";
+        }} else if (nState === "stale") {{
+            narrativeLevel = "warn";
+            narrativeLine = "⚠️ Cached day narrative marked stale; fallback active.";
+        }} else if (nSourceDate && effective && nSourceDate !== effective) {{
+            narrativeLevel = "warn";
+            narrativeLine = `⚠️ Cached day narrative source date mismatch (${{nSourceDate}}).`;
+        }} else if (nIncludesToday === false) {{
+            narrativeLevel = "warn";
+            narrativeLine = "⚠️ Cached day narrative missing same-day sources.";
+        }} else if (Number.isFinite(nGeneratedTs) && Number.isFinite(nSourceMaxTs) && nGeneratedTs < nSourceMaxTs) {{
+            narrativeLevel = "warn";
+            narrativeLine = "⚠️ Cached day narrative older than latest same-day source.";
+        }} else if (nGenerated) {{
+            const when = qaFormatClockTime(nGenerated);
+            narrativeLevel = "info";
+            narrativeLine = when ? `🟡 Narrative generated at ${{when}} — verifying freshness.` : "🟡 Narrative generated — verifying freshness.";
+        }}
+        qaFreshnessState.narrative = narrativeLevel;
+        qaSetFreshnessLine("qa-fresh-narrative", narrativeLine, narrativeLevel);
+
+        const updatesRaw = String(snapshot.diary_updates || "").trim();
+        let updatesLevel = "info";
+        let updatesLine = "ℹ️ No updates logged yet.";
+        if (updatesRaw) {{
+            const hasDump = /^(?:\\s*(?:📊\\s*)?Dashboard\\s*[—\\-:|])/im.test(updatesRaw)
+                && (/\\n\\s*🌅\\s*Morning\\b/im.test(updatesRaw) || /\\n\\s*🌙\\s*Evening\\b/im.test(updatesRaw));
+            const hasBullets = /(?m)^[\\-\\*]|\\[\\s*[xX ]?\\s*\\]|\\d+\\.\\s/.test(updatesRaw);
+            const isProse = updatesRaw.length > 150 && !hasBullets;
+            if (hasDump) {{
+                updatesLevel = "warn";
+                updatesLine = "⚠️ Dashboard dump detected in updates and stripped automatically.";
+            }} else if (isProse) {{
+                updatesLevel = "info";
+                updatesLine = "🟡 Long updates prose condensed automatically.";
+            }} else {{
+                updatesLevel = "ok";
+                updatesLine = "✅ Updates feed looks clean.";
+            }}
+        }}
+        qaFreshnessState.updates = updatesLevel;
+        qaSetFreshnessLine("qa-fresh-updates", updatesLine, updatesLevel);
+
+        const moodSlots = (snapshot.mood_slots && typeof snapshot.mood_slots === "object") ? snapshot.mood_slots : {{}};
+        const morningSlot = String(moodSlots.morning || "").trim().toLowerCase() || "unknown";
+        const eveningSlot = String(moodSlots.evening || "").trim().toLowerCase() || "unknown";
+        const hourNow = (new Date()).getHours();
+        let moodLevel = "info";
+        let moodLine = "ℹ️ Mood slot status pending.";
+        if (morningSlot === "unknown") {{
+            moodLevel = "warn";
+            moodLine = "⚠️ Morning mood slot missing.";
+        }} else if (eveningSlot === "unknown" && hourNow >= 20) {{
+            moodLevel = "warn";
+            moodLine = `⚠️ Evening mood slot still missing (morning: ${{morningSlot}}).`;
+        }} else if (eveningSlot === "unknown") {{
+            moodLevel = "info";
+            moodLine = `🟡 Mood slots: morning ${{morningSlot}}, evening pending.`;
+        }} else {{
+            moodLevel = "ok";
+            moodLine = `✅ Mood slots split: morning ${{morningSlot}}, evening ${{eveningSlot}}.`;
+        }}
+        qaFreshnessState.mood = moodLevel;
+        qaSetFreshnessLine("qa-fresh-mood", moodLine, moodLevel);
+
+        const updatedLine = document.getElementById("qa-fresh-updated");
+        if (updatedLine) {{
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, "0");
+            const mm = String(now.getMinutes()).padStart(2, "0");
+            updatedLine.textContent = `Auto-check updated ${{hh}}:${{mm}} • every 30s while this tab is open.`;
+        }}
+
+        qaRefreshFreshnessOverall();
+    }}
+
+    function qaUpdateFreshnessFromSystem(system) {{
+        const payload = (system && typeof system === "object") ? system : null;
+        if (!payload) return;
+        const cacheAge = Number(payload.cache_age_minutes);
+        let cacheLevel = "info";
+        let cacheLine = "ℹ️ Cache age unknown.";
+        if (Number.isFinite(cacheAge) && cacheAge <= 10) {{
+            cacheLevel = "ok";
+            cacheLine = `✅ Cache age healthy (${{cacheAge}}m).`;
+        }} else if (Number.isFinite(cacheAge) && cacheAge <= 60) {{
+            cacheLevel = "info";
+            cacheLine = `🟡 Cache aging (${{cacheAge}}m) — watching.`;
+        }} else if (Number.isFinite(cacheAge)) {{
+            cacheLevel = "warn";
+            cacheLine = `⚠️ Cache stale (${{cacheAge}}m) — refresh recommended.`;
+        }}
+        qaFreshnessState.cache = cacheLevel;
+        qaSetFreshnessLine("qa-fresh-cache", cacheLine, cacheLevel);
+        qaRefreshFreshnessOverall();
+    }}
+
     function qaUpdateSystemStatus(system) {{
         if (!system || typeof system !== "object") return;
         const controlsWrap = document.getElementById("dashboard-controls-wrap");
@@ -6424,6 +7114,7 @@ def generate_html(data):
             const checked = system.checked_at ? String(system.checked_at).slice(11, 16) : "";
             checkedAt.textContent = checked || "--:--";
         }}
+        qaUpdateFreshnessFromSystem(system);
     }}
 
     async function qaCompleteLoopText(text) {{
@@ -6525,20 +7216,93 @@ def generate_html(data):
         }}
     }}
 
-    async function qaRateAnxiety() {{
-        const scoreEl = document.getElementById("qa-anxiety-score");
-        const score = Number(scoreEl.value || "0");
-        const result = await qaPostWithRetry("/v1/ui/interventions/rating", {{ score }}, {{ retries: 1, label: "anxiety score" }});
-        if (result) {{
-            const status = document.getElementById("qa-status");
-            const savedRaw = Number(result && result.score);
-            const saved = Number.isFinite(savedRaw) ? savedRaw : score;
-            qaApplyAnxietyScore(saved);
-            if (status) {{
-                status.textContent = `✅ Anxiety relief saved (${{saved}}/10)`;
-                status.style.color = "#6ee7b7";
-            }}
+    function qaSetAnxietySaveState(kind) {{
+        const badge = document.getElementById("qa-anxiety-save-state");
+        if (!badge) return;
+        const k = String(kind || "").toLowerCase();
+        if (k === "saving") {{
+            badge.textContent = "saving...";
+            badge.style.color = "#93c5fd";
+            badge.style.borderColor = "rgba(147,197,253,0.35)";
+            return;
         }}
+        if (k === "retrying") {{
+            badge.textContent = "retrying";
+            badge.style.color = "#fbbf24";
+            badge.style.borderColor = "rgba(251,191,36,0.35)";
+            return;
+        }}
+        if (k === "error") {{
+            badge.textContent = "save failed";
+            badge.style.color = "#fca5a5";
+            badge.style.borderColor = "rgba(248,113,113,0.4)";
+            return;
+        }}
+        badge.textContent = "synced";
+        badge.style.color = "#6ee7b7";
+        badge.style.borderColor = "rgba(110,231,183,0.4)";
+    }}
+
+    function qaOnAnxietyInput(input, immediate = false) {{
+        const slider = input || document.getElementById("qa-anxiety-score");
+        if (!slider) return;
+        const valueLabel = document.getElementById("qa-anxiety-score-val");
+        if (valueLabel) valueLabel.textContent = String(slider.value || "0");
+        qaApplyAnxietyScore(Number(slider.value || "0"));
+        qaSetAnxietySaveState("saving");
+        if (qaAnxietySaveTimer) {{
+            clearTimeout(qaAnxietySaveTimer);
+            qaAnxietySaveTimer = null;
+        }}
+        qaAnxietySaveTimer = setTimeout(() => {{
+            qaFlushAnxietyAutosave({{ immediate }});
+        }}, immediate ? 0 : 450);
+    }}
+
+    async function qaFlushAnxietyAutosave(options = {{}}) {{
+        const slider = document.getElementById("qa-anxiety-score");
+        if (!slider) return;
+        const score = Number(slider.value || "0");
+        if (!Number.isFinite(score)) return;
+        qaAnxietyPendingScore = score;
+        if (qaAnxietySaveInFlight) return;
+        qaAnxietySaveInFlight = true;
+        const status = document.getElementById("qa-status");
+        try {{
+            while (qaAnxietyPendingScore !== null) {{
+                const nextScore = Number(qaAnxietyPendingScore);
+                qaAnxietyPendingScore = null;
+                qaSetAnxietySaveState("saving");
+                const result = await qaPostWithRetry("/v1/ui/interventions/rating", {{
+                    score: nextScore,
+                    date: qaEffectiveDateKey(),
+                    source: "autosave",
+                    client_ts: new Date().toISOString(),
+                }}, {{ retries: 2, label: "anxiety score" }});
+                if (!result) {{
+                    qaSetAnxietySaveState("retrying");
+                    qaAnxietyPendingScore = nextScore;
+                    await qaDelay(900);
+                    continue;
+                }}
+                const savedRaw = Number(result && result.score);
+                const saved = Number.isFinite(savedRaw) ? savedRaw : nextScore;
+                qaApplyAnxietyScore(saved);
+                qaSetAnxietySaveState("synced");
+                if (status) {{
+                    status.textContent = `✅ Anxiety relief saved (${{saved}}/10)`;
+                    status.style.color = "#6ee7b7";
+                }}
+            }}
+        }} catch (_err) {{
+            qaSetAnxietySaveState("error");
+        }} finally {{
+            qaAnxietySaveInFlight = false;
+        }}
+    }}
+
+    async function qaRateAnxiety() {{
+        await qaFlushAnxietyAutosave({{ immediate: true }});
     }}
 
     function qaApplyAnxietyScore(score) {{
@@ -7007,6 +7771,33 @@ def generate_html(data):
         return `⬜ Mood check-in pending • ${{habit}}`;
     }}
 
+    function qaSetMoodSaveState(kind) {{
+        const badge = document.getElementById("qa-mood-save-state");
+        if (!badge) return;
+        const k = String(kind || "").toLowerCase();
+        if (k === "saving") {{
+            badge.textContent = "saving...";
+            badge.style.color = "#93c5fd";
+            badge.style.borderColor = "rgba(147,197,253,0.35)";
+            return;
+        }}
+        if (k === "retrying") {{
+            badge.textContent = "retrying";
+            badge.style.color = "#fbbf24";
+            badge.style.borderColor = "rgba(251,191,36,0.35)";
+            return;
+        }}
+        if (k === "error") {{
+            badge.textContent = "save failed";
+            badge.style.color = "#fca5a5";
+            badge.style.borderColor = "rgba(248,113,113,0.4)";
+            return;
+        }}
+        badge.textContent = "synced";
+        badge.style.color = "#6ee7b7";
+        badge.style.borderColor = "rgba(110,231,183,0.4)";
+    }}
+
     function qaApplyMoodState(state) {{
         const safe = (state && typeof state === "object") ? state : {{}};
         const done = Boolean(safe.done);
@@ -7042,28 +7833,34 @@ def generate_html(data):
         input.disabled = true;
         const desired = Boolean(input.checked);
         const status = document.getElementById("qa-status");
+        qaSetMoodSaveState("saving");
         try {{
             const result = await qaPostWithRetry("/v1/ui/mood/log", {{
                 done: desired,
                 date: qaEffectiveDateKey(),
-                source: "dashboard_manual",
-            }}, {{ retries: 1, label: "mood check-in" }});
+                source: "autosave",
+            }}, {{ retries: 2, label: "mood check-in" }});
             if (result && result.mood_checkin) {{
                 qaApplyMoodState(result.mood_checkin);
+                qaSetMoodSaveState("synced");
                 if (status) {{
                     status.textContent = desired ? "✅ Mood check-in saved" : "↩️ Mood check-in cleared";
                     status.style.color = desired ? "#6ee7b7" : "#9ca3af";
                 }}
             }} else {{
+                qaSetMoodSaveState("retrying");
                 const verify = await qaVerifyMoodSaved(desired);
                 if (verify.ok && verify.state) {{
                     qaApplyMoodState(verify.state);
+                    qaSetMoodSaveState("synced");
                 }} else {{
                     input.checked = !desired;
+                    qaSetMoodSaveState("error");
                 }}
             }}
         }} catch (err) {{
             input.checked = !desired;
+            qaSetMoodSaveState("error");
             if (status) {{
                 status.textContent = `❌ Mood save failed: ${{(err && err.message) ? err.message : "unknown error"}}`;
                 status.style.color = "#fca5a5";
@@ -7091,6 +7888,7 @@ def generate_html(data):
         if (!mood) return;
         qaMoodEntrySaving = true;
         const status = document.getElementById("qa-status");
+        qaSetMoodSaveState("saving");
         const moodButtons = Array.from(document.querySelectorAll('.mood-btn'));
         moodButtons.forEach((b) => {{ b.disabled = true; }});
         btn.classList.add('selected');
@@ -7137,15 +7935,26 @@ def generate_html(data):
                 if (headerPill) headerPill.textContent = `${{latestMood}} ${{latestLabel}}`;
                 const header = document.querySelector('.mood-current');
                 if (header) header.textContent = `${{latestMood}} ${{latestLabel}}`;
+                const moodCheckResult = await qaPostWithRetry("/v1/ui/mood/log", {{
+                    done: true,
+                    date: qaEffectiveDateKey(),
+                    source: "autosave",
+                }}, {{ retries: 1, label: "mood check-in" }});
+                if (moodCheckResult && moodCheckResult.mood_checkin) {{
+                    qaApplyMoodState(moodCheckResult.mood_checkin);
+                }}
+                qaSetMoodSaveState("synced");
                 if (status) {{
                     status.textContent = data.deduped ? "✅ Mood saved (deduped tap)" : "✅ Mood saved";
                     status.style.color = "#6ee7b7";
                 }}
             }} else if (status) {{
+                qaSetMoodSaveState("error");
                 status.textContent = "❌ Mood save failed";
                 status.style.color = "#fca5a5";
             }}
         }} catch(err) {{
+            qaSetMoodSaveState("error");
             if (status) {{
                 status.textContent = `\u274c Mood save failed`;
                 status.style.color = "#fca5a5";
@@ -7777,6 +8586,8 @@ def generate_html(data):
     }}
     qaApplyMindfulnessState(QA_MINDFULNESS_INITIAL);
     qaApplyMoodState(QA_MOOD_INITIAL);
+    qaSetMoodSaveState("synced");
+    qaSetAnxietySaveState("synced");
     qaApplyWorkoutChecklistState(QA_WORKOUT_CHECKLIST_INITIAL);
     qaApplyWorkoutChecklistSignals(QA_WORKOUT_SIGNALS_INITIAL);
     qaApplyWorkoutProgression(QA_WORKOUT_PROGRESSION_INITIAL);
@@ -8272,6 +9083,7 @@ def generate_html(data):
 
     <!-- Stale Diarium Warning -->
     <section class="dashboard-section" data-focus="always">
+        {freshness_watch_html}
         {stale_notice_html}
         {important_thing_warning_html}
         {ideas_status_html}
@@ -8302,19 +9114,9 @@ def generate_html(data):
         {completed_updates_html}
     </section>
 
-    <!-- Guidance: AI daily tips (day/evening) + fallback when no AI data -->
-    <section id="guidance" class="dashboard-section phase-day" data-focus="morning day evening">
-        {todays_guidance_html}
-        {insights_fallback_html}
-    </section>
+    {(f'<section id="guidance" class="dashboard-section phase-day" data-focus="morning day evening">{guidance_section_html}</section>') if guidance_section_html else ''}
 
-
-
-    <!-- Regulation & Support (overwhelm techniques + personalised intervention) -->
-    <section class="dashboard-section phase-day" data-focus="morning day evening">
-        {support_html}
-        {intervention_html}
-    </section>
+    {(f'<section class="dashboard-section phase-day" data-focus="morning day evening">{support_section_html}</section>') if support_section_html else ''}
 
     <!-- Evening block: entries + AI analysis + emotional synthesis + tomorrow -->
     <section id="evening" class="dashboard-section phase-evening" data-focus="evening">
@@ -8903,6 +9705,8 @@ def generate_html(data):
             setMode(autoMode, {{ persist: false, source: "auto" }});
         }}
 
+        qaPrimeFreshnessStateFromDom();
+
         // Keep status/data live, with optional reading-mode pause.
         if (!qaIsLiveSyncPaused()) {{
             pollSystemStatus();
@@ -9043,15 +9847,32 @@ def main():
                 return label
         return ""
 
-    morning_mood_tag = str(
-        diarium_display.get("mood_tag_morning", "")
-        or diarium_display.get("mood_tag", "")
-        or _latest_diarium_context_mood("morning")
-    ).strip()
-    evening_mood_tag = str(
-        diarium_display.get("mood_tag_evening", "")
-        or _latest_diarium_context_mood("evening")
-    ).strip()
+    diarium_slots = diarium_display.get("mood_slots", {}) if isinstance(diarium_display.get("mood_slots", {}), dict) else {}
+
+    def _slot_value(*candidates):
+        for candidate in candidates:
+            value = str(candidate or "").strip()
+            if value and value.lower() != "unknown":
+                return value
+        return ""
+
+    allow_unscoped_morning_fallback = now.hour < 18
+    morning_mood_tag = _slot_value(
+        diarium_slots.get("morning", ""),
+        diarium_display.get("mood_tag_morning", ""),
+        _latest_diarium_context_mood("morning"),
+        (diarium_slots.get("unscoped", "") if allow_unscoped_morning_fallback else ""),
+        (diarium_display.get("mood_tag", "") if allow_unscoped_morning_fallback else ""),
+    )
+    evening_mood_tag = _slot_value(
+        diarium_slots.get("evening", ""),
+        diarium_display.get("mood_tag_evening", ""),
+        _latest_diarium_context_mood("evening"),
+    )
+    if not morning_mood_tag:
+        morning_mood_tag = "unknown"
+    if not evening_mood_tag:
+        evening_mood_tag = "unknown"
     work_strategy = cache.get("work_strategy", {}) if isinstance(cache.get("work_strategy", {}), dict) else {}
     work_focus_label = str(work_strategy.get("focus_label", "Remote £35k+ / local £40k+")).strip() or "Remote £35k+ / local £40k+"
 
@@ -9059,6 +9880,7 @@ def main():
     data = {
         "date": now.strftime("%d %b %Y"),
         "time": now.strftime("%H:%M"),
+        "feature_flags": cache.get("feature_flags", {}) if isinstance(cache.get("feature_flags", {}), dict) else {},
         "morning": {
             "grateful": ai_today.get("diarium_interpreted", {}).get("grateful_core") or diarium_display.get("grateful", ""),
             "intent": ai_today.get("diarium_interpreted", {}).get("intent_core") or diarium_display.get("intent", ""),
@@ -9112,6 +9934,7 @@ def main():
         "diariumDataDate": diarium_source_date,
         "diariumFresh": diarium_fresh,
         "diariumFreshReason": diarium_fresh_reason,
+        "diariumPickupStatus": cache.get("diarium_pickup_status", {}) if isinstance(cache.get("diarium_pickup_status", {}), dict) else {},
         "importantThing": str(diarium_display.get("important_thing", "")).strip(),
         "importantThingMissing": bool(diarium_display.get("important_thing_missing", False)) if diarium_fresh else False,
         "healthfitWorkouts": cache.get("healthfit", {}).get("workouts", []) if cache.get("healthfit", {}).get("status") == "success" else [],
