@@ -160,7 +160,7 @@ Read the strategy doc tonight. Those 3 beads are your job search week.
 
 ## 🏋️ 8. Fitness Coaching Analysis
 
-**File:** `HEALTH/fitness-analysis-2026-02.md`
+**File:** `HEALTH/docs/analysis/fitness-analysis-2026-02.md`
 
 Codex produced a coaching report from your fitness log, Apple Health data, and journal entries.
 
