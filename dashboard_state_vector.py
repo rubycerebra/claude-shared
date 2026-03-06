@@ -767,6 +767,7 @@ def build_state_vector_html(vector: Dict[str, Any]) -> str:
             f'<li class="text-xs mb-1" style="color:#cbd5e1;line-height:1.45;">{html.escape(item)}</li>'
             for item in (row.get("evidence", []) if isinstance(row.get("evidence", []), list) else [])[:3]
         )
+        _ul_block = f'<ul style="margin:0;padding-left:1rem;">{evidence_items}</ul>' if evidence_items else ""
         detail_rows_html += (
             f'<div class="rounded-lg p-3" style="background:rgba(15,23,42,0.46);border:1px solid rgba(148,163,184,0.14);">'
             f'<div class="flex items-center justify-between gap-2 mb-1">'
@@ -774,7 +775,7 @@ def build_state_vector_html(vector: Dict[str, Any]) -> str:
             f'<span class="text-xs rounded px-2 py-0.5" style="border:1px solid {palette["border"]};color:{palette["text"]};">{int(row.get("score", 0))}</span>'
             f'</div>'
             f'<p class="text-xs mb-2" style="color:#e5e7eb;line-height:1.5;">{html.escape(str(row.get("summary", "")))}</p>'
-            f'{("<ul style=\"margin:0;padding-left:1rem;\">" + evidence_items + "</ul>") if evidence_items else ""}'
+            f'{_ul_block}'
             '</div>'
         )
 

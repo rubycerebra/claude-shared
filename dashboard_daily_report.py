@@ -315,9 +315,11 @@ def compose_tomorrow_fallback(ctx: dict, *, now_hour: int | None = None, unlock_
 
     if tomorrow:
         suffix = f" Keep it realistic and paced ({', '.join(energy_bits)})." if energy_bits else " Keep it realistic and paced."
-        return f"Tomorrow, focus on: {re.sub(r'\s+', ' ', tomorrow).rstrip(' ,;:-')}.{suffix}"
+        _tomorrow_clean = re.sub(r'\s+', ' ', tomorrow).rstrip(' ,;:-')
+        return f"Tomorrow, focus on: {_tomorrow_clean}.{suffix}"
     if carrying:
-        return f"Tomorrow, pick up: {re.sub(r'\s+', ' ', carrying).rstrip(' ,;:-')}. Start with one clear first step."
+        _carrying_clean = re.sub(r'\s+', ' ', carrying).rstrip(' ,;:-')
+        return f"Tomorrow, pick up: {_carrying_clean}. Start with one clear first step."
     if hour < unlock_hour:
         return ""
     if energy_bits:

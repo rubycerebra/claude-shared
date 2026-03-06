@@ -1089,7 +1089,48 @@ def _build_pieces_shared_parts(pieces_payload, digest_text, digest_source, body_
     return parts
 
 
-def _derive_pieces_digest(pieces_payload, max_chars=3000):
+def _pieces_summaries_for_today(pieces_payload, effective_today_key=""):
+    if not isinstance(pieces_payload, dict):
+        return []
+    summaries = pieces_payload.get("summaries", [])
+    if not isinstance(summaries, list):
+        return []
+    if not effective_today_key:
+        return [row for row in summaries if isinstance(row, dict)]
+    today_rows = []
+    for row in summaries:
+        if not isinstance(row, dict):
+            continue
+        created = str(row.get("created", "")).strip()
+        if created[:10] == effective_today_key:
+            today_rows.append(row)
+    return today_rows
+
+
+def _pieces_payload_is_today(pieces_payload, effective_today_key=""):
+    if not isinstance(pieces_payload, dict) or not effective_today_key:
+        return False
+    fetched_at = str(pieces_payload.get("fetched_at", "")).strip()
+    if fetched_at[:10] == effective_today_key:
+        return True
+    return bool(_pieces_summaries_for_today(pieces_payload, effective_today_key))
+
+
+def _pieces_count_for_today(pieces_payload, effective_today_key=""):
+    if not isinstance(pieces_payload, dict):
+        return 0
+    today_summaries = _pieces_summaries_for_today(pieces_payload, effective_today_key)
+    if today_summaries:
+        return len(today_summaries)
+    if _pieces_payload_is_today(pieces_payload, effective_today_key):
+        try:
+            return max(0, int(pieces_payload.get("count", 0) or 0))
+        except Exception:
+            return 0
+    return 0
+
+
+def _derive_pieces_digest(pieces_payload, max_chars=3000, effective_today_key=""):
     """Return best-available Pieces digest text + source label.
 
     Priority:
@@ -1100,11 +1141,15 @@ def _derive_pieces_digest(pieces_payload, max_chars=3000):
     if not isinstance(pieces_payload, dict):
         return "", ""
 
+    payload_is_today = _pieces_payload_is_today(pieces_payload, effective_today_key) if effective_today_key else True
+    if effective_today_key and not payload_is_today:
+        return "", ""
+
     digest = _truncate_sentence_safe(_clean_pieces_text(pieces_payload.get("digest", "")), max_len=max_chars)
     if digest:
         return digest, "digest"
 
-    summaries = pieces_payload.get("summaries", [])
+    summaries = _pieces_summaries_for_today(pieces_payload, effective_today_key)
     fallback_bits = []
     seen = set()
     if isinstance(summaries, list):
@@ -2206,7 +2251,7 @@ def generate_html(data):
             ).strftime("%Y-%m-%d")
         except Exception:
             yesterday_label_date = "yesterday"
-        yesterday_sorted = sorted(yesterday_tadah[:10], key=_get_sort_key)
+        yesterday_sorted = sorted(yesterday_tadah[:20], key=_get_sort_key)
         yesterday_items = ""
         last_cat = None
         for i, item in enumerate(yesterday_sorted):
@@ -2227,6 +2272,28 @@ def generate_html(data):
         </div>'''
 
     # Habits HTML — pastel progress bars with at-risk warnings
+    # Ta-Dah scratch pad — open by default, supports multi-line Akiflow pastes
+    _tadah_scratch_storage_key = f"dashboard.scratch.{get_effective_date()}.ta_dah"
+    tadah_scratch_html = f'''<div class="mt-3 pt-3" style="border-top: 1px solid #374151">
+        <textarea id="qa-scratch-ta_dah"
+            rows="2" maxlength="2000"
+            data-storage-key="{html.escape(_tadah_scratch_storage_key)}"
+            data-section="ta_dah"
+            class="w-full rounded px-2 py-1.5 text-xs"
+            style="background: rgba(15,23,42,0.85); border: 1px solid rgba(110,231,183,0.22); color: #e5e7eb; resize: vertical; font-family: inherit;"
+            placeholder="Drop a win or paste your Akiflow tasks (one per line)…"
+            oninput="qaSaveScratchPad(this)"></textarea>
+        <div class="mt-1 flex items-center gap-2">
+            <button id="qa-scratch-submit-ta_dah"
+                onclick="qaScratchSubmit('ta_dah')"
+                class="px-3 py-1 rounded text-xs"
+                style="background: rgba(110,231,183,0.18); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                ✅ Add to Ta-Dah
+            </button>
+            <span id="qa-scratch-status-ta_dah" class="text-xs" style="color: #94a3b8;"></span>
+        </div>
+    </div>'''
+
     habits_html = ""
     for h in data.get("habits", [])[:6]:
         rate = h.get("rate", 0)
@@ -2878,6 +2945,13 @@ def generate_html(data):
             target_date=persisted_target,
         )
 
+    quick_items = []
+    maintenance_items = []
+    standard_items = []
+    system_items = []
+    completed_items = []
+    tomorrow_queue_items = []
+
     if all_action_items:
         _category_rank = {"quick_win": 0, "standard": 1, "maintenance": 2, "system": 3}
         _source_rank = {
@@ -2926,12 +3000,6 @@ def generate_html(data):
             )
         )
         # Group by category: quick_win, maintenance, standard, system (claude)
-        quick_items = []
-        maintenance_items = []
-        standard_items = []
-        system_items = []
-        completed_items = []
-        tomorrow_queue_items = []
         system_keywords = ["daemon", "dashboard", "claude", "script", "config", "cache", "verify"]
 
         current_hour_for_filter = datetime.now().hour
@@ -4745,13 +4813,15 @@ def generate_html(data):
     pieces_html = ""
     pieces_summary_label = "🧩 Pieces"
     _pieces_d = data.get("pieces_activity", {})
-    _pieces_digest_text, _pieces_digest_source = _derive_pieces_digest(_pieces_d)
+    _pieces_today_key = get_effective_date()
+    _pieces_digest_text, _pieces_digest_source = _derive_pieces_digest(_pieces_d, effective_today_key=_pieces_today_key)
     if isinstance(_pieces_d, dict) and _pieces_d.get("status") == "ok":
-        _p_count = _pieces_d.get("count", 0)
+        _p_count = _pieces_count_for_today(_pieces_d, _pieces_today_key)
         _p_digest = _pieces_digest_text
         _p_mb = _pieces_d.get("morning_brief")
 
-        pieces_summary_label = f"🧩 Pieces • {_p_count} session{'s' if _p_count != 1 else ''} today"
+        if _p_count > 0:
+            pieces_summary_label = f"🧩 Pieces • {_p_count} session{'s' if _p_count != 1 else ''} today"
 
         _parts = []
 
@@ -5349,18 +5419,22 @@ def generate_html(data):
     _tadah_cat_data = data.get("taDahCategorised", {})
     _tadah_total = _tadah_cat_data.get("total_items", len(tadah_flat)) if isinstance(_tadah_cat_data, dict) else len(tadah_flat)
     _tadah_themes = _tadah_cat_data.get("themes", {}) if isinstance(_tadah_cat_data, dict) else {}
-    _latest_health = health_data[-1] if health_data else {}
-    _health_age = data.get("healthDataAge", 0)
-    _steps_val = int(_latest_health.get("steps", 0) or 0) if _health_age <= 1 else 0
-    _ex_val = int(_latest_health.get("exercise", 0) or 0) if _health_age <= 1 else 0
+    _effective_today_key = get_effective_date()
+    _today_health = next(
+        (
+            item for item in reversed(health_data)
+            if str(item.get("date", "")).strip() == _effective_today_key
+        ),
+        {}
+    )
+    _steps_val = int(_today_health.get("steps", 0) or 0)
+    _ex_val = int(_today_health.get("exercise", 0) or 0)
     _wc = _today_ai.get("workout_checklist", {}) if isinstance(_today_ai, dict) else {}
     _sf = _wc.get("session_feedback", {}) if isinstance(_wc, dict) else {}
     _session_type = (_sf.get("session_type", "") or "").strip()
     _session_dur = _sf.get("duration_minutes")
     _body_feel = (_sf.get("body_feel", "") or "").strip()
-    _p_count2 = _pieces_d.get("count", 0) if isinstance(_pieces_d, dict) else 0
-
-    _effective_today_key = get_effective_date()
+    _p_count2 = _pieces_count_for_today(_pieces_d, _effective_today_key) if isinstance(_pieces_d, dict) else 0
 
     def _narrative_contradiction_reason(raw_text):
         return narrative_contradiction_reason(
@@ -6050,7 +6124,7 @@ def generate_html(data):
 
     qa_local_ip = _get_local_ip()
     _qa_remote = data.get("remoteAccess", {}) if isinstance(data.get("remoteAccess"), dict) else {}
-    qa_cf_url = str(_qa_remote.get("cloudflare_url", "") or _qa_remote.get("tailscale_url", "")).strip()
+    qa_remote_https_url = str(_qa_remote.get("tailscale_url", "")).strip()
 
     qa_today = get_effective_date()
     qa_ai = data.get("aiInsights", {}) if isinstance(data.get("aiInsights", {}), dict) else {}
@@ -6574,7 +6648,7 @@ def generate_html(data):
     <script>
     const QA_API_TOKEN = "{qa_api_token}";
     const QA_LOCAL_IP = "{qa_local_ip}";
-    const QA_CF_URL = "{qa_cf_url}";
+    const QA_REMOTE_HTTPS_URL = "{qa_remote_https_url}";
     const QA_API_BASE = (() => {{
         if (typeof window !== "undefined" && window.location) {{
             const protocol = (window.location.protocol || "").toLowerCase();
@@ -6582,9 +6656,10 @@ def generate_html(data):
                 return window.location.origin;
             }}
             // file:// — iPhone via iCloud or Mac local.
-            // Prefer Cloudflare/Tailscale URL (https://) — file:// can't reach http:// on iOS/Mac.
-            if (typeof QA_CF_URL !== "undefined" && QA_CF_URL) {{
-                return QA_CF_URL;
+            // Prefer Tailscale HTTPS. Manual Cloudflare backup should be opened
+            // directly from its live tunnel URL, not embedded into static dashboard files.
+            if (typeof QA_REMOTE_HTTPS_URL !== "undefined" && QA_REMOTE_HTTPS_URL) {{
+                return QA_REMOTE_HTTPS_URL;
             }}
             if (typeof QA_LOCAL_IP !== "undefined" && QA_LOCAL_IP && QA_LOCAL_IP !== "127.0.0.1") {{
                 return `http://${{QA_LOCAL_IP}}:8765`;
@@ -11110,6 +11185,7 @@ def generate_html(data):
         <div class="card">
             <h3 class="text-lg font-semibold mb-4"><a href="{journal_today}" style="color: #6ee7b7">✅ Ta-Dah ({len(tadah_flat)})</a></h3>
             <div class="space-y-1">{tadah_html}</div>
+            {tadah_scratch_html}
             {yesterday_tadah_html}
             {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
         </div>
@@ -12079,9 +12155,15 @@ def main():
         hf_sorted = sorted(hf_metrics, key=_hf_sort_key)
         for m in hf_sorted:
             date_str = m.get("date", "")
+            normalized_date = ""
+            try:
+                normalized_date = datetime.strptime(date_str, "%d/%m/%Y").strftime("%Y-%m-%d") if date_str else ""
+            except Exception:
+                normalized_date = ""
             # Extract day number from DD/MM/YYYY
             day_label = date_str[:2] if date_str else ""
             data["healthData"].append({
+                "date": normalized_date,
                 "day": day_label,
                 "steps": m.get("steps", 0) or 0,
                 "exercise": m.get("exercise_minutes", 0) or 0
@@ -12106,6 +12188,7 @@ def main():
             date_str = m.get("date", "")
             day_label = date_str[-2:] if date_str else ""
             data["healthData"].append({
+                "date": date_str,
                 "day": day_label,
                 "steps": m.get("steps", 0),
                 "exercise": m.get("exercise_minutes", 0)
