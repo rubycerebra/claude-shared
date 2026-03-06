@@ -6493,12 +6493,13 @@ def generate_html(data):
         _daily_report_saved,
         expected_date=effective_today,
         cache_timestamp=str(data.get("cacheTimestamp", "") or ""),
+        max_lag_minutes=480,
     ):
         daily_report_story_text = str(_daily_report_saved.get("today_story", "") or "").strip()
         daily_report_tomorrow_text = str(_daily_report_saved.get("tomorrow_text", "") or "").strip()
     if not daily_report_story_text:
         fallback_story_candidates = [
-            compose_daily_report_today_fallback(_daily_report_ctx),
+            compose_daily_report_today_fallback(_daily_report_ctx, now_hour=current_hour),
             str(_narrative or "").strip(),
             str(eve_felt_summary or "").strip(),
             str(emotional_summary or "").strip(),

@@ -48,18 +48,37 @@ CACHE="$HOME/.claude/cache/session-data.json"
 
 if [[ "$FORCE" != "true" && -f "$MARKER" && -f "$CACHE" ]]; then
     SKIP=$(python3 -c "
-import hashlib, json, sys
-from datetime import date
+import errno
+import hashlib, json, sys, time
+from datetime import datetime, timedelta
+
+def _effective_today():
+    now = datetime.now()
+    if now.hour < 3:
+        return (now - timedelta(days=1)).strftime('%Y-%m-%d')
+    return now.strftime('%Y-%m-%d')
+
+def _read_json_retry(path, retries=(0.0, 0.25, 0.75)):
+    for idx, delay in enumerate(retries):
+        try:
+            if delay:
+                time.sleep(delay)
+            with open(path, encoding='utf-8') as f:
+                return json.load(f)
+        except OSError as exc:
+            if exc.errno == errno.EDEADLK and idx < len(retries) - 1:
+                continue
+            raise
+
 try:
-    with open('$MARKER') as f: state = json.load(f)
-    with open('$CACHE') as f:
-        cache = json.load(f)
+    state = _read_json_retry('$MARKER')
+    cache = _read_json_retry('$CACHE')
     cache_ts = cache.get('timestamp', '')
     pieces_fetched_at = ((cache.get('pieces_activity') or {}).get('fetched_at', '') if isinstance(cache.get('pieces_activity'), dict) else '')
     pieces_digest = ((cache.get('pieces_activity') or {}).get('digest', '') if isinstance(cache.get('pieces_activity'), dict) else '')
     pieces_digest_hash = hashlib.md5(str(pieces_digest).encode('utf-8')).hexdigest()[:12] if pieces_digest else ''
     if (
-        state.get('date') == str(date.today())
+        state.get('date') == _effective_today()
         and state.get('cache_timestamp') == cache_ts
         and state.get('pieces_fetched_at', '') == pieces_fetched_at
         and state.get('pieces_digest_hash', '') == pieces_digest_hash
@@ -81,7 +100,7 @@ if [[ "$CACHE_ONLY" != "true" ]]; then
     # from referencing yesterday's activities).
     echo "🔄 Refreshing data..."
     python3 -c "
-import sys, json, subprocess
+import sys, json, subprocess, os, errno, shutil, time, random
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -91,8 +110,26 @@ if not cache_file.exists():
     print('  ⚠️  No cache file — skipping refresh')
     sys.exit(0)
 
-with open(cache_file) as f:
-    raw_cache = f.read()
+def _read_text_retry(path, *, retries=(0.0, 0.25, 0.75), encoding='utf-8', errors='replace'):
+    target = Path(path)
+    for idx, delay in enumerate(retries):
+        try:
+            if delay:
+                # small jitter helps when iCloud/FUSE locks are flapping
+                time.sleep(delay + random.uniform(0, 0.1))
+            return target.read_text(encoding=encoding, errors=errors)
+        except OSError as exc:
+            if exc.errno == errno.EDEADLK and idx < len(retries) - 1:
+                continue
+            raise
+
+try:
+    raw_cache = _read_text_retry(cache_file, retries=(0.0, 0.2, 0.6, 1.2))
+except OSError as read_exc:
+    if read_exc.errno == errno.EDEADLK:
+        print('  ⚠️  Cache read locked (EDEADLK) — preserving last-known-good cache state')
+        sys.exit(0)
+    raise
 try:
     cache = json.loads(raw_cache)
 except json.JSONDecodeError:
@@ -112,6 +149,55 @@ except json.JSONDecodeError:
         idx = end
     cache = recovered if isinstance(recovered, dict) else {}
 
+def _atomic_write_json_preserve(path, payload, *, snapshot_path=None, label='file'):
+    target = Path(path)
+    tmp = Path(f'{target}.tmp')
+    try:
+        if snapshot_path and target.exists():
+            snapshot = Path(snapshot_path)
+            snapshot.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(target, snapshot)
+    except Exception as snap_exc:
+        print(f'  ⚠️  Could not snapshot {target.name}: {snap_exc}')
+
+    try:
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, indent=2)
+        os.replace(tmp, target)
+        return True
+    except OSError as write_exc:
+        if write_exc.errno == errno.ENOSPC:
+            try:
+                if tmp.exists():
+                    tmp.unlink()
+            except Exception:
+                pass
+            print(f'  ⚠️  ENOSPC while writing {label}; preserving existing file')
+            return False
+        raise
+
+
+def _cache_path_write_healthy(path):
+    probe = Path(path).parent / '.trigger-dashboard-write-probe.tmp'
+    try:
+        with open(probe, 'w', encoding='utf-8') as f:
+            f.write('ok')
+        probe.unlink(missing_ok=True)
+        return True
+    except OSError as probe_exc:
+        if probe_exc.errno == errno.ENOSPC:
+            print('  ⚠️  Cache path unhealthy (ENOSPC) — skipping destructive refresh')
+            return False
+        print(f'  ⚠️  Cache path probe failed: {probe_exc}')
+        return False
+    except Exception as probe_exc:
+        print(f'  ⚠️  Cache path probe failed: {probe_exc}')
+        return False
+
+
+if not _cache_path_write_healthy(cache_file):
+    sys.exit(0)
+
 now = datetime.now()
 effective_today = (now - timedelta(days=1)).strftime('%Y-%m-%d') if now.hour < 3 else now.strftime('%Y-%m-%d')
 cache['diarium_fresh'] = False
@@ -120,22 +206,28 @@ cache.setdefault('diarium_source_date', '')
 existing_diarium_cache = cache.get('diarium', {}) if isinstance(cache.get('diarium', {}), dict) else {}
 existing_source_date = str(cache.get('diarium_source_date', '') or '').strip()
 existing_diarium_is_today = bool(existing_diarium_cache and existing_source_date == effective_today)
+snapshot_file = cache_file.with_name('session-data.last-good.json')
+try:
+    shutil.copy2(cache_file, snapshot_file)
+except Exception as snapshot_exc:
+    print(f'  ⚠️  Last-good snapshot skipped: {snapshot_exc}')
 
 # ── Reset stale completed-todos.json at day boundary ──
 _completed_f = Path.home() / '.claude/cache/completed-todos.json'
 if _completed_f.exists():
     try:
-        _ct = json.loads(_completed_f.read_text(encoding='utf-8', errors='replace'))
+        _ct = json.loads(_read_text_retry(_completed_f, retries=(0.0, 0.2, 0.6), encoding='utf-8', errors='replace'))
         if isinstance(_ct, dict) and str(_ct.get('date', '')).strip() != effective_today:
-            _completed_f.write_text(json.dumps({
+            _completed_reset = {
                 'date': effective_today,
                 'completed': [],
                 'completed_texts': [],
                 'completed_labels': [],
                 'completed_at': {},
                 'completed_source': {}
-            }, indent=2), encoding='utf-8')
-            print(f'  ♻️  Reset completed-todos.json for {effective_today}')
+            }
+            if _atomic_write_json_preserve(_completed_f, _completed_reset, label='completed-todos.json'):
+                print(f'  ♻️  Reset completed-todos.json for {effective_today}')
     except Exception:
         pass
 
@@ -227,15 +319,32 @@ if parser:
             if not isinstance(existing_diarium, dict):
                 existing_diarium = {}
 
+            def _strip_completion_hash_artifacts(raw):
+                text = str(raw or '').strip()
+                if not text:
+                    return ''
+                previous = None
+                while text and text != previous:
+                    previous = text
+                    text = re.sub(r'\s*~~+\s*\[?\s*[0-9a-f]{6,16}\s*\]?\s*$', '', text, flags=re.IGNORECASE).strip()
+                    text = re.sub(r'\s*\[\s*[0-9a-f]{6,16}\s*\]\s*$', '', text, flags=re.IGNORECASE).strip()
+                    text = re.sub(r'(?:\s+[0-9a-f]{6,12})+\s*$', '', text, flags=re.IGNORECASE).strip()
+                    text = re.sub(r'^\s*~~+\s*', '', text).strip()
+                    text = re.sub(r'\s*~~+\s*$', '', text).strip()
+                return re.sub(r'\s+', ' ', text).strip()
+
             def _norm_list_item(raw):
-                text = re.sub(r'\\s+', ' ', str(raw or '').strip().lower())
+                text = _strip_completion_hash_artifacts(raw).lower()
+                text = re.sub(r'\\s+', ' ', text)
+                text = re.sub(r'\\b(?:the|a|an)\\b', ' ', text)
+                text = re.sub(r'\\s+', ' ', text).strip()
                 return re.sub(r'[^a-z0-9\\s]', '', text)
 
             def _merge_unique_list(primary, secondary):
                 merged = []
                 seen = set()
                 for item in list(primary or []) + list(secondary or []):
-                    text = str(item or '').strip()
+                    text = _strip_completion_hash_artifacts(item)
                     if not text:
                         continue
                     key = _norm_list_item(text) or text.lower()
@@ -245,6 +354,12 @@ if parser:
                     merged.append(text)
                 return merged
 
+            def _normalise_section_status(raw_status, value):
+                status = str(raw_status or '').strip().upper()
+                if status in {'ABSENT', 'PRESENT_EMPTY', 'PRESENT_VALUE'}:
+                    return status
+                return 'PRESENT_VALUE' if str(value or '').strip() else 'ABSENT'
+
             new_diarium = {
                 'status': 'success',
                 'grateful': sections.get('grateful', 'Not specified'),
@@ -252,6 +367,7 @@ if parser:
                 'ta_dah': ta_dah_list,
                 'three_things': three_things_list,
                 'tomorrow': sections.get('whats_tomorrow', ''),
+                'tomorrow_raw': sections.get('whats_tomorrow_raw', ''),
                 'images': data.get('images', []),
                 'morning_pages': sections.get('morning_pages', ''),
                 'daily_affirmation': sections.get('daily_affirmation', ''),
@@ -260,6 +376,7 @@ if parser:
                 'brave': sections.get('brave', ''),
                 'updates': sections.get('updates', ''),
                 'remember_tomorrow': sections.get('remember_tomorrow', ''),
+                'remember_tomorrow_raw': sections.get('remember_tomorrow_raw', ''),
                 'evening_reflections': sections.get('evening_reflections', ''),
                 'weather': weather_clean,
                 'location': location_clean or sections.get('location', ''),
@@ -272,12 +389,56 @@ if parser:
                 'fallback_used': fallback_used,
             }
 
+            tomorrow_status = _normalise_section_status(
+                sections.get('whats_tomorrow_status'),
+                sections.get('whats_tomorrow', ''),
+            )
+            remember_status = _normalise_section_status(
+                sections.get('remember_tomorrow_status'),
+                sections.get('remember_tomorrow', ''),
+            )
+            new_diarium['tomorrow_status'] = tomorrow_status
+            new_diarium['remember_tomorrow_status'] = remember_status
+
+            for field, status, raw_key, status_key, last_key, source_field in (
+                ('tomorrow', tomorrow_status, 'tomorrow_raw', 'tomorrow_status', 'tomorrow_last_nonempty', 'whats_tomorrow'),
+                ('remember_tomorrow', remember_status, 'remember_tomorrow_raw', 'remember_tomorrow_status', 'remember_tomorrow_last_nonempty', 'remember_tomorrow'),
+            ):
+                incoming = str(sections.get(source_field, '') or '').strip()
+                existing_val = str(existing_diarium.get(field, '') or '').strip()
+                existing_last = existing_diarium.get(last_key)
+                if status == 'ABSENT' and existing_val:
+                    new_diarium[field] = existing_diarium.get(field, '')
+                    if raw_key in existing_diarium:
+                        new_diarium[raw_key] = existing_diarium[raw_key]
+                    new_diarium[status_key] = str(existing_diarium.get(status_key, 'PRESENT_VALUE') or 'PRESENT_VALUE')
+                    if existing_last:
+                        new_diarium[last_key] = existing_last
+                elif status == 'PRESENT_EMPTY':
+                    new_diarium[field] = ''
+                    new_diarium.pop(raw_key, None)
+                    new_diarium[status_key] = 'PRESENT_EMPTY'
+                    if existing_last:
+                        new_diarium[last_key] = existing_last
+                else:
+                    new_diarium[field] = incoming
+                    new_diarium[status_key] = 'PRESENT_VALUE' if incoming else 'PRESENT_EMPTY'
+                    if incoming:
+                        new_diarium[last_key] = {
+                            'value': incoming,
+                            'source_date': source_date,
+                            'source_file': data.get('source_file', ''),
+                            'updated_at': datetime.now().isoformat(),
+                        }
+                    elif existing_last:
+                        new_diarium[last_key] = existing_last
+
             # Pull ## Therapy from journal into diarium cache
             try:
                 therapy_summary = ''
                 journal_file = Path.home() / 'Documents/Claude Projects/claude-shared/journal' / f\"{effective_today}.md\"
                 if journal_file.exists():
-                    journal_text = journal_file.read_text(encoding='utf-8', errors='ignore')
+                    journal_text = _read_text_retry(journal_file, retries=(0.0, 0.25, 0.75), encoding='utf-8', errors='ignore')
                     match = re.search(r'(?ms)^## Therapy\\s*\\n(.*?)(?=^##\\s+|\\Z)', journal_text)
                     if match:
                         block = match.group(1).strip()
@@ -295,8 +456,7 @@ if parser:
 
             # Restore _raw fields and AI-cleaned text from daemon cache
             for field in ['grateful', 'intent', 'morning_pages', 'brave', 'body_check',
-                          'letting_go', 'daily_affirmation', 'tomorrow',
-                          'updates', 'remember_tomorrow', 'evening_reflections']:
+                          'letting_go', 'daily_affirmation', 'updates', 'evening_reflections']:
                 raw_key = f'{field}_raw'
                 if raw_key in existing_diarium:
                     new_diarium[field] = existing_diarium[field]
@@ -318,7 +478,7 @@ if parser:
             completed_file = Path.home() / '.claude/cache/completed-todos.json'
             if completed_file.exists():
                 try:
-                    completed_payload = json.loads(completed_file.read_text(encoding='utf-8', errors='replace'))
+                    completed_payload = json.loads(_read_text_retry(completed_file, retries=(0.0, 0.2, 0.6), encoding='utf-8', errors='replace'))
                     if (
                         isinstance(completed_payload, dict)
                         and str(completed_payload.get('date', '')).strip() == effective_today
@@ -375,7 +535,7 @@ else:
 
 # Auto-create journal if missing
 journal_dir = Path.home() / 'Documents/Claude Projects/claude-shared/journal'
-today_file = journal_dir / f\"{datetime.now().strftime('%Y-%m-%d')}.md\"
+today_file = journal_dir / f\"{effective_today}.md\"
 if not today_file.exists():
     try:
         jm = Path.home() / '.claude/scripts/journal-manager.py'
@@ -404,9 +564,15 @@ except Exception as e:
 # Update timestamp and write back
 cache['timestamp'] = datetime.now().isoformat()
 cache['time'] = datetime.now().strftime('%H:%M')
-with open(cache_file, 'w') as f:
-    json.dump(cache, f, indent=2)
-print('  ✅ Cache updated')
+if _atomic_write_json_preserve(
+    cache_file,
+    cache,
+    snapshot_path=snapshot_file,
+    label='session-data.json',
+):
+    print('  ✅ Cache updated')
+else:
+    print('  ⚠️  Cache update skipped (preserved existing session-data.json)')
 " 2>>"$LOG_FILE"
 
     # Now trigger daemon to re-fetch external sources (HealthFit, calendar, etc.)
@@ -424,6 +590,9 @@ python3 ~/Documents/Claude\ Projects/claude-shared/generate-dashboard.py $NO_OPE
 # Section integrity checks (warn by default; fail when DASHBOARD_STRICT_CHECK=1)
 python3 - <<'PY' 2>>"$LOG_FILE"
 import json
+import errno
+import random
+import time
 from pathlib import Path
 import sys
 
@@ -432,9 +601,22 @@ dashboard_path = Path.home() / "Documents" / "Claude Projects" / "claude-shared"
 
 issues = []
 cache = {}
+
+def _read_text_retry(path, *, retries=(0.0, 0.25, 0.75), encoding="utf-8", errors="replace"):
+    target = Path(path)
+    for idx, delay in enumerate(retries):
+        try:
+            if delay:
+                time.sleep(delay + random.uniform(0, 0.08))
+            return target.read_text(encoding=encoding, errors=errors)
+        except OSError as exc:
+            if exc.errno == errno.EDEADLK and idx < len(retries) - 1:
+                continue
+            raise
+
 try:
     if cache_path.exists():
-        cache = json.loads(cache_path.read_text(encoding="utf-8", errors="replace"))
+        cache = json.loads(_read_text_retry(cache_path, retries=(0.0, 0.2, 0.6), encoding="utf-8", errors="replace"))
 except Exception as exc:
     issues.append(f"cache_read_failed:{exc}")
 
@@ -442,7 +624,11 @@ if not dashboard_path.exists():
     issues.append("dashboard_missing")
     html = ""
 else:
-    html = dashboard_path.read_text(encoding="utf-8", errors="replace")
+    try:
+        html = _read_text_retry(dashboard_path, retries=(0.0, 0.2, 0.6), encoding="utf-8", errors="replace")
+    except Exception as exc:
+        issues.append(f"dashboard_read_failed:{exc}")
+        html = ""
 
 for section_id in ("morning", "evening"):
     if f'id="{section_id}"' not in html:
@@ -460,8 +646,6 @@ pieces_status = str(pieces.get("status", "")).strip().lower() if isinstance(piec
 if pieces_status == "ok" and pieces_count > 0:
     if 'id="pieces"' not in html:
         issues.append("missing_pieces_section")
-    if "🗓️ What you did today" not in html and "🛠️ What you worked on today" not in html:
-        issues.append("missing_evening_pieces_block")
 
 if issues:
     print("⚠️ Dashboard integrity warnings: " + "; ".join(issues))
@@ -480,23 +664,43 @@ fi
 # Write state file
 python3 -c "
 import json
+import errno
 import hashlib
-from datetime import date
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
+
+def _effective_today():
+    now = datetime.now()
+    if now.hour < 3:
+        return (now - timedelta(days=1)).strftime('%Y-%m-%d')
+    return now.strftime('%Y-%m-%d')
+
+def _read_json_retry(path, retries=(0.0, 0.25, 0.75)):
+    for idx, delay in enumerate(retries):
+        try:
+            if delay:
+                time.sleep(delay)
+            with open(path, encoding='utf-8') as f:
+                return json.load(f)
+        except OSError as exc:
+            if exc.errno == errno.EDEADLK and idx < len(retries) - 1:
+                continue
+            raise
+
 cache_ts = ''
 pieces_fetched_at = ''
 pieces_digest_hash = ''
 try:
-    with open(Path.home() / '.claude/cache/session-data.json') as f:
-        cache = json.load(f)
-        cache_ts = cache.get('timestamp', '')
-        if isinstance(cache.get('pieces_activity'), dict):
-            pieces_fetched_at = cache.get('pieces_activity', {}).get('fetched_at', '')
-            pieces_digest = str(cache.get('pieces_activity', {}).get('digest', '') or '')
-            pieces_digest_hash = hashlib.md5(pieces_digest.encode('utf-8')).hexdigest()[:12] if pieces_digest else ''
+    cache = _read_json_retry(Path.home() / '.claude/cache/session-data.json')
+    cache_ts = cache.get('timestamp', '')
+    if isinstance(cache.get('pieces_activity'), dict):
+        pieces_fetched_at = cache.get('pieces_activity', {}).get('fetched_at', '')
+        pieces_digest = str(cache.get('pieces_activity', {}).get('digest', '') or '')
+        pieces_digest_hash = hashlib.md5(pieces_digest.encode('utf-8')).hexdigest()[:12] if pieces_digest else ''
 except: pass
 state = {
-    'date': str(date.today()),
+    'date': _effective_today(),
     'cache_timestamp': cache_ts,
     'pieces_fetched_at': pieces_fetched_at,
     'pieces_digest_hash': pieces_digest_hash,

@@ -257,7 +257,7 @@ def _compose_sentence(prefix: str, lines: list[str], *, max_len: int = 420) -> s
     return _sentence_safe_clip(f"{prefix}: {'; '.join(cleaned)}.", max_len=max_len)
 
 
-def compose_today_fallback(ctx: dict) -> str:
+def compose_today_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hour: int = 13) -> str:
     ctx = ctx if isinstance(ctx, dict) else {}
     lines: list[str] = []
     morning = str(ctx.get("morning_note", "") or "").strip()
@@ -267,6 +267,8 @@ def compose_today_fallback(ctx: dict) -> str:
     three_things = ctx.get("three_things", []) if isinstance(ctx.get("three_things", []), list) else []
     summary = str(ctx.get("summary", "") or "").strip()
     narrative = polish_day_narrative_text(ctx.get("narrative", ""))
+    hour = datetime.now().hour if now_hour is None else int(now_hour)
+    midday_unlocked = hour >= unlock_hour
 
     morning_bits = _collect_fallback_lines([morning], limit=3, split_sentences=True)
     if morning_bits:
@@ -274,20 +276,21 @@ def compose_today_fallback(ctx: dict) -> str:
         if sentence:
             lines.append(sentence)
 
-    day_chunks: list[str] = []
-    updates_bits = _collect_fallback_lines([updates], limit=3, split_sentences=True)
-    if updates_bits:
-        sentence = _compose_sentence("Day updates", updates_bits, max_len=520)
-        if sentence:
-            day_chunks.append(sentence)
+    if midday_unlocked:
+        day_chunks: list[str] = []
+        updates_bits = _collect_fallback_lines([updates], limit=3, split_sentences=True)
+        if updates_bits:
+            sentence = _compose_sentence("Day updates", updates_bits, max_len=520)
+            if sentence:
+                day_chunks.append(sentence)
 
-    done_bits = _collect_fallback_lines([str(item) for item in ta_dah], limit=4, split_sentences=False)
-    if done_bits:
-        sentence = _compose_sentence("Completed", done_bits[:3], max_len=420)
-        if sentence:
-            day_chunks.append(sentence)
-    if day_chunks:
-        lines.append(" ".join(day_chunks))
+        done_bits = _collect_fallback_lines([str(item) for item in ta_dah], limit=4, split_sentences=False)
+        if done_bits:
+            sentence = _compose_sentence("Completed", done_bits[:3], max_len=420)
+            if sentence:
+                day_chunks.append(sentence)
+        if day_chunks:
+            lines.append(" ".join(day_chunks))
 
     evening_sources: list[Any] = [evening]
     if three_things:
