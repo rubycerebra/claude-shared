@@ -6508,7 +6508,7 @@ def generate_html(data):
     if not daily_report_tomorrow_text:
         daily_report_tomorrow_text = compose_daily_report_tomorrow_fallback(
             _daily_report_ctx,
-            now_hour=current_hour if _daily_report_ready else 18,
+            now_hour=current_hour,
         )
     if not daily_report_tomorrow_text:
         daily_report_tomorrow_text = "Tomorrow, keep the plan light and specific: one meaningful task first, then reassess your energy."
@@ -6561,6 +6561,8 @@ def generate_html(data):
         </div>
         '''
     daily_report_control_hidden_attr = "" if daily_report_html and _daily_report_ready else ' hidden="hidden"'
+    # Section is visible all day when there's content; only the focus chip is evening-gated
+    daily_report_section_hidden_attr = ""
     qa_daily_report_focus_btn_html = f'''
         <button id="qa-daily-report-focus-btn" onclick="qaOpenReportFocus()" type="button" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.28); color:#a7f3d0; border:1px solid rgba(110,231,183,0.3);">
             📖 Focus report
@@ -11175,7 +11177,7 @@ def generate_html(data):
     {_scratch_pad_html("evening", "Evening", effective_today)}
     </section>
 
-    {(f'<section id="daily-report" class="dashboard-section phase-evening" data-focus="report"{daily_report_control_hidden_attr}>{daily_report_html}</section>') if daily_report_html else ''}
+    {(f'<section id="daily-report" class="dashboard-section phase-day" data-focus="report day evening"{daily_report_section_hidden_attr}>{daily_report_html}</section>') if daily_report_html else ''}
 
     <!-- Calendar + Ta-Dah (with wins merged) -->
     <section id="review" class="dashboard-section phase-day" data-focus="day evening">
@@ -11192,9 +11194,6 @@ def generate_html(data):
         </div>
     </div>
     </section>
-
-    <!-- What you did today — full narrative card, always visible -->
-    {(f'<section class="dashboard-section phase-day" data-focus="day evening">{_pieces_day_html}</section>') if _pieces_day_html else ''}
 
     <section id="weekly" class="dashboard-section phase-day" data-focus="day evening">{weekly_digest_html}</section>
 

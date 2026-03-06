@@ -153,7 +153,17 @@ def build_daily_report_context(cache: dict, journal: dict, date_str: str) -> dic
         if isinstance(row, dict) and row.get("date") == date_str:
             sleep = row.get("asleep_hours")
             break
-    steps = hf.get("steps")
+    hf_date_raw = str(hf.get("date", "") or "").strip()
+    # HealthFit exports dates as DD/MM/YYYY — normalise to YYYY-MM-DD for comparison
+    try:
+        from datetime import datetime as _dt
+        if "/" in hf_date_raw:
+            hf_date_norm = _dt.strptime(hf_date_raw, "%d/%m/%Y").strftime("%Y-%m-%d")
+        else:
+            hf_date_norm = hf_date_raw
+    except Exception:
+        hf_date_norm = hf_date_raw
+    steps = hf.get("steps") if hf_date_norm == date_str else None
 
     return {
         "date_str": date_str,
