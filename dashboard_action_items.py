@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+from pathlib import Path
 
 
 TASK_ACTION_STEMS = {
@@ -39,11 +40,73 @@ TASK_VAGUE_OBJECT_TOKENS = {
     "everything", "whatever", "whenever", "sometime", "someday",
 }
 
-FUTURE_KEYWORDS = ("tomorrow", "tonight", "next week", "next month", "later today", "this evening")
+TASK_EQUIVALENCE_GENERIC_OBJECT_TOKENS = {
+    "post", "office", "parcel", "package", "item", "items", "pending", "task", "tasks",
+    "todo", "todos", "tomorrow", "today",
+}
+
+FUTURE_KEYWORDS = (
+    "tomorrow",
+    "day after tomorrow",
+    "next week",
+    "next month",
+    "next monday",
+    "next tuesday",
+    "next wednesday",
+    "next thursday",
+    "next friday",
+    "next saturday",
+    "next sunday",
+    "this weekend",
+    "weekend",
+)
+
+WEEKDAY_NAME_TO_INDEX = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+
+ACTION_ITEM_DEFER_FILE = Path.home() / ".claude" / "cache" / "action-item-defer.json"
+ACTION_ITEM_STATE_FILE = Path.home() / ".claude" / "cache" / "action-item-state.json"
+ACTION_ITEM_STATE_CARRY_DAYS = 7
+ACTION_ITEM_MODEL_VERSION = 2
+
+
+def parse_ymd(raw_text: str):
+    try:
+        return datetime.strptime(str(raw_text or "").strip(), "%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def normalise_action_item_key(raw_text: str) -> str:
+    return task_match_key(str(raw_text or ""))
+
+
+def strip_completion_hash_artifacts(raw_text: str) -> str:
+    """Remove Apple Notes/dashboard completion hash suffixes from a task label."""
+    text = str(raw_text or "").strip()
+    if not text:
+        return ""
+    previous = None
+    while text and text != previous:
+        previous = text
+        text = re.sub(r"\s*~~+\s*\[?\s*[0-9a-f]{6,16}\s*\]?\s*$", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r"\s*\[\s*[0-9a-f]{6,16}\s*\]\s*$", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r"(?:\s+[0-9a-f]{6,12})+\s*$", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r"^\s*~~+\s*", "", text).strip()
+        text = re.sub(r"\s*~~+\s*$", "", text).strip()
+    return re.sub(r"\s+", " ", text).strip(" -–—\t")
 
 
 def task_match_key(raw_text: str) -> str:
-    text = re.sub(r"\s+", " ", str(raw_text or "").strip().lower())
+    text = strip_completion_hash_artifacts(raw_text)
+    text = re.sub(r"\s+", " ", str(text or "").strip().lower())
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     return re.sub(r"\s+", " ", text).strip()
 
@@ -91,10 +154,14 @@ def task_matches_completed_text(raw_text: str, completed_text_keys: list[str]) -
         done_object_tokens = task_object_tokens(done_key)
         if done_object_tokens and candidate_object_tokens:
             obj_overlap = done_object_tokens & candidate_object_tokens
+            meaningful_overlap = {
+                tok for tok in obj_overlap
+                if tok not in TASK_EQUIVALENCE_GENERIC_OBJECT_TOKENS
+            }
             min_obj = min(len(done_object_tokens), len(candidate_object_tokens))
-            if len(obj_overlap) >= 2:
+            if len(obj_overlap) >= 2 and meaningful_overlap:
                 return True
-            if min_obj >= 3 and len(obj_overlap) / max(min_obj, 1) >= 0.75:
+            if min_obj >= 3 and len(meaningful_overlap) / max(min_obj, 1) >= 0.5:
                 return True
         overlap = len(candidate_tokens & done_tokens)
         union = len(candidate_tokens | done_tokens)
@@ -118,10 +185,14 @@ def tasks_equivalent(left_text: str, right_text: str) -> bool:
     right_obj = task_object_tokens(right_text)
     if left_obj and right_obj:
         obj_overlap = left_obj & right_obj
+        meaningful_overlap = {
+            tok for tok in obj_overlap
+            if tok not in TASK_EQUIVALENCE_GENERIC_OBJECT_TOKENS
+        }
         min_obj = min(len(left_obj), len(right_obj))
-        if len(obj_overlap) >= 2:
+        if len(obj_overlap) >= 2 and meaningful_overlap:
             return True
-        if min_obj >= 3 and len(obj_overlap) / max(min_obj, 1) >= 0.75:
+        if min_obj >= 3 and len(meaningful_overlap) / max(min_obj, 1) >= 0.5:
             return True
     left_tokens = set(left_key.split())
     right_tokens = set(right_key.split())
@@ -192,6 +263,447 @@ def is_future_facing_task(raw_text: str, future_keywords=FUTURE_KEYWORDS) -> boo
     return any(kw in task_lower for kw in future_keywords)
 
 
+def infer_target_date_from_text(raw_text: str, effective_today: str) -> str:
+    """Infer YYYY-MM-DD target date from natural-language timing markers in task text."""
+    task_lower = str(raw_text or "").strip().lower()
+    if not task_lower:
+        return ""
+    try:
+        base_dt = datetime.strptime(str(effective_today or "").strip(), "%Y-%m-%d")
+    except Exception:
+        return ""
+
+    if "day after tomorrow" in task_lower:
+        return (base_dt + timedelta(days=2)).strftime("%Y-%m-%d")
+    if "tomorrow" in task_lower:
+        return (base_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    if "next week" in task_lower:
+        return (base_dt + timedelta(days=7)).strftime("%Y-%m-%d")
+    if "next month" in task_lower:
+        return (base_dt + timedelta(days=30)).strftime("%Y-%m-%d")
+    if "this weekend" in task_lower or "weekend" in task_lower:
+        days_until_sat = (5 - base_dt.weekday()) % 7
+        if days_until_sat == 0:
+            days_until_sat = 7
+        return (base_dt + timedelta(days=days_until_sat)).strftime("%Y-%m-%d")
+
+    for name, idx in WEEKDAY_NAME_TO_INDEX.items():
+        if f"next {name}" in task_lower:
+            delta = (idx - base_dt.weekday()) % 7
+            if delta == 0:
+                delta = 7
+            return (base_dt + timedelta(days=delta)).strftime("%Y-%m-%d")
+        if re.search(rf"\b(?:on\s+)?{name}\b", task_lower):
+            delta = (idx - base_dt.weekday()) % 7
+            if delta == 0:
+                delta = 7
+            return (base_dt + timedelta(days=delta)).strftime("%Y-%m-%d")
+    return ""
+
+
+def load_action_item_defer_targets(effective_date: str) -> dict[str, str]:
+    """Return task-key -> target_date for active user deferrals."""
+    if not ACTION_ITEM_DEFER_FILE.exists():
+        return {}
+    today_dt = parse_ymd(effective_date)
+    if not today_dt:
+        return {}
+    try:
+        payload = json.loads(ACTION_ITEM_DEFER_FILE.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        return {}
+
+    raw_items = payload.get("items", []) if isinstance(payload, dict) else []
+    if not isinstance(raw_items, list):
+        return {}
+
+    targets: dict[str, str] = {}
+    for row in raw_items:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text", "")).strip()
+        target_date = str(row.get("target_date", "")).strip()
+        key = normalise_action_item_key(text)
+        target_dt = parse_ymd(target_date)
+        if not key or not target_dt or target_dt <= today_dt:
+            continue
+        previous = str(targets.get(key, "")).strip()
+        if not previous or target_date > previous:
+            targets[key] = target_date
+    return targets
+
+
+def load_action_item_defer_rows(effective_date: str) -> list[dict]:
+    """Return defer rows that should still influence today's/tomorrow's queue."""
+    if not ACTION_ITEM_DEFER_FILE.exists():
+        return []
+    today_dt = parse_ymd(effective_date)
+    if not today_dt:
+        return []
+    try:
+        payload = json.loads(ACTION_ITEM_DEFER_FILE.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        return []
+
+    raw_items = payload.get("items", []) if isinstance(payload, dict) else []
+    if not isinstance(raw_items, list):
+        return []
+
+    rows: list[dict] = []
+    for row in raw_items:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text", "")).strip()
+        target_date = str(row.get("target_date", "")).strip()
+        key = normalise_action_item_key(text)
+        target_dt = parse_ymd(target_date)
+        if not key or not target_dt or target_dt < today_dt:
+            continue
+        candidate = {
+            "task_key": key,
+            "text": text,
+            "target_date": target_date,
+        }
+        match_idx = None
+        for idx, existing in enumerate(rows):
+            if key == existing.get("task_key") or tasks_equivalent(text, existing.get("text", "")):
+                match_idx = idx
+                break
+        if match_idx is None:
+            rows.append(candidate)
+            continue
+        existing = rows[match_idx]
+        existing_target = str(existing.get("target_date", "")).strip()
+        if target_date > existing_target:
+            existing["target_date"] = target_date
+        if len(text) > len(str(existing.get("text", ""))):
+            existing["text"] = text
+            existing["task_key"] = key
+    return rows
+
+
+def load_action_item_state_payload() -> dict:
+    if not ACTION_ITEM_STATE_FILE.exists():
+        return {"schema_version": ACTION_ITEM_MODEL_VERSION, "items": []}
+    try:
+        payload = json.loads(ACTION_ITEM_STATE_FILE.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        payload = {"schema_version": ACTION_ITEM_MODEL_VERSION, "items": []}
+    if not isinstance(payload, dict):
+        payload = {"schema_version": ACTION_ITEM_MODEL_VERSION, "items": []}
+    items = payload.get("items", [])
+    if not isinstance(items, list):
+        items = []
+    payload["schema_version"] = ACTION_ITEM_MODEL_VERSION
+    payload["items"] = items
+    return payload
+
+
+def persist_action_item_state(payload: dict) -> None:
+    try:
+        ACTION_ITEM_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = Path(f"{ACTION_ITEM_STATE_FILE}.tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(ACTION_ITEM_STATE_FILE)
+    except Exception:
+        pass
+
+
+def load_active_action_item_state_rows(
+    effective_date: str,
+    carry_days: int = ACTION_ITEM_STATE_CARRY_DAYS,
+) -> dict[str, dict]:
+    today_dt = parse_ymd(effective_date)
+    if not today_dt:
+        return {}
+    payload = load_action_item_state_payload()
+    rows_by_key: dict[str, dict] = {}
+    cutoff_dt = today_dt - timedelta(days=max(1, int(carry_days)))
+    for row in payload.get("items", []):
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text", "")).strip()
+        key = str(row.get("task_key", "")).strip() or normalise_action_item_key(text)
+        if not text or not key:
+            continue
+        status = str(row.get("status", "open")).strip().lower()
+        if status == "done":
+            continue
+        target_date = str(row.get("target_date", "")).strip()
+        target_dt = parse_ymd(target_date)
+        last_live_date = str(row.get("last_live_seen_date", "")).strip()
+        last_seen_date = str(row.get("last_seen_date", "")).strip()
+        first_seen_date = str(row.get("first_seen_date", "")).strip()
+        freshness_dt = parse_ymd(last_live_date) or parse_ymd(last_seen_date) or parse_ymd(first_seen_date)
+        keep = False
+        if target_dt and target_dt >= (today_dt - timedelta(days=1)):
+            keep = True
+        elif freshness_dt and freshness_dt >= cutoff_dt:
+            keep = True
+        if not keep:
+            continue
+        rows_by_key[key] = {
+            "task_key": key,
+            "text": text,
+            "category": str(row.get("category", "standard")).strip() or "standard",
+            "priority": str(row.get("priority", "Medium")).strip() or "Medium",
+            "time": str(row.get("time", "15m")).strip() or "15m",
+            "target_date": target_date,
+            "status": status,
+            "source": str(row.get("source", "")).strip(),
+            "first_seen_date": first_seen_date,
+            "last_live_seen_date": last_live_date,
+            "last_seen_date": last_seen_date,
+            "queue_bucket": str(row.get("queue_bucket", "")).strip(),
+            "queue_rank": row.get("queue_rank"),
+            "due_today_override": bool(row.get("due_today_override", False)),
+            "defer_target_date": str(row.get("defer_target_date", "")).strip(),
+            "inferred_target_date": str(row.get("inferred_target_date", "")).strip(),
+        }
+    return rows_by_key
+
+
+def save_action_item_state(
+    effective_date: str,
+    items: list[dict],
+    *,
+    today_items: list[dict] | None = None,
+    future_items: list[dict] | None = None,
+    completed_items: list[dict] | None = None,
+    carry_days: int = ACTION_ITEM_STATE_CARRY_DAYS,
+) -> None:
+    today_dt = parse_ymd(effective_date)
+    if not today_dt:
+        return
+    now_iso = datetime.now().isoformat(timespec="seconds")
+    payload = load_action_item_state_payload()
+
+    previous_rows: dict[str, dict] = {}
+    for row in payload.get("items", []):
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text", "")).strip()
+        key = str(row.get("task_key", "")).strip() or normalise_action_item_key(text)
+        if key:
+            previous_rows[key] = row
+
+    queue_meta: dict[str, dict] = {}
+
+    def _capture_queue(rows, bucket):
+        if not isinstance(rows, list):
+            return
+        for idx, row in enumerate(rows):
+            if not isinstance(row, dict):
+                continue
+            text = str(row.get("task", "") or row.get("text", "")).strip()
+            key = normalise_action_item_key(text)
+            if not key:
+                continue
+            queue_meta[key] = {"queue_bucket": bucket, "queue_rank": idx}
+
+    _capture_queue(today_items, "today")
+    _capture_queue(future_items, "future")
+    _capture_queue(completed_items, "done")
+
+    next_rows: dict[str, dict] = {}
+    for item in (items or []):
+        if not isinstance(item, dict):
+            continue
+        text = str(item.get("task", "") or item.get("text", "")).strip()
+        key = normalise_action_item_key(text)
+        if not text or not key:
+            continue
+        prev = previous_rows.get(key, {})
+        source = str(item.get("source", "")).strip().lower()
+        target_date = str(item.get("target_date", "")).strip()
+        is_done = bool(item.get("done"))
+        queue_info = queue_meta.get(key, {})
+        queue_bucket = str(queue_info.get("queue_bucket", "")).strip()
+        if not queue_bucket:
+            if is_done:
+                queue_bucket = "done"
+            elif target_date and target_date > effective_date and not bool(item.get("due_today_override")):
+                queue_bucket = "future"
+            else:
+                queue_bucket = "today"
+        due_today_override = bool(item.get("due_today_override", False))
+        if queue_bucket == "future" and target_date and target_date > effective_date:
+            due_today_override = False
+        queue_rank = queue_info.get("queue_rank")
+        if queue_rank is None:
+            try:
+                queue_rank = int(prev.get("queue_rank"))
+            except Exception:
+                queue_rank = 9999
+        first_seen_date = str(prev.get("first_seen_date", "")).strip() or effective_date
+        last_live_seen_date = str(prev.get("last_live_seen_date", "")).strip()
+        if source and source != "persisted":
+            last_live_seen_date = effective_date
+        elif not last_live_seen_date:
+            last_live_seen_date = str(prev.get("last_seen_date", "")).strip() or effective_date
+
+        next_rows[key] = {
+            "task_key": key,
+            "text": text,
+            "category": str(item.get("category", "standard")).strip() or "standard",
+            "priority": str(item.get("priority", prev.get("priority", "Medium"))).strip() or "Medium",
+            "time": str(item.get("time", "15m")).strip() or "15m",
+            "target_date": target_date,
+            "status": "done" if is_done else "open",
+            "source": source or str(prev.get("source", "")).strip(),
+            "queue_bucket": queue_bucket,
+            "queue_rank": int(queue_rank),
+            "due_today_override": due_today_override,
+            "defer_target_date": str(item.get("defer_target_date", "")).strip(),
+            "inferred_target_date": str(item.get("inferred_target_date", "")).strip(),
+            "first_seen_date": first_seen_date,
+            "last_seen_date": effective_date,
+            "last_live_seen_date": last_live_seen_date,
+            "updated_at": now_iso,
+        }
+        if is_done:
+            next_rows[key]["completed_date"] = effective_date
+
+    cutoff_dt = today_dt - timedelta(days=max(1, int(carry_days)))
+    for key, prev in previous_rows.items():
+        if key in next_rows:
+            continue
+        status = str(prev.get("status", "open")).strip().lower()
+        if status == "done":
+            continue
+        target_date = str(prev.get("target_date", "")).strip()
+        target_dt = parse_ymd(target_date)
+        last_live_dt = parse_ymd(str(prev.get("last_live_seen_date", "")).strip())
+        last_seen_dt = parse_ymd(str(prev.get("last_seen_date", "")).strip())
+        first_seen_dt = parse_ymd(str(prev.get("first_seen_date", "")).strip())
+        freshness_dt = last_live_dt or last_seen_dt or first_seen_dt
+        keep = False
+        if target_dt and target_dt >= (today_dt - timedelta(days=1)):
+            keep = True
+        elif freshness_dt and freshness_dt >= cutoff_dt:
+            keep = True
+        if not keep:
+            continue
+        carried = dict(prev)
+        carried["task_key"] = key
+        carried["status"] = "open"
+        carried["updated_at"] = now_iso
+        carried.setdefault("queue_bucket", "future" if target_date and target_date > effective_date else "today")
+        try:
+            carried["queue_rank"] = int(carried.get("queue_rank", 9999))
+        except Exception:
+            carried["queue_rank"] = 9999
+        next_rows[key] = carried
+
+    payload["updated_at"] = now_iso
+    payload["schema_version"] = ACTION_ITEM_MODEL_VERSION
+    payload["items"] = sorted(
+        next_rows.values(),
+        key=lambda row: (
+            {"today": 0, "future": 1, "done": 2}.get(str(row.get("queue_bucket", "today")).strip(), 3),
+            int(row.get("queue_rank", 9999)),
+            str(row.get("target_date", "")),
+            str(row.get("task_key", "")),
+        ),
+    )
+    persist_action_item_state(payload)
+
+
+def _normalise_state_row(row: dict, effective_date: str) -> dict | None:
+    text = str(row.get("text", "")).strip()
+    key = str(row.get("task_key", "")).strip() or normalise_action_item_key(text)
+    if not text or not key:
+        return None
+    target_date = str(row.get("target_date", "")).strip()
+    status = str(row.get("status", "open")).strip().lower() or "open"
+    bucket = str(row.get("queue_bucket", "")).strip()
+    if not bucket:
+        if status == "done":
+            bucket = "done"
+        elif target_date and target_date > effective_date:
+            bucket = "future"
+        else:
+            bucket = "today"
+    try:
+        queue_rank = int(row.get("queue_rank", 9999))
+    except Exception:
+        queue_rank = 9999
+    due_today_override = bool(row.get("due_today_override", False))
+    if bucket == "future" and target_date and target_date > effective_date:
+        due_today_override = False
+    return {
+        "task_key": key,
+        "text": text,
+        "task": text,
+        "category": str(row.get("category", "standard")).strip() or "standard",
+        "priority": str(row.get("priority", "Medium")).strip() or "Medium",
+        "time": str(row.get("time", "15m")).strip() or "15m",
+        "target_date": target_date,
+        "source": str(row.get("source", "")).strip(),
+        "status": status,
+        "done": status == "done",
+        "bucket": bucket,
+        "queue_rank": queue_rank,
+        "due_today_override": due_today_override,
+        "defer_target_date": str(row.get("defer_target_date", "")).strip(),
+        "inferred_target_date": str(row.get("inferred_target_date", "")).strip(),
+        "first_seen_date": str(row.get("first_seen_date", "")).strip(),
+        "last_seen_date": str(row.get("last_seen_date", "")).strip(),
+        "last_live_seen_date": str(row.get("last_live_seen_date", "")).strip(),
+        "completed_date": str(row.get("completed_date", "")).strip(),
+        "updated_at": str(row.get("updated_at", "")).strip(),
+    }
+
+
+def load_dashboard_action_state(effective_date: str) -> dict:
+    """Load the persisted unified action queue used by the dashboard and API."""
+    payload = load_action_item_state_payload()
+    rows = payload.get("items", []) if isinstance(payload.get("items", []), list) else []
+    today_items: list[dict] = []
+    future_items: list[dict] = []
+    done_items: list[dict] = []
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        item = _normalise_state_row(row, effective_date)
+        if not item:
+            continue
+        bucket = item.get("bucket")
+        if bucket == "done" or item.get("done"):
+            done_items.append(item)
+        elif bucket == "future":
+            future_items.append(item)
+        else:
+            today_items.append(item)
+
+    def _sort_key(item: dict):
+        return (
+            int(item.get("queue_rank", 9999)),
+            str(item.get("target_date", "")).strip(),
+            str(item.get("category", "")).strip(),
+            str(item.get("text", "")).strip().lower(),
+        )
+
+    today_items.sort(key=_sort_key)
+    future_items.sort(key=_sort_key)
+    done_items.sort(
+        key=lambda item: (
+            str(item.get("completed_date", "")).strip(),
+            int(item.get("queue_rank", 9999)),
+            str(item.get("text", "")).strip().lower(),
+        ),
+        reverse=True,
+    )
+    return {
+        "schema_version": ACTION_ITEM_MODEL_VERSION,
+        "today": today_items,
+        "future": future_items,
+        "done": done_items,
+        "updated_at": str(payload.get("updated_at", "")).strip(),
+    }
+
+
 def load_completed_todo_state(completed_file, effective_today: str) -> tuple[set[str], list[str], list[str]]:
     hashes: set[str] = set()
     text_keys: list[str] = []
@@ -211,21 +723,28 @@ def load_completed_todo_state(completed_file, effective_today: str) -> tuple[set
                 }
                 if isinstance(payload.get("completed_texts"), list):
                     text_keys = [
-                        re.sub(r"\s+", " ", str(item).strip().lower())
+                        task_match_key(item)
                         for item in payload.get("completed_texts", [])
-                        if str(item).strip()
+                        if str(item).strip() and task_match_key(item)
                     ]
                 if isinstance(payload.get("completed_labels"), list):
-                    labels = [
-                        str(item).strip()
-                        for item in payload.get("completed_labels", [])
-                        if str(item).strip()
-                    ]
+                    seen_label_keys: set[str] = set()
+                    cleaned_labels: list[str] = []
+                    for item in payload.get("completed_labels", []):
+                        text = strip_completion_hash_artifacts(item)
+                        if not text:
+                            continue
+                        key = task_match_key(text)
+                        if not key or key in seen_label_keys:
+                            continue
+                        seen_label_keys.add(key)
+                        cleaned_labels.append(text)
+                    labels = cleaned_labels
                 if not labels and isinstance(payload.get("completed_texts"), list):
                     labels = [
-                        str(item).strip().capitalize()
+                        strip_completion_hash_artifacts(str(item).strip().capitalize())
                         for item in payload.get("completed_texts", [])
-                        if str(item).strip()
+                        if str(item).strip() and strip_completion_hash_artifacts(str(item).strip().capitalize())
                     ]
     except Exception:
         hashes, text_keys, labels = set(), [], []

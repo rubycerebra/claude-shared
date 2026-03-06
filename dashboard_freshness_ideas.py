@@ -4,14 +4,129 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 FRESHNESS_RANK = {"ok": 0, "info": 1, "warn": 2, "error": 3}
+SECTION_FRESHNESS_ORDER = [
+    "actions",
+    "mood",
+    "morning",
+    "updates",
+    "narrative",
+    "guidance",
+    "evening",
+    "review",
+    "weekly",
+    "health",
+    "film",
+    "jobs",
+    "ideas",
+    "pieces",
+    "system",
+]
+SECTION_FRESHNESS_LABELS = {
+    "actions": "✅ Actions",
+    "mood": "🙂 Mood",
+    "morning": "🌅 Morning",
+    "updates": "📝 Updates",
+    "narrative": "🧭 Narrative",
+    "guidance": "💡 Guidance",
+    "evening": "🌙 Evening",
+    "review": "💭 Review",
+    "weekly": "📅 Weekly",
+    "health": "🏥 Health",
+    "film": "🎬 Film",
+    "jobs": "💼 Jobs",
+    "ideas": "💡 Ideas",
+    "pieces": "🧩 Pieces",
+    "system": "🧰 System",
+}
 
 
 def normalize_freshness_level(level: str) -> str:
     value = str(level or "").strip().lower()
     return value if value in FRESHNESS_RANK else "info"
+
+
+def build_section_freshness_item(
+    section_id: str,
+    *,
+    label: str = "",
+    level: str = "info",
+    line: str = "",
+    updated_at: str = "",
+    source_date: str = "",
+    stale_reason: str = "",
+    fallback_in_use: bool = False,
+) -> dict:
+    norm_level = normalize_freshness_level(level)
+    return {
+        "id": str(section_id or "").strip(),
+        "label": str(label or SECTION_FRESHNESS_LABELS.get(section_id, section_id.title() or "Section")).strip(),
+        "freshness_state": norm_level,
+        "level": norm_level,
+        "line": str(line or "").strip(),
+        "updated_at": str(updated_at or "").strip(),
+        "source_date": str(source_date or "").strip(),
+        "stale_reason": str(stale_reason or "").strip(),
+        "fallback_in_use": bool(fallback_in_use),
+    }
+
+
+def build_section_freshness_registry(
+    sections: dict,
+    *,
+    order: list[str] | None = None,
+) -> dict:
+    if not isinstance(sections, dict):
+        return {"items": {}, "ordered": [], "counts": {}, "worst_level": "info", "attention_count": 0}
+
+    ordered_ids = []
+    raw_order = list(order or SECTION_FRESHNESS_ORDER)
+    for section_id in raw_order:
+        if section_id not in ordered_ids:
+            ordered_ids.append(section_id)
+    for section_id in sections.keys():
+        if section_id not in ordered_ids:
+            ordered_ids.append(section_id)
+
+    items = {}
+    counts = {"ok": 0, "info": 0, "warn": 0, "error": 0}
+    worst_level = "ok"
+    attention_count = 0
+
+    for section_id in ordered_ids:
+        raw_item = sections.get(section_id)
+        if not isinstance(raw_item, dict):
+            continue
+        item = build_section_freshness_item(
+            section_id,
+            label=raw_item.get("label", ""),
+            level=raw_item.get("level", raw_item.get("freshness_state", "info")),
+            line=raw_item.get("line", ""),
+            updated_at=raw_item.get("updated_at", ""),
+            source_date=raw_item.get("source_date", ""),
+            stale_reason=raw_item.get("stale_reason", ""),
+            fallback_in_use=bool(raw_item.get("fallback_in_use", False)),
+        )
+        items[section_id] = item
+        level = item.get("level", "info")
+        counts[level] = counts.get(level, 0) + 1
+        if FRESHNESS_RANK.get(level, 1) > FRESHNESS_RANK.get(worst_level, 0):
+            worst_level = level
+        if level in {"warn", "error"}:
+            attention_count += 1
+
+    ordered = [items[section_id] for section_id in ordered_ids if section_id in items]
+    return {
+        "items": items,
+        "ordered": ordered,
+        "counts": counts,
+        "worst_level": worst_level,
+        "attention_count": attention_count,
+    }
 
 
 def build_system_status_html(runtime: dict) -> dict:
@@ -163,14 +278,23 @@ def compute_mood_freshness(
     mood_entries,
     *,
     current_hour: int,
+    diarium_fresh: bool = True,
 ) -> dict:
-    morning_slot = str((morning or {}).get("mood_tag", "") or "").strip().lower() or "unknown"
-    evening_slot = str((evening or {}).get("mood_tag", "") or "").strip().lower() or "unknown"
+    use_diarium_slots = bool(diarium_fresh)
+    morning_slot = (
+        str((morning or {}).get("mood_tag", "") or "").strip().lower() if use_diarium_slots else ""
+    ) or "unknown"
+    evening_slot = (
+        str((evening or {}).get("mood_tag", "") or "").strip().lower() if use_diarium_slots else ""
+    ) or "unknown"
     rows = mood_entries if isinstance(mood_entries, list) else []
 
     if morning_slot == "unknown":
         for row in reversed(rows):
             if not isinstance(row, dict):
+                continue
+            source = str(row.get("source", "") or "").strip().lower()
+            if (not use_diarium_slots) and source == "diarium":
                 continue
             label = str(row.get("label", "") or row.get("mood", "")).strip().lower()
             context = str(row.get("context", "") or "").strip().lower()
@@ -184,6 +308,9 @@ def compute_mood_freshness(
         for row in reversed(rows):
             if not isinstance(row, dict):
                 continue
+            source = str(row.get("source", "") or "").strip().lower()
+            if (not use_diarium_slots) and source == "diarium":
+                continue
             label = str(row.get("label", "") or row.get("mood", "")).strip().lower()
             context = str(row.get("context", "") or "").strip().lower()
             if not label:
@@ -192,9 +319,11 @@ def compute_mood_freshness(
                 evening_slot = label
                 break
 
+    if not use_diarium_slots and morning_slot == "unknown" and evening_slot == "unknown":
+        return {"line": "⚠️ Mood slots unavailable while journal is stale. Add a manual mood check-in.", "level": "warn"}
     if morning_slot == "unknown":
         return {"line": "⚠️ Morning mood slot missing.", "level": "warn"}
-    if evening_slot == "unknown" and current_hour >= 20:
+    if evening_slot == "unknown" and current_hour >= 23:
         return {"line": f"⚠️ Evening mood slot still missing (morning: {morning_slot}).", "level": "warn"}
     if evening_slot == "unknown":
         return {"line": f"🟡 Mood slots: morning {morning_slot}, evening pending.", "level": "info"}
@@ -357,7 +486,6 @@ def build_freshness_watch_html(
     details_open = " open" if auto_open else ""
     return f'''
     <div id="qa-freshness-watch" class="card mt-2" style="border: 1px solid rgba(125,211,252,0.28); background: rgba(15,23,42,0.55);">
-        <p id="qa-fresh-ai-path-inline" data-level="{ai_path_level}" class="text-xs mb-2" style="color: #cbd5e1">{html.escape(ai_path_line)}</p>
         <details{details_open}>
             <summary id="qa-fresh-overall" data-level="{freshness_overall_level}" class="text-sm font-semibold cursor-pointer" style="color: #a7f3d0">{html.escape(freshness_overall_line)}</summary>
             <div class="mt-2 space-y-1">
@@ -372,6 +500,686 @@ def build_freshness_watch_html(
             <p id="qa-fresh-updated" class="text-xs mt-2" style="color: #94a3b8">Auto-check runs every 30s while this tab is open.</p>
         </details>
     </div>'''
+
+
+def _compact_ai_path_pill_label(ai_path_line: str) -> str:
+    raw = str(ai_path_line or "").strip()
+    lower = raw.lower()
+    if "last run:" in lower:
+        label = raw.split(":", 1)[1].split("•", 1)[0].strip()
+        if label:
+            return f"🤖 {label}"
+    if "no calls yet" in lower:
+        return "🤖 Ready"
+    if "unavailable" in lower:
+        return "🤖 AI path"
+    return "🤖 AI"
+
+
+def _compact_ai_path_pill_short_label(ai_path_line: str) -> str:
+    full_label = _compact_ai_path_pill_label(ai_path_line)
+    lower = full_label.lower()
+    if "codex cli" in lower:
+        return "🤖 CLI"
+    if "claude" in lower:
+        return "🤖 Claude"
+    if "ready" in lower:
+        return "🤖 Ready"
+    return "🤖 AI"
+
+
+def _compact_freshness_pill_label(level: str) -> str:
+    return {
+        "ok": "🧭 Fresh",
+        "info": "🧭 Watching",
+        "warn": "🧭 Attention",
+        "error": "🧭 Stale",
+    }.get(normalize_freshness_level(level), "🧭 Watching")
+
+
+def _compact_freshness_pill_short_label(level: str) -> str:
+    return {
+        "ok": "🧭 Fresh",
+        "info": "🧭 Watch",
+        "warn": "🧭 Alert",
+        "error": "🧭 Stale",
+    }.get(normalize_freshness_level(level), "🧭 Watch")
+
+
+def _ideas_compact_status(ideas_payload: dict, clock_hhmm: Callable[[str], str]) -> dict:
+    payload = ideas_payload if isinstance(ideas_payload, dict) else {}
+    status = str(payload.get("status", "") or "").strip().lower() or "unknown"
+    counts = payload.get("counts", {}) if isinstance(payload.get("counts", {}), dict) else {}
+    ideas_new = _safe_int(counts.get("new_items", payload.get("new_items_count", 0)))
+    ideas_created = _safe_int(counts.get("beads_created", 0))
+    ideas_failed = _safe_int(counts.get("beads_failed", 0))
+    ideas_retried = _safe_int(counts.get("retried", 0))
+    ideas_retry_queue = _safe_int(payload.get("retry_queue_count", 0))
+    ideas_last_run = str(payload.get("last_run", "") or "").strip()
+    last_run_label = clock_hhmm(ideas_last_run) or ideas_last_run[:16]
+
+    level = "ok"
+    label = "💡 Ideas ok"
+    if status not in {"success", "ok"}:
+        level = "error" if status == "error" else "warn"
+        label = "💡 Ideas issue"
+    elif ideas_failed or ideas_retry_queue:
+        level = "warn"
+        label = "💡 Ideas retry"
+    elif ideas_new or ideas_created:
+        level = "ok"
+        label = f"💡 {ideas_new or ideas_created} new"
+    elif ideas_retried:
+        level = "info"
+        label = "💡 Ideas checked"
+
+    if last_run_label:
+        label = f"{label} {last_run_label}"
+
+    title_bits = [
+        f"status {status}",
+        f"new {ideas_new}",
+        f"beads {ideas_created}",
+        f"failed {ideas_failed}",
+        f"retried {ideas_retried}",
+        f"queue {ideas_retry_queue}",
+    ]
+    if ideas_last_run:
+        title_bits.append(f"last run {ideas_last_run}")
+    return {
+        "label": label,
+        "short_label": (
+            "💡 issue"
+            if status not in {"success", "ok"}
+            else "💡 retry"
+            if ideas_failed or ideas_retry_queue
+            else f"💡 {ideas_new or ideas_created} new"
+            if ideas_new or ideas_created
+            else "💡 checked"
+            if ideas_retried
+            else "💡 ok"
+        ),
+        "level": level,
+        "title": " • ".join(title_bits),
+    }
+
+
+def build_backend_status_pills_html(
+    *,
+    ai_path_line: str,
+    ai_path_level: str,
+    freshness_overall_line: str,
+    freshness_overall_level: str,
+    ideas_payload: dict,
+    section_registry: dict,
+    clock_hhmm: Callable[[str], str],
+) -> str:
+    ai_label = _compact_ai_path_pill_label(ai_path_line)
+    ai_short_label = _compact_ai_path_pill_short_label(ai_path_line)
+    fresh_label = _compact_freshness_pill_label(freshness_overall_level)
+    fresh_short_label = _compact_freshness_pill_short_label(freshness_overall_level)
+    ideas_meta = _ideas_compact_status(ideas_payload, clock_hhmm)
+    section_payload = section_registry if isinstance(section_registry, dict) else {}
+    section_attention_count = int(section_payload.get("attention_count", 0) or 0)
+    section_level = normalize_freshness_level(section_payload.get("worst_level", "info"))
+    section_label = (
+        f"🧭 Sections {section_attention_count}"
+        if section_attention_count
+        else "🧭 Sections ok"
+    )
+    section_short_label = (
+        f"🧭 Sect {section_attention_count}"
+        if section_attention_count
+        else "🧭 Sect ok"
+    )
+    section_title = (
+        f"Section freshness • attention {section_attention_count} • "
+        f"ok {section_payload.get('counts', {}).get('ok', 0) if isinstance(section_payload.get('counts', {}), dict) else 0} • "
+        f"info {section_payload.get('counts', {}).get('info', 0) if isinstance(section_payload.get('counts', {}), dict) else 0} • "
+        f"warn {section_payload.get('counts', {}).get('warn', 0) if isinstance(section_payload.get('counts', {}), dict) else 0} • "
+        f"error {section_payload.get('counts', {}).get('error', 0) if isinstance(section_payload.get('counts', {}), dict) else 0}"
+    )
+    pill_defs = [
+        {
+            "id": "qa-fresh-ai-path-inline",
+            "level": normalize_freshness_level(ai_path_level),
+            "label": ai_label,
+            "short_label": ai_short_label,
+            "title": ai_path_line,
+        },
+        {
+            "id": "qa-backend-fresh-pill",
+            "level": normalize_freshness_level(freshness_overall_level),
+            "label": fresh_label,
+            "short_label": fresh_short_label,
+            "title": freshness_overall_line,
+        },
+        {
+            "id": "qa-backend-ideas-pill",
+            "level": normalize_freshness_level(ideas_meta.get("level", "info")),
+            "label": str(ideas_meta.get("label", "💡 Ideas")),
+            "short_label": str(ideas_meta.get("short_label", "💡 ok")),
+            "title": str(ideas_meta.get("title", "")),
+        },
+        {
+            "id": "qa-backend-sections-pill",
+            "level": section_level,
+            "label": section_label,
+            "short_label": section_short_label,
+            "title": section_title,
+        },
+    ]
+    summary_level = "ok"
+    attention_count = 0
+    summary_title_bits = []
+    for pill in pill_defs:
+        level = normalize_freshness_level(pill.get("level", "info"))
+        if FRESHNESS_RANK.get(level, 1) > FRESHNESS_RANK.get(summary_level, 0):
+            summary_level = level
+        if level in {"warn", "error"}:
+            attention_count += 1
+        title = str(pill.get("title", "")).strip()
+        label = str(pill.get("label", "")).strip()
+        summary_title_bits.append(f"{label} — {title}" if title else label)
+    summary_label = {
+        "ok": "🟢 Live ok",
+        "info": "🔵 Live watching",
+        "warn": f"🟡 Live attention {attention_count}" if attention_count else "🟡 Live attention",
+        "error": f"🔴 Live alert {attention_count}" if attention_count else "🔴 Live alert",
+    }.get(summary_level, "🔵 Live watching")
+    summary_short_label = {
+        "ok": "🟢 Live",
+        "info": "🔵 Live",
+        "warn": "🟡 Live",
+        "error": "🔴 Live",
+    }.get(summary_level, "🔵 Live")
+    show_details = attention_count > 0
+    summary_hidden_attr = ' hidden="hidden"' if show_details else ""
+    detail_hidden_attr = "" if show_details else ' hidden="hidden"'
+    parts = [
+        '<span class="backend-pill-row" role="note" aria-label="Live status summary">',
+        (
+            f'<span id="qa-backend-summary-pill" class="backend-pill backend-pill-summary" '
+            f'data-level="{html.escape(summary_level, quote=True)}" '
+            f'data-full-label="{html.escape(summary_label, quote=True)}" '
+            f'data-short-label="{html.escape(summary_short_label, quote=True)}" '
+            f'title="{html.escape(" • ".join(summary_title_bits), quote=True)}"{summary_hidden_attr}>'
+            f'{html.escape(summary_label)}</span>'
+        ),
+    ]
+    for pill in pill_defs:
+        parts.append(
+            f'<span id="{html.escape(str(pill.get("id", "")), quote=True)}" '
+            f'class="backend-pill backend-pill-detail" '
+            f'data-level="{html.escape(normalize_freshness_level(pill.get("level", "info")), quote=True)}" '
+            f'data-full-label="{html.escape(str(pill.get("label", "")), quote=True)}" '
+            f'data-short-label="{html.escape(str(pill.get("short_label", pill.get("label", ""))), quote=True)}" '
+            f'title="{html.escape(str(pill.get("title", "")), quote=True)}"{detail_hidden_attr}>'
+            f'{html.escape(str(pill.get("label", "")))}</span>'
+        )
+    parts.append("</span>")
+    return "".join(parts)
+
+
+def build_section_freshness_html(section_registry: dict, clock_hhmm: Callable[[str], str]) -> str:
+    registry = section_registry if isinstance(section_registry, dict) else {}
+    ordered = registry.get("ordered", []) if isinstance(registry.get("ordered", []), list) else []
+    if not ordered:
+        return ""
+
+    counts = registry.get("counts", {}) if isinstance(registry.get("counts", {}), dict) else {}
+    attention_count = int(registry.get("attention_count", 0) or 0)
+    worst_level = normalize_freshness_level(registry.get("worst_level", "info"))
+    summary_label = (
+        f"🧭 Section freshness ({attention_count} need attention)"
+        if attention_count
+        else "🧭 Section freshness (all monitored)"
+    )
+    summary_colour = {
+        "ok": "#a7f3d0",
+        "info": "#93c5fd",
+        "warn": "#fde68a",
+        "error": "#fca5a5",
+    }.get(worst_level, "#93c5fd")
+    details_open = " open" if attention_count else ""
+
+    badge_rows = []
+    for item in ordered:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "")).strip()
+        level = normalize_freshness_level(item.get("level", "info"))
+        tone = {
+            "ok": ("🟢", "#a7f3d0", "rgba(6,95,70,0.22)", "rgba(110,231,183,0.22)"),
+            "info": ("🔵", "#bfdbfe", "rgba(30,64,175,0.18)", "rgba(147,197,253,0.22)"),
+            "warn": ("🟡", "#fde68a", "rgba(120,53,15,0.22)", "rgba(251,191,36,0.22)"),
+            "error": ("🔴", "#fca5a5", "rgba(127,29,29,0.22)", "rgba(239,68,68,0.22)"),
+        }.get(level, ("🔵", "#bfdbfe", "rgba(30,64,175,0.18)", "rgba(147,197,253,0.22)"))
+        updated_at = str(item.get("updated_at", "")).strip()
+        source_date = str(item.get("source_date", "")).strip()
+        stale_reason = str(item.get("stale_reason", "")).strip()
+        fallback_in_use = bool(item.get("fallback_in_use"))
+        line = str(item.get("line", "")).strip()
+        meta_bits = []
+        if source_date:
+            meta_bits.append(f"source {html.escape(source_date)}")
+        if updated_at:
+            pretty_updated = clock_hhmm(updated_at) or updated_at[:16]
+            meta_bits.append(f"updated {html.escape(pretty_updated)}")
+        if fallback_in_use:
+            meta_bits.append("fallback")
+        meta_html = (
+            f'<p class="text-xs mt-1" style="color:#94a3b8">{" • ".join(meta_bits)}</p>'
+            if meta_bits else ""
+        )
+        reason_html = (
+            f'<p class="text-xs mt-1" style="color:#fcd34d">{html.escape(stale_reason)}</p>'
+            if stale_reason and level in {"warn", "error"} else ""
+        )
+        badge_rows.append(
+            f'<div class="rounded-lg px-3 py-2.5" style="border:1px solid {tone[3]}; background:{tone[2]};">'
+            f'<div class="flex items-center gap-2 flex-wrap">'
+            f'<span class="text-xs font-semibold" style="color:{tone[1]}">{tone[0]} {html.escape(label)}</span>'
+            f'</div>'
+            f'<p class="text-xs mt-1" style="color:#e5e7eb">{html.escape(line or "No freshness note.")}</p>'
+            f'{meta_html}'
+            f'{reason_html}'
+            f'</div>'
+        )
+
+    counts_label = (
+        f"ok {counts.get('ok', 0)} • info {counts.get('info', 0)} • "
+        f"warn {counts.get('warn', 0)} • error {counts.get('error', 0)}"
+    )
+    rows_html = "".join(badge_rows)
+    return f'''
+    <div class="card mt-2" style="border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.58);">
+        <details{details_open}>
+            <summary class="text-sm font-semibold cursor-pointer" style="color: {summary_colour};">{html.escape(summary_label)}</summary>
+            <p class="text-xs mt-2" style="color:#94a3b8">Every major card now reports its own freshness state • {html.escape(counts_label)}</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                {rows_html}
+            </div>
+        </details>
+    </div>'''
+
+def _is_same_day_iso(raw_value: str, date_key: str) -> bool:
+    return bool(str(raw_value or "").strip().startswith(str(date_key or "").strip()))
+
+def _latest_timestamp_from_rows(rows: list) -> str:
+    latest = ""
+    if not isinstance(rows, list):
+        return latest
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key in ("timestamp", "updated_at", "logged_at", "created_at", "captured_at"):
+            raw = str(row.get(key, "") or "").strip()
+            if raw and raw > latest:
+                latest = raw
+    return latest
+
+def _file_mtime_iso(path: Path | str | None) -> str:
+    if not path:
+        return ""
+    try:
+        file_path = Path(path)
+    except Exception:
+        return ""
+    if not file_path.exists():
+        return ""
+    try:
+        return datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
+    except Exception:
+        return ""
+
+def build_today_section_freshness_registry(
+    cache: dict,
+    *,
+    today: str,
+    cache_timestamp: str,
+    diarium_fresh: bool,
+    diarium_source_date: str,
+    diarium_fresh_reason: str,
+    morning_note: str,
+    evening_note: str,
+    diary_updates: str,
+    guidance_lines: list,
+    action_items: list,
+    future_action_items: list,
+    action_items_updated_at: str,
+    action_items_stale_reason: str,
+    ideas_payload: dict,
+    mood_entries: list,
+    mood_state: dict,
+    updates_state: dict,
+    cache_state: dict,
+    narrative_state: dict,
+    weekly_current_file: Path | str | None = None,
+    now: datetime | None = None,
+) -> dict:
+    payload = cache if isinstance(cache, dict) else {}
+    now_dt = now if isinstance(now, datetime) else datetime.now()
+    hour_now = now_dt.hour
+    film_data = payload.get("film_data", {}) if isinstance(payload.get("film_data", {}), dict) else {}
+    pieces_activity = payload.get("pieces_activity", {}) if isinstance(payload.get("pieces_activity", {}), dict) else {}
+    calendar_data = payload.get("calendar", {}) if isinstance(payload.get("calendar", {}), dict) else {}
+    job_boards = payload.get("job_boards", {}) if isinstance(payload.get("job_boards", {}), dict) else {}
+    linkedin_jobs = payload.get("linkedin_jobs", {}) if isinstance(payload.get("linkedin_jobs", {}), dict) else {}
+    applications = payload.get("applications", {}) if isinstance(payload.get("applications", {}), dict) else {}
+    healthfit = payload.get("healthfit", {}) if isinstance(payload.get("healthfit", {}), dict) else {}
+    streaks = payload.get("streaks", {}) if isinstance(payload.get("streaks", {}), dict) else {}
+    apple_health = payload.get("apple_health", {}) if isinstance(payload.get("apple_health", {}), dict) else {}
+    autosleep = payload.get("autosleep", {}) if isinstance(payload.get("autosleep", {}), dict) else {}
+
+    mood_updated_at = _latest_timestamp_from_rows(mood_entries)
+    actions_today_count = len(action_items) if isinstance(action_items, list) else 0
+    actions_future_count = len(future_action_items) if isinstance(future_action_items, list) else 0
+    actions_total = actions_today_count + actions_future_count
+    if _is_same_day_iso(action_items_updated_at, today):
+        actions_level = "ok" if actions_total else "info"
+        actions_line = (
+            f"Action queue current • today {actions_today_count} • future {actions_future_count}"
+            if actions_total else "Action queue checked today • no current or future items."
+        )
+        actions_reason = ""
+    else:
+        actions_level = "warn"
+        actions_line = "Action queue may be stale."
+        actions_reason = action_items_stale_reason or "Dashboard action queue has not been regenerated for today."
+
+    if diarium_fresh and morning_note:
+        morning_level = "ok"
+        morning_line = "Morning section is sourced from today's journal."
+        morning_reason = ""
+    elif not diarium_fresh:
+        morning_level = "warn"
+        morning_line = "Morning section hidden because journal source is stale."
+        morning_reason = diarium_fresh_reason
+    elif hour_now < 12:
+        morning_level = "info"
+        morning_line = "Morning section waiting for more written input."
+        morning_reason = ""
+    else:
+        morning_level = "warn"
+        morning_line = "Morning section is thin or missing."
+        morning_reason = "No morning note content was found for today's journal."
+
+    if diarium_fresh and evening_note:
+        evening_level = "ok"
+        evening_line = "Evening section is ready from today's journal."
+        evening_reason = ""
+    elif not diarium_fresh:
+        evening_level = "warn"
+        evening_line = "Evening section hidden because journal source is stale."
+        evening_reason = diarium_fresh_reason
+    elif hour_now < 18:
+        evening_level = "info"
+        evening_line = "Evening section not expected yet."
+        evening_reason = ""
+    elif hour_now < 23:
+        evening_level = "info"
+        evening_line = "Evening section still waiting for reflection."
+        evening_reason = ""
+    else:
+        evening_level = "warn"
+        evening_line = "Evening section still missing late in the day."
+        evening_reason = "No evening reflection found after the evening window."
+
+    if guidance_lines:
+        guidance_level = "ok" if diarium_fresh else "info"
+        guidance_line = f"Guidance ready • {len(guidance_lines)} line{'s' if len(guidance_lines) != 1 else ''}."
+        guidance_reason = diarium_fresh_reason if not diarium_fresh else ""
+    elif not diarium_fresh:
+        guidance_level = "warn"
+        guidance_line = "Guidance suppressed because today's journal source is stale."
+        guidance_reason = diarium_fresh_reason
+    elif hour_now < 10:
+        guidance_level = "info"
+        guidance_line = "Guidance still warming up for the day."
+        guidance_reason = ""
+    else:
+        guidance_level = "warn"
+        guidance_line = "Guidance missing despite fresh day data."
+        guidance_reason = "No guidance lines were generated."
+
+    review_level = "ok" if calendar_data.get("status") == "success" else "warn"
+    review_line = (
+        f"Review section ready • {len(calendar_data.get('events', []))} calendar event(s)."
+        if review_level == "ok" else "Review section missing calendar data."
+    )
+    review_reason = "" if review_level == "ok" else str(calendar_data.get("message", "")).strip()
+
+    weekly_exists = bool(weekly_current_file and Path(weekly_current_file).exists())
+    iso_week = now_dt.isocalendar()
+    weekly_label = f"{iso_week.year}-W{iso_week.week:02d}"
+    weekly_needs_generation = bool(iso_week.weekday == 7 and not weekly_exists)
+    if weekly_exists:
+        weekly_level = "ok"
+        weekly_line = f"Weekly digest current for {weekly_label}."
+        weekly_reason = ""
+    elif weekly_needs_generation:
+        weekly_level = "warn"
+        weekly_line = "Weekly digest due today."
+        weekly_reason = "Current week digest file is missing."
+    else:
+        weekly_level = "info"
+        weekly_line = "Weekly digest waiting for Sunday."
+        weekly_reason = ""
+
+    health_sources_ok = sum(
+        1 for source_payload in (healthfit, streaks, apple_health, autosleep)
+        if isinstance(source_payload, dict) and str(source_payload.get("status", "")).strip().lower() == "success"
+    )
+    health_updated_at = (
+        str(streaks.get("updated_at", "")).strip()
+        or str(healthfit.get("latest_date", "")).strip()
+        or cache_timestamp
+    )
+    if health_sources_ok >= 2:
+        health_level = "ok"
+        health_line = f"Health section backed by {health_sources_ok} fresh source(s)."
+        health_reason = ""
+    elif health_sources_ok == 1:
+        health_level = "info"
+        health_line = "Health section is running on a thinner source mix."
+        health_reason = ""
+    else:
+        health_level = "warn"
+        health_line = "Health section is missing source feeds."
+        health_reason = "No health source reported success."
+
+    film_fetched_at = str(film_data.get("fetched_at", "")).strip()
+    film_source_date = film_fetched_at[:10] if film_fetched_at else ""
+    if film_data.get("status") == "success" and not bool(film_data.get("stale")) and _is_same_day_iso(film_fetched_at, today):
+        film_level = "ok"
+        film_line = "Film section synced today from Letterboxd."
+        film_reason = ""
+    elif film_data.get("status") == "success" and not bool(film_data.get("stale")):
+        film_level = "info"
+        film_line = "Film section available, but last sync was not today."
+        film_reason = ""
+    else:
+        film_level = "warn"
+        film_line = "Film section is stale or unavailable."
+        film_reason = str(film_data.get("message", "")).strip() or "Letterboxd/film sync needs attention."
+
+    jobs_timestamp = str(job_boards.get("timestamp", "") or job_boards.get("cached_at", "")).strip()
+    jobs_today = _is_same_day_iso(jobs_timestamp, today)
+    if job_boards.get("status") == "success" and jobs_today:
+        jobs_level = "ok"
+        jobs_line = f"Jobs section refreshed today • boards {job_boards.get('total_count', 0)}."
+        jobs_reason = ""
+    elif linkedin_jobs.get("status") == "success" or applications.get("status") == "success":
+        jobs_level = "info"
+        jobs_line = "Jobs section available from partial feeds."
+        jobs_reason = ""
+    else:
+        jobs_level = "warn"
+        jobs_line = "Jobs section is missing live feeds."
+        jobs_reason = (
+            str(job_boards.get("message", "")).strip()
+            or str(linkedin_jobs.get("message", "")).strip()
+            or str(applications.get("message", "")).strip()
+        )
+
+    ideas_last_run = str(ideas_payload.get("last_run", "")).strip()
+    ideas_has_content = bool(ideas_payload.get("has_content"))
+    if _is_same_day_iso(ideas_last_run, today):
+        ideas_level = "ok" if ideas_has_content else "info"
+        ideas_line = "Ideas pickup checked today." if not ideas_has_content else "Ideas pickup ran today with note content."
+        ideas_reason = ""
+    else:
+        ideas_level = "warn"
+        ideas_line = "Ideas pickup has not run today."
+        ideas_reason = "Ideas card is showing an older run snapshot."
+
+    pieces_fetched_at = str(pieces_activity.get("fetched_at", "")).strip()
+    if pieces_activity.get("status") == "ok" and _is_same_day_iso(pieces_fetched_at, today):
+        pieces_level = "ok"
+        pieces_line = "Pieces section has same-day activity context."
+        pieces_reason = ""
+    elif pieces_activity.get("status") == "ok":
+        pieces_level = "info"
+        pieces_line = "Pieces section available, but not refreshed today."
+        pieces_reason = ""
+    else:
+        pieces_level = "warn"
+        pieces_line = "Pieces section is unavailable."
+        pieces_reason = str(pieces_activity.get("message", "")).strip()
+
+    system_level = str(cache_state.get("level", "info")).strip().lower() or "info"
+    system_line = str(cache_state.get("line", "")).strip() or "System freshness inherited from cache state."
+
+    section_rows = {
+        "actions": build_section_freshness_item(
+            "actions",
+            level=actions_level,
+            line=actions_line,
+            updated_at=action_items_updated_at or cache_timestamp,
+            source_date=today,
+            stale_reason=actions_reason,
+        ),
+        "mood": build_section_freshness_item(
+            "mood",
+            level=str(mood_state.get("level", "info")),
+            line=str(mood_state.get("line", "")),
+            updated_at=mood_updated_at or cache_timestamp,
+            source_date=today,
+            stale_reason=diarium_fresh_reason if str(mood_state.get("level", "")) in {"warn", "error"} and not diarium_fresh else "",
+            fallback_in_use=not diarium_fresh,
+        ),
+        "morning": build_section_freshness_item(
+            "morning",
+            level=morning_level,
+            line=morning_line,
+            updated_at=cache_timestamp,
+            source_date=diarium_source_date or today,
+            stale_reason=morning_reason,
+            fallback_in_use=not diarium_fresh,
+        ),
+        "updates": build_section_freshness_item(
+            "updates",
+            level=str(updates_state.get("level", "info")),
+            line=str(updates_state.get("line", "")),
+            updated_at=cache_timestamp,
+            source_date=diarium_source_date or today,
+            stale_reason=diarium_fresh_reason if not diary_updates and not diarium_fresh else "",
+            fallback_in_use=not diarium_fresh and bool(diary_updates),
+        ),
+        "narrative": build_section_freshness_item(
+            "narrative",
+            level=str(narrative_state.get("level", "info")),
+            line=str(narrative_state.get("line", "")),
+            updated_at=cache_timestamp,
+            source_date=diarium_source_date or today,
+            stale_reason="",
+            fallback_in_use=not diarium_fresh and str(narrative_state.get("level", "")) in {"warn", "error"},
+        ),
+        "guidance": build_section_freshness_item(
+            "guidance",
+            level=guidance_level,
+            line=guidance_line,
+            updated_at=cache_timestamp,
+            source_date=diarium_source_date or today,
+            stale_reason=guidance_reason,
+            fallback_in_use=not diarium_fresh and bool(guidance_lines),
+        ),
+        "evening": build_section_freshness_item(
+            "evening",
+            level=evening_level,
+            line=evening_line,
+            updated_at=cache_timestamp,
+            source_date=diarium_source_date or today,
+            stale_reason=evening_reason,
+            fallback_in_use=not diarium_fresh,
+        ),
+        "review": build_section_freshness_item(
+            "review",
+            level=review_level,
+            line=review_line,
+            updated_at=cache_timestamp,
+            source_date=today,
+            stale_reason=review_reason,
+        ),
+        "weekly": build_section_freshness_item(
+            "weekly",
+            level=weekly_level,
+            line=weekly_line,
+            updated_at=_file_mtime_iso(weekly_current_file) if weekly_exists else cache_timestamp,
+            source_date=today,
+            stale_reason=weekly_reason,
+        ),
+        "health": build_section_freshness_item(
+            "health",
+            level=health_level,
+            line=health_line,
+            updated_at=health_updated_at,
+            source_date=today,
+            stale_reason=health_reason,
+        ),
+        "film": build_section_freshness_item(
+            "film",
+            level=film_level,
+            line=film_line,
+            updated_at=film_fetched_at,
+            source_date=film_source_date or today,
+            stale_reason=film_reason,
+        ),
+        "jobs": build_section_freshness_item(
+            "jobs",
+            level=jobs_level,
+            line=jobs_line,
+            updated_at=jobs_timestamp or cache_timestamp,
+            source_date=(jobs_timestamp[:10] if jobs_timestamp else today),
+            stale_reason=jobs_reason,
+        ),
+        "ideas": build_section_freshness_item(
+            "ideas",
+            level=ideas_level,
+            line=ideas_line,
+            updated_at=ideas_last_run,
+            source_date=(ideas_last_run[:10] if ideas_last_run else today),
+            stale_reason=ideas_reason,
+        ),
+        "pieces": build_section_freshness_item(
+            "pieces",
+            level=pieces_level,
+            line=pieces_line,
+            updated_at=pieces_fetched_at or cache_timestamp,
+            source_date=(pieces_fetched_at[:10] if pieces_fetched_at else today),
+            stale_reason=pieces_reason,
+        ),
+        "system": build_section_freshness_item(
+            "system",
+            level=system_level,
+            line=system_line,
+            updated_at=cache_timestamp,
+            source_date=today,
+            stale_reason="",
+        ),
+    }
+    return build_section_freshness_registry(section_rows)
 
 
 def narrative_contradiction_reason(
@@ -513,15 +1321,21 @@ def build_ideas_status_html(ideas_payload: dict, clock_hhmm: Callable[[str], str
     )
 
     status_colour = "#86efac" if ideas_status == "success" else ("#fca5a5" if ideas_status == "error" else "#fde68a")
+    ideas_meta = _ideas_compact_status(ideas_payload, clock_hhmm)
+    details_open = " open" if ideas_status not in {"success", "ok"} or ideas_new > 0 or ideas_failed > 0 or ideas_retry_queue > 0 else ""
 
     return f'''
-    <div class="card mt-2" style="border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.58);">
-        <p class="text-sm font-semibold" style="color: #a7f3d0">💡 Ideas pickup</p>
-        <p class="text-xs mt-1" style="color: {status_colour};">Status: {html.escape(ideas_status)} • new {ideas_new} • beads {ideas_created} • failed {ideas_failed} • retried {ideas_retried} • queue {ideas_retry_queue}</p>
-        {f'<p class="text-xs mt-1" style="color: #94a3b8">Last run: {html.escape(ideas_last_run)}</p>' if ideas_last_run else ''}
-        {ideas_clean_meta_html}
-        {ideas_fail_summary}
-        {ideas_cleanup_html}
-        {ideas_preview_html}
-        {ideas_context_html}
+    <div id="qa-ideas-status" class="card mt-2" style="border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.58);">
+        <details{details_open}>
+            <summary class="text-sm font-semibold cursor-pointer" style="color: #a7f3d0">{html.escape(str(ideas_meta.get("label", "💡 Ideas pickup")))}</summary>
+            <div class="mt-2">
+                <p class="text-xs mt-1" style="color: {status_colour};">Status: {html.escape(ideas_status)} • new {ideas_new} • beads {ideas_created} • failed {ideas_failed} • retried {ideas_retried} • queue {ideas_retry_queue}</p>
+                {f'<p class="text-xs mt-1" style="color: #94a3b8">Last run: {html.escape(ideas_last_run)}</p>' if ideas_last_run else ''}
+                {ideas_clean_meta_html}
+                {ideas_fail_summary}
+                {ideas_cleanup_html}
+                {ideas_preview_html}
+                {ideas_context_html}
+            </div>
+        </details>
     </div>'''
