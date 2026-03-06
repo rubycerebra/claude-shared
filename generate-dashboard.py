@@ -11176,7 +11176,6 @@ def generate_html(data):
     </div>
     {evening_insights_html}
     {how_felt_html}
-    {suggestions_html}
     {_scratch_pad_html("evening", "Evening", effective_today)}
     </section>
 
