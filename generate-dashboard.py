@@ -5525,6 +5525,7 @@ def generate_html(data):
     # - NEVER parrot daily_guidance as tomorrow's guidance (causes duplication)
     # - Jim sets tomorrow plans in the evening, so only flag after 18:00
     suggestions_html = ""
+    tomorrow_items_html = ""
     jim_tomorrow = data.get("evening", {}).get("tomorrow", "")
     jim_remember = data.get("evening", {}).get("remember_tomorrow", "")
     try:
@@ -6558,6 +6559,7 @@ def generate_html(data):
             <div>
                 <p class="text-xs font-semibold mb-2" style="color:#f9a8d4">🌅 Tomorrow</p>
                 {_daily_report_prose_html(daily_report_tomorrow_text, _daily_tomorrow_palette)}
+                {f'<div class="mt-4 pt-3" style="border-top:1px solid rgba(249,168,212,0.12)">{tomorrow_items_html}</div>' if is_evening and tomorrow_items_html else ''}
             </div>
         </div>
         '''
