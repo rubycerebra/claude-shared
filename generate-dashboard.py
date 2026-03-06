@@ -6556,6 +6556,7 @@ def generate_html(data):
                 <p class="text-xs font-semibold mb-2" style="color:#6ee7b7">📖 Today&apos;s story</p>
                 {_daily_report_prose_html(daily_report_story_text, _daily_story_palette)}
             </div>
+            {f'<div class="mb-4 pt-3" style="border-top:1px solid rgba(196,181,253,0.1)"><p class="text-xs font-semibold mb-2" style="color:#c4b5fd">💭 How today felt</p>{felt_parts}</div>' if felt_parts else ''}
             <div>
                 <p class="text-xs font-semibold mb-2" style="color:#f9a8d4">🌅 Tomorrow</p>
                 {_daily_report_prose_html(daily_report_tomorrow_text, _daily_tomorrow_palette)}
@@ -11175,7 +11176,6 @@ def generate_html(data):
         {evening_card_html}
     </div>
     {evening_insights_html}
-    {how_felt_html}
     {_scratch_pad_html("evening", "Evening", effective_today)}
     </section>
 
