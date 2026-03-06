@@ -2272,18 +2272,18 @@ def generate_html(data):
         </div>'''
 
     # Habits HTML — pastel progress bars with at-risk warnings
-    # Ta-Dah scratch pad — open by default, supports multi-line Akiflow pastes
+    # Ta-Dah scratch pad — lives at the top of the dashboard for quick access
     _tadah_scratch_storage_key = f"dashboard.scratch.{get_effective_date()}.ta_dah"
-    tadah_scratch_html = f'''<div class="mt-3 pt-3" style="border-top: 1px solid #374151">
+    tadah_scratch_html = f'''<div class="mb-4 rounded-xl px-3 py-2" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(110,231,183,0.18);">
         <textarea id="qa-scratch-ta_dah"
-            rows="2" maxlength="2000"
+            rows="1" maxlength="2000"
             data-storage-key="{html.escape(_tadah_scratch_storage_key)}"
             data-section="ta_dah"
             class="w-full rounded px-2 py-1.5 text-xs"
-            style="background: rgba(15,23,42,0.85); border: 1px solid rgba(110,231,183,0.22); color: #e5e7eb; resize: vertical; font-family: inherit;"
+            style="background: transparent; border: none; color: #e5e7eb; resize: none; font-family: inherit; outline: none;"
             placeholder="Drop a win or paste your Akiflow tasks (one per line)…"
-            oninput="qaSaveScratchPad(this)"></textarea>
-        <div class="mt-1 flex items-center gap-2">
+            oninput="qaSaveScratchPad(this); this.style.height='auto'; this.style.height=this.scrollHeight+'px';"></textarea>
+        <div class="flex items-center gap-2">
             <button id="qa-scratch-submit-ta_dah"
                 onclick="qaScratchSubmit('ta_dah')"
                 class="px-3 py-1 rounded text-xs"
@@ -6504,7 +6504,7 @@ def generate_html(data):
             str(emotional_summary or "").strip(),
         ]
         daily_report_story_text = next((item for item in fallback_story_candidates if str(item).strip()), "")
-        daily_report_meta_html = '<p class="text-xs mb-3" style="color:#94a3b8">Built from the latest same-day dashboard data.</p>' if daily_report_story_text else ""
+        daily_report_meta_html = ""
     if not daily_report_tomorrow_text:
         daily_report_tomorrow_text = compose_daily_report_tomorrow_fallback(
             _daily_report_ctx,
@@ -6544,7 +6544,6 @@ def generate_html(data):
             <div class="flex items-center justify-between gap-3 mb-3">
                 <div>
                     <h3 class="text-lg font-semibold" style="color:#a7f3d0">📖 Daily report</h3>
-                    <p class="text-xs mt-1" style="color:#94a3b8">End-of-day synthesis without leaving the dashboard.</p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <button type="button" onclick="qaExitReportFocus()" class="rounded px-2.5 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.22); color:#bfdbfe; border:1px solid rgba(147,197,253,0.28);">🌐 Dashboard</button>
@@ -11120,6 +11119,9 @@ def generate_html(data):
         </div>
     </section>
 
+    <!-- Ta-Dah scratch pad — quick drop zone at the top -->
+    {tadah_scratch_html}
+
     <!-- Action Items (TOP — the first thing to see) -->
     <section id="actions" class="dashboard-section phase-day" data-focus="always morning day evening">{action_items_html}</section>
 
@@ -11185,7 +11187,6 @@ def generate_html(data):
         <div class="card">
             <h3 class="text-lg font-semibold mb-4"><a href="{journal_today}" style="color: #6ee7b7">✅ Ta-Dah ({len(tadah_flat)})</a></h3>
             <div class="space-y-1">{tadah_html}</div>
-            {tadah_scratch_html}
             {yesterday_tadah_html}
             {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
         </div>
