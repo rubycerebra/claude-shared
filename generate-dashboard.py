@@ -2431,6 +2431,60 @@ def generate_html(data):
         film_alternates = film_recs.get("alternates", []) if isinstance(film_recs.get("alternates", []), list) else []
         recent_watch_note = str(film_recs.get("recent_watch_note", "")).strip()
 
+        # Override heuristic picks with AI-generated insights (🎬 tonight, 🔍 discovery)
+        import re as _re
+        _ai_film_text = ""
+        _ai_discovery_text = ""
+        try:
+            _ai_date = get_effective_date()
+            _ai_day_data = get_ai_day(data.get("aiInsights", {}), _ai_date)
+            for _entry in reversed(_ai_day_data.get("entries", [])):
+                for _ins in _entry.get("insights", []):
+                    _t = str(_ins.get("text", ""))
+                    if "\U0001f3ac" in _t and not _ai_film_text:
+                        _ai_film_text = _t
+                    if "\U0001f50d" in _t and not _ai_discovery_text:
+                        _ai_discovery_text = _t
+                if _ai_film_text and _ai_discovery_text:
+                    break
+        except Exception:
+            pass
+
+        if _ai_film_text:
+            # Match *Title* (markdown bold) or 'Title' (single-quoted, capital-first, up to 60 chars)
+            _title_m = _re.search(r"\*([^*]+)\*|'([A-Z][^']{1,60})'", _ai_film_text)
+            _ai_title = (_title_m.group(1) or _title_m.group(2)).strip() if _title_m else ""
+            # Use full AI text as headline (minus emoji and markdown asterisks)
+            _ai_reason = _ai_film_text.replace("\U0001f3ac", "").strip()
+            _ai_reason = _re.sub(r'\*([^*]+)\*', r'\1', _ai_reason).strip()
+            _wl_all = film_data.get("full_watchlist", film_data.get("recent_watchlist", []))
+            _wl_m = next((w for w in _wl_all if str(w.get("title", "")).strip().lower() == _ai_title.lower()), None) if _ai_title else None
+            if _wl_m or _ai_title:
+                film_primary = {
+                    "title": _wl_m["title"] if _wl_m else _ai_title,
+                    "year": str(_wl_m.get("year", "") if _wl_m else ""),
+                    "url": _wl_m.get("url", "") if _wl_m else "",
+                    "reason": "",
+                }
+                film_profile = {"headline": _ai_reason[:180], "reason_text": ""}
+
+        discovery_html = ""
+        if _ai_discovery_text:
+            _disc = _ai_discovery_text.replace("\U0001f50d", "").strip()
+            _disc_parts = _disc.split("\u2192", 1)
+            _disc_suggestion = _disc_parts[1].strip() if len(_disc_parts) > 1 else _disc
+            _disc_film_parts = _disc_suggestion.split(" \u2014 ", 1)
+            _disc_film = _disc_film_parts[0].strip()
+            _disc_reason = _disc_film_parts[1].strip() if len(_disc_film_parts) > 1 else ""
+            _disc_reason_html = f'<p class="text-xs mt-1" style="color:#9ca3af">{_html.escape(_disc_reason)}</p>' if _disc_reason else ""
+            discovery_html = (
+                '<div class="mt-3 rounded px-3 py-2" style="background:rgba(6,78,59,0.15);border:1px solid rgba(52,211,153,0.2)">'
+                '<p class="text-xs font-semibold mb-1" style="color:#6ee7b7">\U0001f50d Discovery</p>'
+                f'<p class="text-sm" style="color:#a7f3d0">{_html.escape(_disc_film)}</p>'
+                f'{_disc_reason_html}'
+                '</div>'
+            )
+
         # Recently watched
         watched_items_html = ""
         for item in recent_watched:
@@ -2520,6 +2574,15 @@ def generate_html(data):
               {profile_reason_html}
               {(f'<p class="text-xs mt-2" style="color:#cbd5e1">{_html.escape(primary_reason)}</p>') if primary_reason else ''}
               {alternates_html}
+              {discovery_html}
+            </div>
+            '''
+
+        # If no tonight pick but discovery exists, surface it standalone
+        if not primary_title and discovery_html:
+            primary_pick_html = f'''
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
+              {discovery_html}
             </div>
             '''
 
