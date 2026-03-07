@@ -1,10 +1,10 @@
-# Deep Synthesis — February 2026 (through 17 February)
+# Deep Synthesis — February 2026 (full month)
 
 ## Scope
 
-- Journals analysed: `2026-02-01.md` to `2026-02-17.md`
+- Journals analysed: `2026-02-01.md` to `2026-02-28.md`
 - Supporting context checked: `mental-health-insights.md`, `patterns.md`, `what-works.txt`, `wins.md`
-- Note: this is a month-to-date synthesis (not full month end yet)
+- Note: month-end pass completed on 2026-03-05
 
 ---
 
@@ -31,7 +31,7 @@
 - **14 Feb:** high guilt/remorse signal around presence with daughters, followed by reflective repair.
 - **16-17 Feb:** anxious anticipation re-centred into preparation and acceptance.
 
-### Lowest and highest points (month-to-date)
+### Lowest and highest points (full month)
 - **Lowest:** 13-14 Feb (family strain + guilt + anxiety load + fatigue context).
 - **Highest:** 6-7 Feb (high completion, assertiveness, embodied regulation, calm framing).
 
@@ -207,3 +207,31 @@
 3. Convert therapy homework from “known” to “scheduled” (boundaries + roster + phone-limit evidence).
 4. Keep application strategy quality-led: fewer roles, higher fit, stronger examples.
 
+---
+
+## 9. Month-End Addendum (18-28 February)
+
+### Observed shift in the back half of the month
+- The tone moves from interview-pressure intensity toward family anchoring, practical maintenance, and recovery.
+- Entries from 18-22 Feb show strong “presence with family is enough” intent language, with less ruminative framing than mid-month.
+- Emotional risk did not disappear, but dysregulation episodes were followed by faster repair attempts and continuation behaviours.
+
+### Evidence highlights
+1. **Family-first regulation pattern increased**
+- Repeated intent statements prioritise presence over output (18-21 Feb).
+- This appears protective against over-escalating work anxiety in half-term context.
+
+2. **Continuity under strain remained high**
+- Ta-Dah lists stayed active through family/admin load: diary, walks, habits, bills, household tasks, school advocacy, and therapy follow-through.
+- “Did not cancel therapy” and “persevered” markers suggest resilience-through-action was sustained.
+
+3. **Relational rupture -> repair became faster**
+- Conflict signal on 21 Feb is followed by explicit “fresh start tomorrow” framing and reconciliation signal on 22 Feb.
+- This suggests better emotional recovery latency than earlier in the month.
+
+4. **Work momentum resumed in practical form**
+- 23-26 Feb includes concrete work/admin moves (invoice chasing, meetings set with Warner/Chris, planning and prioritisation), without the same catastrophic language seen earlier.
+
+### Updated risk watch for March
+- **Main risk:** practical overload crowding out intentional decompression (especially when technical maintenance and home tasks stack together).
+- **Main opportunity:** keep the “family first + one meaningful work move” structure, which clearly reduced anxiety spillover in late February.

@@ -318,6 +318,7 @@ def load_action_item_defer_targets(effective_date: str) -> dict[str, str]:
         return {}
 
     targets: dict[str, str] = {}
+    target_texts: dict[str, str] = {}
     for row in raw_items:
         if not isinstance(row, dict):
             continue
@@ -327,9 +328,25 @@ def load_action_item_defer_targets(effective_date: str) -> dict[str, str]:
         target_dt = parse_ymd(target_date)
         if not key or not target_dt or target_dt <= today_dt:
             continue
-        previous = str(targets.get(key, "")).strip()
-        if not previous or target_date > previous:
-            targets[key] = target_date
+        equivalent_keys = [
+            existing_key
+            for existing_key, existing_text in target_texts.items()
+            if existing_key == key or tasks_equivalent(text, existing_text)
+        ]
+        if not equivalent_keys:
+            equivalent_keys = [key]
+        strongest_target = target_date
+        for existing_key in equivalent_keys:
+            previous = str(targets.get(existing_key, "")).strip()
+            if previous and previous > strongest_target:
+                strongest_target = previous
+        for existing_key in set(equivalent_keys + [key]):
+            targets[existing_key] = strongest_target
+            existing_text = str(target_texts.get(existing_key, "")).strip()
+            if len(text) >= len(existing_text):
+                target_texts[existing_key] = text
+            elif existing_text:
+                target_texts[existing_key] = existing_text
     return targets
 
 

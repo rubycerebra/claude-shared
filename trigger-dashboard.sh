@@ -12,6 +12,7 @@
 # before generating the dashboard. Use --cache-only to skip refresh/daemon
 # triggers and regenerate purely from current cache state.
 
+PYTHON="$HOME/.claude/daemon/venv/bin/python3"
 DELAY=false
 NO_OPEN=""
 FORCE=false
@@ -47,7 +48,7 @@ MARKER="$HOME/.claude/cache/last-dashboard-trigger"
 CACHE="$HOME/.claude/cache/session-data.json"
 
 if [[ "$FORCE" != "true" && -f "$MARKER" && -f "$CACHE" ]]; then
-    SKIP=$(python3 -c "
+    SKIP=$($PYTHON -c "
 import errno
 import hashlib, json, sys, time
 from datetime import datetime, timedelta
@@ -99,7 +100,7 @@ if [[ "$CACHE_ONLY" != "true" ]]; then
     # regenerating day_state_summary (prevents "Continue the strongest work thread"
     # from referencing yesterday's activities).
     echo "🔄 Refreshing data..."
-    python3 -c "
+    $PYTHON -c "
 import sys, json, subprocess, os, errno, shutil, time, random
 import re
 from pathlib import Path
@@ -585,10 +586,10 @@ else
 fi
 
 # Generate dashboard (pass through --no-open if specified)
-python3 ~/Documents/Claude\ Projects/claude-shared/generate-dashboard.py $NO_OPEN || { echo "Dashboard generation failed"; exit 1; }
+$PYTHON ~/Documents/Claude\ Projects/claude-shared/generate-dashboard.py $NO_OPEN || { echo "Dashboard generation failed"; exit 1; }
 
 # Section integrity checks (warn by default; fail when DASHBOARD_STRICT_CHECK=1)
-python3 - <<'PY' 2>>"$LOG_FILE"
+$PYTHON - <<'PY' 2>>"$LOG_FILE"
 import json
 import errno
 import random
@@ -662,7 +663,7 @@ if [[ $INTEGRITY_EXIT -ne 0 ]]; then
 fi
 
 # Write state file
-python3 -c "
+$PYTHON -c "
 import json
 import errno
 import hashlib
