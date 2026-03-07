@@ -5475,7 +5475,7 @@ def generate_html(data):
             _narrative_html = (
                 '<div id="qa-day-narrative-body">'
                 + "".join(
-                    f'<p style="color:#e5e7eb;font-size:0.9rem;line-height:1.75;margin-bottom:0.75rem;">'
+                    f'<p style="color:#f9fafb;font-size:1rem;line-height:1.9;margin-bottom:1.25rem;letter-spacing:0.01em;">'
                     f'{html.escape(p)}</p>'
                     for p in _paras
                 )
@@ -11196,6 +11196,8 @@ def generate_html(data):
         </div>
     </div>
     </section>
+
+    {(f'<section id="day-narrative" class="dashboard-section phase-day" data-focus="day evening">{_pieces_day_html}</section>') if _pieces_day_html else ''}
 
     <section id="weekly" class="dashboard-section phase-day" data-focus="day evening">{weekly_digest_html}</section>
 
