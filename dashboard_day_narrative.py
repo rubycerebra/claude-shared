@@ -18,9 +18,33 @@ def clean_day_narrative_line(raw: str) -> str:
     return line
 
 
+_AI_PROMPT_ARTIFACTS = (
+    "ready to help",
+    "please provide",
+    "transcription error",
+    "british english",
+    "journal text",
+    "you'd like me to fix",
+    "you'd like me to",
+    "i'm here to help",
+    "how can i assist",
+    "i can help you",
+    "as an ai",
+    "as a language model",
+)
+
+
+def is_ai_prompt_artifact(text: str) -> bool:
+    """Return True if text looks like a leaked Claude system/prompt response."""
+    low = str(text or "").lower().strip()
+    return any(frag in low for frag in _AI_PROMPT_ARTIFACTS)
+
+
 def is_noise_day_narrative_line(line: str) -> bool:
     low = str(line or "").strip().lower()
     if not low:
+        return True
+    if is_ai_prompt_artifact(low):
         return True
     if re.search(r"test[-_ ]?(?:item|entry|does|abc|stub|dummy)|doesnotexist|abc123|~{2,}", low):
         return True
