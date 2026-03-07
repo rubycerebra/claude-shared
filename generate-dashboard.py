@@ -111,7 +111,7 @@ DASHBOARD_DUMP_MARKER_PATTERNS = (
     r"^\s*🗓️?\s*\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\s*$",
     r"^\s*🌅\s*Morning\b",
     r"^\s*🌙\s*Evening\b",
-    r"^\s*💡\s*Today[’']s Guidance\b",
+    r"^\s*💡\s*Today['']s Guidance\b",
     r"^\s*✅\s*Completed today\b",
 )
 
@@ -455,7 +455,7 @@ def _clean_evening_reflections_text(raw_text):
         "## ta dah",
         "## where was i brave",
         "## what's tomorrow",
-        "## what’s tomorrow",
+        "## what's tomorrow",
         "## what do i need to remember",
         "## remember tomorrow",
     )
@@ -2386,7 +2386,7 @@ def generate_html(data):
         </div>
     </div>'''
     else:
-        window_note = "Tonight option: still valid to run this session if energy allows." if datetime.now().hour >= 14 else "Plan this into today’s schedule."
+        window_note = "Tonight option: still valid to run this session if energy allows." if datetime.now().hour >= 14 else "Plan this into today's schedule."
         workout_html = f'''
     <div class="card rounded-xl p-4 mb-4" style="background: rgba(6,95,70,0.15); border: 1px solid rgba(110,231,183,0.2);">
         <div class="flex items-center gap-3">
@@ -3221,17 +3221,42 @@ def generate_html(data):
                 items_html += _render_action_item_row(section_item)
 
         if tomorrow_queue_items:
-            tomorrow_rows_html = "".join(_render_action_item_row(item) for item in tomorrow_queue_items[:8])
+            # Deduplicate near-identical items.
+            # Pass 1: collapse all "set tomorrow" variants (Apple Notes template noise) to one.
+            # Pass 2: 62% token-overlap dedup for other near-duplicates.
+            def _tq_token_sig(text):
+                return {t for t in re.findall(r"[a-z0-9]+", str(text or "").lower()) if len(t) > 2}
+            _tq_seen_set_tomorrow = False
+            _tq_seen_sigs = []
+            _tq_deduped = []
+            for _tq_item in tomorrow_queue_items:
+                _tq_task = str(_tq_item.get("task", "")).strip()
+                _tq_low = _tq_task.lower()
+                if re.match(r"set tomorrow", _tq_low):
+                    if _tq_seen_set_tomorrow:
+                        continue
+                    _tq_seen_set_tomorrow = True
+                _tq_sig = _tq_token_sig(_tq_task)
+                if _tq_sig:
+                    _tq_dupe = any(
+                        len(_tq_sig & prior) / max(1, min(len(_tq_sig), len(prior))) >= 0.62
+                        for prior in _tq_seen_sigs
+                    )
+                    if _tq_dupe:
+                        continue
+                    _tq_seen_sigs.append(_tq_sig)
+                _tq_deduped.append(_tq_item)
+            tomorrow_rows_html = "".join(_render_action_item_row(item) for item in _tq_deduped[:8])
             tomorrow_extra = ""
-            if len(tomorrow_queue_items) > 8:
+            if len(_tq_deduped) > 8:
                 tomorrow_extra = (
-                    f'<p class="text-xs mt-2" style="color:#6b7280">'
-                    f'+{len(tomorrow_queue_items) - 8} more future item(s)</p>'
+                    "<p class=\"text-xs mt-2\" style=\"color:#6b7280\">"
+                    f"+{len(_tq_deduped) - 8} more future item(s)</p>"
                 )
             items_html += f'''
             <details data-qa-tomorrow-queue="1" class="mt-4 rounded-lg px-3 py-2" style="background: rgba(30,41,59,0.38); border: 1px solid rgba(129,140,248,0.24);">
-                <summary class="text-xs font-semibold cursor-pointer" style="color:#c4b5fd">🗓️ Tomorrow queue ({len(tomorrow_queue_items)})</summary>
-                <p class="text-xs mt-2 mb-2" style="color:#9ca3af">Hidden from today’s action list. Expands into action items on its target day.</p>
+                <summary class="text-xs font-semibold cursor-pointer" style="color:#c4b5fd">🗓️ Tomorrow queue ({len(_tq_deduped)})</summary>
+                <p class="text-xs mt-2 mb-2" style="color:#9ca3af">Hidden from today's action list. Expands into action items on its target day.</p>
                 {tomorrow_rows_html}
                 {tomorrow_extra}
             </details>
@@ -5528,34 +5553,8 @@ def generate_html(data):
         looks_like_test_noise=_looks_like_test_noise,
     )
 
-    # Standalone "What you did today" card — shown always (not gated by evening)
-    _has_day_data = bool(_narrative or _p_digest2 or _p_summaries2)
+    # "What you did today" card removed — narrative integrated into Daily Report "Today's story"
     _pieces_day_html = ""
-    if _has_day_data:
-        if _narrative:
-            # Split into paragraphs on blank lines or sentence-group boundaries
-            _paras = split_day_narrative_paragraphs(_narrative)
-            _narrative_html = (
-                '<div id="qa-day-narrative-body">'
-                + "".join(
-                    f'<p style="color:#f9fafb;font-size:1rem;line-height:1.9;margin-bottom:1.25rem;letter-spacing:0.01em;">'
-                    f'{html.escape(p)}</p>'
-                    for p in _paras
-                )
-                + '</div>'
-            )
-        else:
-            _narrative_html = (
-                '<div id="qa-day-narrative-body">'
-                '<p style="color:#6b7280;font-size:0.85rem;">No activity data yet today.</p>'
-                '</div>'
-            )
-        _pieces_day_html = (
-            '<div class="card mb-4" style="border-left:4px solid #a78bfa;">'
-            '<h3 class="text-lg font-semibold mb-3" style="color:#a78bfa">🗓️ What you did today</h3>'
-            + _narrative_html
-            + '</div>'
-        )
 
     # Build final evening card with clear section headers
     # TIME-OF-DAY AWARENESS: keep evening entries hidden until evening close window
@@ -6563,8 +6562,8 @@ def generate_html(data):
         daily_report_tomorrow_text = str(_daily_report_saved.get("tomorrow_text", "") or "").strip()
     if not daily_report_story_text:
         fallback_story_candidates = [
-            compose_daily_report_today_fallback(_daily_report_ctx, now_hour=current_hour),
             str(_narrative or "").strip(),
+            compose_daily_report_today_fallback(_daily_report_ctx, now_hour=current_hour),
             str(eve_felt_summary or "").strip(),
             str(emotional_summary or "").strip(),
         ]

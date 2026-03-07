@@ -223,6 +223,7 @@ def _is_fallback_noise(line: str) -> bool:
         re.search(r"test[-_ ]?(item|entry|stub|dummy|does)|doesnotexist|abc123|~{2,}", low)
         or re.search(r"\[[a-f0-9]{6,}\]$", low)
         or re.search(r"internalised\s+\d+\s+item\(s\)", low)
+        or re.search(r"here is your full formatted entry|ready to paste into diarium|formatted entry ready to paste", low)
     )
 
 
