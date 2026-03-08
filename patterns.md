@@ -11,6 +11,7 @@ Cross-project patterns observed over time. Updated automatically by coaching ses
 - Once started, momentum carries through
 - Exhaustion follows breakthrough periods
 - Need recovery time after pushing through
+- **W10 update (2026-03-08):** Confirmed via Chris Milton email — deferred Wed, sent Fri under PDA demand conditions. Resulted in £27/hr freelance confirmed for April. Breakthrough was relational (emerged from meetings) not structured — worth tracking whether Jim can replicate with cold-application paths.
 
 ### Hyperfocus Distractions
 - Autism-related: gets pulled into fixing things (3D printer, etc.)
@@ -72,6 +73,7 @@ Cross-project patterns observed over time. Updated automatically by coaching ses
 - Breaks: reframe as choice, low-demand entry, interest/curiosity angle, genuine full-demand drop (Coco walk)
 - Healthy channelling: system design, building structures Jim chose himself — autonomy drive working correctly
 - Evidence: motion-as-safety pattern, hyperfocus escalation when job apps pending, freeze states blocking all tasks
+- **W10 update (2026-03-09):** First clean override — Chris email sent despite full demand frame active. Sequence: naming (Wed) → rest → action (Fri). Pattern shrank from ~3-day stall to 48h. One data point, not a trend — track next 2 instances.
 
 ## Quotes to Remember
 
@@ -89,9 +91,10 @@ Cross-project patterns observed over time. Updated automatically by coaching ses
 
 1. **One thing at a time** - MIT focus reduces overwhelm
 2. **Clear boundaries** - Knowing when to stop (kid care, rest)
-3. **Therapist pacing** - 3-4 per week is sustainable
-4. **Personal tone in applications** - Conversational, not corporate
+3. **Naming patterns** - PDA spiral: naming it shortened stall from days to 48h (W10 evidence)
+4. **Relational groundwork before asks** - Chris outcome emerged from meetings, not cold application
 5. **Loop closing** - Explicit next steps for everything
+6. **Personal tone in outreach** - Conversational, not corporate
 
 ---
 

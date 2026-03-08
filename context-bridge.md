@@ -1,20 +1,26 @@
 # Context Bridge
 
-**Last Updated:** 2026-02-25
+**Last Updated:** 2026-03-09
 
-**MIT:** Being with the family
-**Active:** Selective jobs + freelance dual track (equal priority)
-**Current strategy:** Remote £35k+ OR local/hybrid £40k+ when family-compatible (no weekly application quota pressure)
-**Freelance meetings:** Deluxe (Wed 25 Feb 2026) | Chris Milton (week beginning Mon 2 Mar 2026, date TBC)
+**MIT:** Build a working freelance structure before April
+**Mode:** FREELANCE-FIRST — income secured with Chris, job search de-prioritised
 
-**Applications:** 8 total (Week 1: 4, Week 2: 3, Week 3: 0, Week 4: 1 Vertigo)
-**Interviews:** None scheduled
-**Recent outcomes:**
-- Rich Mix: Withdrawn (work/life balance concerns)
-- Indigo: Rejected after first interview
-- LSE: Rejected
+## Freelance Status (Primary)
+- **Chris Milton:** £27/hr confirmed, starting April (hours TBC) ✅
+  - Email sent Fri 6 Mar, positive response received
+  - URGENT before April: confirm hours, set rate in writing, establish one clear boundary (scope/availability)
+  - Risk: people-pleasing pattern embeds fast once work starts — set structure FIRST
+- **Deluxe:** Meeting Wed 25 Feb 2026 — outcome/follow-up status unknown
+- WORK project now supports freelance operations: invoicing, pipeline, client comms, income tracking
 
-**Job Search Scope:** Film (primary) → Archive/Library/Digital Collections → IT/Systems (RAI) + freelance technical/admin support
-**See:**
-- `.plan/findings.md` in WORK project for full job scope details
-- `~/Documents/CV/Applications/application-tracker.xlsx` for application tracking
+## Job Applications (Background — not a priority)
+- **Daemon scrapers:** Still running passively (keep for serendipity)
+- **Applications:** 8 total (Week 1: 4, Week 2: 3, Week 3: 0, Week 4: 1 Vertigo)
+- **Recent outcomes:** Rich Mix withdrawn, Indigo rejected, LSE rejected
+- **Do not push quota** — quality/fit only if something exceptional appears
+- May continue applying but NOT the focus while freelance is live
+
+## Notes
+- Pattern: Application Anxiety → Breakthrough confirmed W10 — Chris email sent under PDA demand conditions
+- Financial pressure significantly reduced — this should land as genuine relief, not just cognitive reframe
+- See `application-tracker.xlsx` for full application history
