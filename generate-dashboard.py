@@ -83,7 +83,12 @@ from dashboard_freshness_ideas import (
     narrative_contradiction_reason,
     resolve_ai_path_status,
 )
-from dashboard_state_vector import build_daily_state_vector, build_state_vector_html
+from dashboard_state_vector import (
+    build_daily_state_vector,
+    build_state_vector_html,
+    load_dashboard_history,
+    save_dashboard_history_snapshot,
+)
 from dashboard_static_css import build_dashboard_utility_css
 from dashboard_day_narrative import (
     collect_day_narrative_lines,
@@ -136,6 +141,61 @@ def _parse_ymd(raw):
         return datetime.strptime(str(raw or "").strip(), "%Y-%m-%d")
     except Exception:
         return None
+
+
+def _weekly_report_looks_placeholder(path_value: str) -> bool:
+    raw = str(path_value or "").strip()
+    if not raw:
+        return False
+    try:
+        text = Path(raw).read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return False
+    lowered = text.lower()
+    placeholder_markers = (
+        "[requires opus]",
+        "requires opus",
+        "claude cli failed",
+        "opus unavailable",
+        "[error:",
+    )
+    return any(marker in lowered for marker in placeholder_markers)
+
+
+def _write_compounding_memory_note(vector: dict, effective_today: str) -> None:
+    if not isinstance(vector, dict):
+        return
+    target = SHARED_DIR / "reports" / "compounding-memory-latest.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    prior = vector.get("built_from_prior_data", {}) if isinstance(vector.get("built_from_prior_data", {}), dict) else {}
+    trend = vector.get("trend_windows", {}) if isinstance(vector.get("trend_windows", {}), dict) else {}
+    day = trend.get("day", {}) if isinstance(trend.get("day", {}), dict) else {}
+    week = trend.get("7d", {}) if isinstance(trend.get("7d", {}), dict) else {}
+    month = trend.get("30d", {}) if isinstance(trend.get("30d", {}), dict) else {}
+    lines = [
+        f"# Compounding Memory Snapshot — {effective_today}",
+        "",
+        "This file is updated from the dashboard compounding layer so future sessions/QMD can recall cross-day context, not just same-day UI state.",
+        "",
+        f"- Headline: {str(vector.get('headline', '')).strip()}",
+        f"- Today throughput: {day.get('throughput_total', 0)}",
+        f"- 7d throughput avg: {week.get('throughput_avg', 0)}",
+        f"- 30d throughput avg: {month.get('throughput_avg', 0)}",
+        "",
+        "## Increasing",
+    ]
+    for item in (prior.get("increasing", []) if isinstance(prior.get("increasing", []), list) else [])[:3]:
+        lines.append(f"- {str(item).strip()}")
+    lines.extend(["", "## Stalling"])
+    for item in (prior.get("stalling", []) if isinstance(prior.get("stalling", []), list) else [])[:3]:
+        lines.append(f"- {str(item).strip()}")
+    lines.extend(["", "## Prioritise next"])
+    for item in (prior.get("priority", []) if isinstance(prior.get("priority", []), list) else [])[:3]:
+        lines.append(f"- {str(item).strip()}")
+    lines.extend(["", "## Conversation recall cues"])
+    for item in (vector.get("conversation_context", []) if isinstance(vector.get("conversation_context", []), list) else [])[:3]:
+        lines.append(f"- {str(item).strip()}")
+    target.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
 
 
 def _latest_diarium_source_iso(cache, effective_date):
@@ -2431,6 +2491,9 @@ def generate_html(data):
         film_alternates = film_recs.get("alternates", []) if isinstance(film_recs.get("alternates", []), list) else []
         recent_watch_note = str(film_recs.get("recent_watch_note", "")).strip()
 
+        # Save heuristic reason before potential AI override
+        _heuristic_reason = str(film_profile.get("reason_text", "")).strip()
+
         # Override heuristic picks with AI-generated insights (🎬 tonight, 🔍 discovery)
         import re as _re
         _ai_film_text = ""
@@ -2450,10 +2513,17 @@ def generate_html(data):
         except Exception:
             pass
 
+        _film_pick_source = "heuristic"
         if _ai_film_text:
-            # Match *Title* (markdown bold) or 'Title' (single-quoted, capital-first, up to 60 chars)
-            _title_m = _re.search(r"\*([^*]+)\*|'([A-Z][^']{1,60})'", _ai_film_text)
-            _ai_title = (_title_m.group(1) or _title_m.group(2)).strip() if _title_m else ""
+            # Match *Title* (markdown), quoted title, or plain "Wind-down option: Title (Year)" phrasing.
+            _title_m = _re.search(
+                r"\*([^*]+)\*|'([A-Z][^']{1,60})'|:\s*([A-Z][A-Za-z0-9&:,\- ]{1,80}?)(?:\s*\(\d{4}\)|\s+from\b|\s*—)",
+                _ai_film_text,
+            )
+            _ai_title = next(
+                (grp.strip() for grp in (_title_m.groups() if _title_m else []) if grp and grp.strip()),
+                "",
+            )
             # Use full AI text as headline (minus emoji and markdown asterisks)
             _ai_reason = _ai_film_text.replace("\U0001f3ac", "").strip()
             _ai_reason = _re.sub(r'\*([^*]+)\*', r'\1', _ai_reason).strip()
@@ -2466,7 +2536,8 @@ def generate_html(data):
                     "url": _wl_m.get("url", "") if _wl_m else "",
                     "reason": "",
                 }
-                film_profile = {"headline": _ai_reason[:180], "reason_text": ""}
+                film_profile = {"headline": _ai_reason[:180], "reason_text": _heuristic_reason}
+                _film_pick_source = "ai"
 
         discovery_html = ""
         if _ai_discovery_text:
@@ -2531,6 +2602,13 @@ def generate_html(data):
             primary_pick_summary_html = f" · Tonight: {_html.escape(primary_title)}"
             profile_headline = str(film_profile.get("headline", "")).strip()
             profile_reason = str(film_profile.get("reason_text", "")).strip()
+            source_badge = (
+                '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
+                'style="background:rgba(6,95,70,0.28);color:#a7f3d0;border:1px solid rgba(110,231,183,0.28)">AI pick</span>'
+                if _film_pick_source == "ai"
+                else '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
+                     'style="background:rgba(120,53,15,0.22);color:#fde68a;border:1px solid rgba(253,230,138,0.22)">Fallback heuristic</span>'
+            )
             profile_reason_html = (
                 f'<p class="text-xs mt-1" style="color:#9ca3af">{_html.escape(profile_reason)}</p>'
                 if profile_reason else ""
@@ -2568,7 +2646,7 @@ def generate_html(data):
                 )
             primary_pick_html = f'''
             <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
-              <p class="text-xs font-semibold mb-1" style="color:#f9a8d4">🍿 Tonight&apos;s watch</p>
+              <p class="text-xs font-semibold mb-1" style="color:#f9a8d4">🍿 Tonight&apos;s watch {source_badge}</p>
               <p class="text-sm font-semibold" style="color:#f3e8ff">{primary_link} <span style="color:#94a3b8">({_html.escape(primary_year)})</span></p>
               <p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(profile_headline)}</p>
               {profile_reason_html}
@@ -2722,6 +2800,21 @@ def generate_html(data):
             return True
         return bool(_is_future_facing_task(task_text))
 
+    # Meta-prompts that are AI-generated reminders about the system itself, not real tasks.
+    # These are handled by dedicated dashboard sections and must not pollute the action queue.
+    _META_PROMPT_PHRASES = (
+        "set tomorrow plan", "set tomorrow's plan",
+        "one anchor task", "anchor task before",
+        "intention before bed", "one intention before",
+        "one important thing before sleep",
+        "set tomorrow's one",
+        "closing down tonight", "before closing down",
+    )
+
+    def _is_meta_prompt(text: str) -> bool:
+        t = text.lower()
+        return any(phrase in t for phrase in _META_PROMPT_PHRASES)
+
     def _append_action_item(
         task,
         priority="Medium",
@@ -2735,6 +2828,8 @@ def generate_html(data):
         task_text = str(task or "").strip().rstrip("~").strip()
         if not task_text:
             return
+        if _is_meta_prompt(task_text):
+            return  # Never show AI meta-prompts as action items
         if source != "akiflow" and not _is_actionable_task(task_text):
             return
         task_key = _task_match_key(task_text)
@@ -2983,12 +3078,23 @@ def generate_html(data):
             target_date=deferred_target,
         )
 
+    _bedtime_keywords = (
+        "before bed", "before sleep", "before closing down tonight",
+        "anchor task", "intention before bed", "one intention", "one anchor",
+        "wind-down", "wind down", "set tomorrow plan",
+    )
+    _current_hour = datetime.now().hour
+
     # State-backed carry-forward: keep unresolved action items visible across transient source gaps.
     for persisted in (_persisted_action_rows or {}).values():
         persisted_text = str(persisted.get("text", "")).strip()
         if not persisted_text:
             continue
         if _is_task_completed_today(persisted_text):
+            continue
+        # Suppress bedtime prompts from persisted state before 21:00
+        _ptl = persisted_text.lower()
+        if _current_hour < 21 and any(kw in _ptl for kw in _bedtime_keywords):
             continue
         persisted_target = str(persisted.get("target_date", "")).strip()
         due_today_override = False
@@ -3030,6 +3136,8 @@ def generate_html(data):
             "system": 6,
         }
         _urgency_keywords = ("urgent", "asap", "today", "now", "before", "by ")
+        _strategic_keywords = ("qmd", "dashboard", "report", "analysis", "system", "memory", "job", "application", "integration")
+        _maintenance_decay_keywords = ("coffee", "dishwasher", "tablets", "restock", "shopping", "tidy", "clean", "bathroom")
 
         def _due_bucket(item):
             if bool(item.get("due_today_override")):
@@ -3052,26 +3160,71 @@ def generate_html(data):
                 score += 1
             return score
 
+        def _days_open_score(item):
+            task_text = str(item.get("task", "")).strip()
+            if not task_text:
+                return 0
+            best_days = 0
+            for persisted in (_persisted_action_rows or {}).values():
+                persisted_text = str((persisted or {}).get("text", "")).strip()
+                if not persisted_text or not _tasks_equivalent(task_text, persisted_text):
+                    continue
+                first_seen = str((persisted or {}).get("first_seen_date", "")).strip()
+                if first_seen:
+                    try:
+                        days = max(0, (datetime.strptime(_effective_today, "%Y-%m-%d") - datetime.strptime(first_seen, "%Y-%m-%d")).days)
+                    except Exception:
+                        days = 0
+                    best_days = max(best_days, days)
+            return best_days
+
+        def _compounding_priority_score(item):
+            task_lower = str(item.get("task", "")).strip().lower()
+            category = str(item.get("category", "")).strip().lower()
+            recurrence = _days_open_score(item)
+            score = float(_urgency_score(item))
+            if recurrence:
+                score += min(recurrence, 5) * 1.5
+            if any(tok in task_lower for tok in _strategic_keywords):
+                score += 3.5
+            if any(tok in task_lower for tok in _maintenance_decay_keywords) or category == "maintenance":
+                score += 2.8
+            if any(tok in task_lower for tok in ("fix", "verify", "generate", "sync", "review", "integrate")):
+                score += 1.8
+            if _current_hour >= 20:
+                if any(tok in task_lower for tok in ("plan", "bathroom", "coffee", "dishwasher", "review")):
+                    score += 1.2
+                if any(tok in task_lower for tok in ("dashboard", "qmd", "system")):
+                    score -= 0.6
+            else:
+                if any(tok in task_lower for tok in ("dashboard", "qmd", "system", "job", "application")):
+                    score += 1.2
+            return score
+
         all_action_items.sort(
             key=lambda item: (
                 bool(item.get("done")),
                 _due_bucket(item),
+                -_compounding_priority_score(item),
                 _source_rank.get(str(item.get("source", "")).strip().lower(), 9),
                 _category_rank.get(str(item.get("category", "standard")).strip().lower(), 1),
-                -_urgency_score(item),
                 _task_match_key(item.get("task", "")),
             )
         )
         # Group by category: quick_win, maintenance, standard, system (claude)
         system_keywords = ["daemon", "dashboard", "claude", "script", "config", "cache", "verify"]
 
-        current_hour_for_filter = datetime.now().hour
         for item in all_action_items:
             # Skip items with empty task text
             if not item.get("task", "").strip():
                 continue
+            # Skip evening wind-down prompts before 21:00 — only relevant in the last hour before sleep
+            _task_lower_filter = item.get("task", "").lower()
+            _is_bedtime_prompt = any(kw in _task_lower_filter for kw in _bedtime_keywords)
+            if _current_hour < 21 and _is_bedtime_prompt:
+                continue
             # Skip "set tomorrow's plans" before 18:00 — Jim sets these in the evening
-            if current_hour_for_filter < 18 and "tomorrow" in item.get("task", "").lower() and "plan" in item.get("task", "").lower():
+            if _current_hour < 18 and "tomorrow" in _task_lower_filter and "plan" in _task_lower_filter:
                 continue
             defer_target_date = str(item.get("defer_target_date", "") or "").strip()
             target_date = str(item.get("target_date", "") or "").strip()
@@ -4642,6 +4795,29 @@ def generate_html(data):
     weekly_end_of_week = bool(weekly_digest.get("is_end_of_week"))
     weekly_is_sunday = bool(weekly_digest.get("is_sunday"))
 
+    # Filesystem scan: always prefer the deep-analysis HTML over digest .md paths from session-data
+    import datetime as _dt
+    _shared_dir = Path(__file__).parent
+    _html_candidates = sorted(_shared_dir.glob("weekly-deep-analysis-*.html"), reverse=True)
+    if _html_candidates:
+        _iso_week = _dt.date.today().isocalendar()[1]
+        _week_label = f"W{_iso_week:02d}"
+        # Latest report (any week)
+        weekly_latest_path = str(_html_candidates[0])
+        weekly_latest_name = _html_candidates[0].stem
+        # Current-week report
+        _current_html = [f for f in _html_candidates if f"-{_week_label}" in f.name]
+        if _current_html:
+            weekly_current_path = str(_current_html[0])
+            weekly_current_exists = True
+            weekly_current_week = _week_label
+        elif not weekly_current_path or not weekly_current_path.endswith(".html"):
+            weekly_current_path = str(_html_candidates[0])
+            weekly_current_exists = True
+    # Also show section on Sundays even when session-data has no is_sunday flag
+    if not weekly_is_sunday:
+        weekly_is_sunday = _dt.date.today().weekday() == 6  # 6 = Sunday
+
     def _to_file_url(path_value: str) -> str:
         raw = str(path_value or "").strip()
         if not raw:
@@ -4652,24 +4828,38 @@ def generate_html(data):
         except Exception:
             return f"file://{url_quote(raw)}"
 
-    weekly_current_url = _to_file_url(weekly_current_path)
-    weekly_latest_url = _to_file_url(weekly_latest_path)
-    weekly_status_label = "✅ Ready" if weekly_current_exists else ("⚠️ Due today" if weekly_needs_generation else "⏳ Waiting for Sunday")
-    weekly_status_color = "#6ee7b7" if weekly_current_exists else ("#fbbf24" if weekly_needs_generation else "#94a3b8")
+    # Use API server route so links work from both local and tunnel origins (file:// blocked by browsers)
+    weekly_current_url = "/weekly.html" if weekly_current_path else ""
+    weekly_latest_url = "/weekly.html" if weekly_latest_path else ""
+    weekly_current_placeholder = _weekly_report_looks_placeholder(weekly_current_path)
+    weekly_latest_placeholder = _weekly_report_looks_placeholder(weekly_latest_path)
+    weekly_needs_regeneration = bool(weekly_needs_generation or weekly_current_placeholder or (not weekly_current_exists and _weekly_report_looks_placeholder(weekly_current_path)))
+    weekly_status_label = (
+        "⚠️ Needs regeneration" if weekly_needs_regeneration
+        else ("✅ Ready" if weekly_current_exists else ("⚠️ Due today" if weekly_needs_generation else "⏳ Waiting for Sunday"))
+    )
+    weekly_status_color = (
+        "#fbbf24" if weekly_needs_regeneration
+        else ("#6ee7b7" if weekly_current_exists else ("#fbbf24" if weekly_needs_generation else "#94a3b8"))
+    )
     weekly_latest_link_html = (
         f'<a id="qa-weekly-digest-latest-link" href="{html.escape(weekly_latest_url)}" style="color: #93c5fd">{html.escape(weekly_latest_name or "Latest weekly digest")}</a>'
+        + (' <span class="text-xs" style="color:#fbbf24">placeholder</span>' if weekly_latest_placeholder else "")
         if weekly_latest_url
         else '<span id="qa-weekly-digest-latest-link" style="color: #6b7280">No weekly digest generated yet.</span>'
     )
     weekly_current_link_html = (
         f'<a id="qa-weekly-digest-current-link" href="{html.escape(weekly_current_url)}" style="color: #a7f3d0">{html.escape(Path(weekly_current_path).name)}</a>'
+        + (' <span class="text-xs" style="color:#fbbf24">placeholder</span>' if weekly_current_placeholder else "")
         if weekly_current_exists and weekly_current_url
         else f'<span id="qa-weekly-digest-current-link" style="color: #6b7280">Current week ({html.escape(weekly_current_week)}) digest not generated yet.</span>'
     )
     weekly_hint = (
-        "Sunday reminder: generate this today so the review is ready."
-        if weekly_is_sunday and not weekly_current_exists
-        else "Weekly report appears here automatically once generated."
+        "Current weekly artifact exists, but the analysis content is still a placeholder — regenerate it."
+        if weekly_needs_regeneration and weekly_current_path
+        else ("Sunday reminder: generate this today so the review is ready."
+              if weekly_is_sunday and not weekly_current_exists
+              else "Weekly report appears here automatically once generated.")
     )
     weekly_generate_btn_label = "↻ Regenerate week report" if weekly_current_exists else "📝 Generate week report"
     weekly_digest_html = f'''
@@ -5707,6 +5897,7 @@ def generate_html(data):
     state_vector_payload = {}
     state_vector_html = ""
     raw_cache_for_state = data.get("_raw_cache", {}) if isinstance(data.get("_raw_cache", {}), dict) else {}
+    history_payload = load_dashboard_history()
     if raw_cache_for_state:
         try:
             state_vector_payload = build_daily_state_vector(
@@ -5720,12 +5911,29 @@ def generate_html(data):
                 action_items=display_action_items,
                 future_action_items=tomorrow_queue_items if isinstance(tomorrow_queue_items, list) else [],
                 completed_action_items=completed_items if isinstance(completed_items, list) else [],
+                history_payload=history_payload,
+                report_context={
+                    "current_exists": bool(weekly_current_exists),
+                    "needs_regeneration": bool(weekly_needs_regeneration),
+                    "current_path": weekly_current_path,
+                    "current_week_label": weekly_current_week,
+                },
             )
         except Exception:
             state_vector_payload = {}
         state_vector_html = build_state_vector_html(state_vector_payload)
     if state_vector_payload:
         data["stateVector"] = state_vector_payload
+        try:
+            snapshot = state_vector_payload.get("history_snapshot", {}) if isinstance(state_vector_payload.get("history_snapshot", {}), dict) else {}
+            if snapshot:
+                save_dashboard_history_snapshot(snapshot)
+        except Exception:
+            pass
+        try:
+            _write_compounding_memory_note(state_vector_payload, effective_today)
+        except Exception:
+            pass
 
     # Lean mode (default): reduce repeated suggestion surfaces to one ranked intervention card.
     feature_flags_payload = data.get("feature_flags", {}) if isinstance(data.get("feature_flags", {}), dict) else {}
@@ -7057,6 +7265,10 @@ def generate_html(data):
     }}
     document.addEventListener("DOMContentLoaded", function() {{
         qaLoadScratchPads();
+        // Retry pending queue on page load (delayed to give API time to warm up)
+        setTimeout(() => {{ qaRetryPendingScratch(); }}, 3000);
+        // Periodic retry every 60s in case tab stays open
+        setInterval(() => {{ qaRetryPendingScratch(); }}, 60000);
     }});
     if (typeof window !== "undefined") {{
         window.addEventListener("online", () => {{ qaRetryPendingScratch(); }});
@@ -10254,7 +10466,7 @@ def generate_html(data):
             status.style.color = "#93c5fd";
         }}
         try {{
-            const result = await qaPostWithRetry("/v1/ui/weekly-digest/generate", {{}}, {{ retries: 0, label: "weekly digest" }});
+            const result = await qaPostWithRetry("/v1/ui/weekly-deep-analysis/generate", {{}}, {{ retries: 0, label: "weekly deep analysis" }});
             if (result && result.path) {{
                 const rawPath = String(result.path || "").trim();
                 const fileName = rawPath ? rawPath.split("/").pop() : "weekly digest";
@@ -10277,11 +10489,11 @@ def generate_html(data):
                     badge.style.color = "#6ee7b7";
                 }}
                 if (meta) {{
-                    meta.textContent = "Weekly report generated and linked.";
+                    meta.textContent = "Weekly deep analysis generated and linked.";
                     meta.style.color = "#6b7280";
                 }}
                 if (status) {{
-                    status.textContent = "✅ Weekly report generated";
+                    status.textContent = "✅ Weekly deep analysis generated";
                     status.style.color = "#6ee7b7";
                 }}
                 if (button) {{
