@@ -68,6 +68,44 @@ Key patterns and insights extracted from Diarium entries and Apple Notes therapy
 
 ---
 
+
+### PDA — Persistent Drive for Autonomy (Demand Avoidance)
+
+**Diagnosis context:** PDA is a profile within autism (not a separate condition). Jim's demand avoidance has been named in therapy and preferences but the full PDA framework hasn't been integrated into coaching.
+
+**The mechanism:**
+- Any demand — external, self-imposed, or anticipated — triggers an anxiety-driven autonomic threat response
+- The nervous system cannot distinguish "Janna expects this" from "I expect this of myself"
+- Avoidance is an involuntary protection response, not laziness or choice
+- Sophisticated avoidance: redirects to genuinely valuable controllable tasks (system building, tidying), making it hard to name without shame
+
+**Jim's PDA signatures (evidenced in Diarium/journal):**
+- Motion-as-safety pattern when job apps are pending (named in patterns.md)
+- Hyperfocus on system work escalating when demanded tasks are deferred
+- "Should" language loops that re-fire avoidance with every repetition
+- External accountability (quota, Janna) paradoxically increasing avoidance
+- Full freeze states where all tasks feel inaccessible (not just the demanded one)
+
+**What does NOT work:**
+- Pushing harder / increasing external accountability
+- Naming avoidance without validating the anxiety underneath
+- Adding secondary demands when already in a PDA state
+- "You only have X hours" countdown framing
+- Shaming or guilt-framing (demand avoidance spikes)
+
+**What works:**
+- Reframing as choice: "I'm choosing to..." vs "I need to..."
+- Low-demand entry: "Just open one. See what it looks like." (no completion demand)
+- Interest/curiosity angle: bypass obligation by finding genuine hook
+- Genuine low-demand break when frozen: Coco walk, yoga, then return fresh
+- Neutral naming: "PDA is active — the task hasn't changed, the demand frame has"
+- Celebrating self-initiated action (Jim's autonomous choice >> externally prompted)
+- Channelling autonomy drive into designed structures (healthy PDA expression)
+
+**Therapy note:** Worth exploring with Samantha whether the quota-based accountability with Janna is worsening avoidance cycles, and how to reframe job search as autonomous mission rather than external obligation.
+
+---
+
 ## Therapy Techniques in Use
 
 1. **Drama Triangle awareness** (Karpman 1968)
@@ -237,14 +275,18 @@ The Excel tracker contains:
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-07 (hash: 8f80236fb36dc48a)*
+*Auto-synced from Pieces persona summary on 2026-03-07 (hash: 40fead3d9e20f7af)*
 
 ### Job search anxiety patterns
-- Persona Report: James Cherry - Integrated Architect of Self and System
-- James Cherry continues to thrive as a London-based self-employed professional, solidifying his role as an **integrated Personal Infrastructure & Life Site Reliability Engineer (SRE)** and **AI Systems and Infrastructure Architect**. His evolution centers on a profound commitment 
+- What You Work On
+- James's work primarily revolves around designing, implementing, and maintaining his personal AI-driven systems. This includes:
+- How You Work
+- James employs a flexible, self-directed work style, balancing deep technical foc
 
 ### Coping mechanisms Pieces has observed
-- Persona Report: James Cherry - Integrated Architect of Self and System
+- Who You Are
+- James is a meticulous and proactive individual, constantly seeking to refine his personal and digital environments. His "Personal Infrastructure & Life SRE" mindset means he applies engineering principles to optimize daily routines, personal data flows, and cognitive processes, e
 
 ### Work habits Pieces has observed
-- Persona Report: James Cherry - Integrated Architect of Self and System
+- James Cherry continues to evolve as a London-based self-employed professional, solidifying his role as an **integrated Personal Infrastructure & Life Site Reliability Engineer (SRE)** with a pronounced focus on **AI Systems and Infrastructure Architecture for self-management**. H
+- James is a meticulous and proactive individual, constantly seeking to refine his personal and digital environments. His "Personal Infrastructure & Life SRE" mindset means he applies engineering principles to optimize daily routines, personal data flows, and cognitive processes, e

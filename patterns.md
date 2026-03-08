@@ -63,6 +63,16 @@ Cross-project patterns observed over time. Updated automatically by coaching ses
 
 ---
 
+
+### PDA Demand Spiral (Named: 2026-03-08)
+- Any task framed as obligation → autonomic threat response → avoidance → guilt → stronger demand frame → deeper avoidance
+- Self-imposed demands ("I should do X") fire the same response as external pressure
+- Avoidance disguises as genuine productivity (system building, tidying) — makes it hard to interrupt without shame
+- Triggers: "need to", "should", "have to", quota framing, external accountability layers, countdown pressure
+- Breaks: reframe as choice, low-demand entry, interest/curiosity angle, genuine full-demand drop (Coco walk)
+- Healthy channelling: system design, building structures Jim chose himself — autonomy drive working correctly
+- Evidence: motion-as-safety pattern, hyperfocus escalation when job apps pending, freeze states blocking all tasks
+
 ## Quotes to Remember
 
 > 'two done feels great to get some done, I was too scared to do so until now.' (2026-01-07)

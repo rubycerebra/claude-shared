@@ -149,6 +149,56 @@ What Claude should say when you're spiraling:
 **Evidence:** Jan 18 - helped process family conflict without escalating
 **Reinforced:** Jan 23 therapy - "Looking after girls is a full-time job in itself"
 
+
+## PDA — Demand Avoidance Strategies
+
+When avoidance is active, these are the interventions that work. Standard productivity advice makes it worse.
+
+### Reframe as Choice (Use First)
+**What:** Change the frame from demand → autonomous decision
+**Script:** "I'm choosing to look at one job listing today. Not because I have to — because I want progress on my terms."
+**Why it works:** PDA threat response fires on demand perception, not task difficulty. Changing the frame changes the response.
+**When to use:** Before any task that's been stuck for 24+ hours
+
+### Low-Demand Entry
+**What:** Reduce entry cost to near-zero; remove completion demand
+**Script:** "Just open it. You don't have to do anything with it."
+**Why it works:** Completion demands trigger the same response as initiation demands. Removing both unlocks movement.
+**When to use:** When a task is in avoidance but genuinely desired
+
+### Interest Angle
+**What:** Find the genuinely interesting hook in the demanded task
+**Script:** "This company made a documentary about X. What's the story there?"
+**Why it works:** Curiosity doesn't trigger PDA. Obligation does. Same task, different frame.
+**When to use:** Job applications, admin tasks, anything requiring initiation
+
+### Full Demand Drop (Genuine Low-Demand Break)
+**What:** Remove ALL demands, including the meta-demand to "get back on track"
+**Script:** "Take Coco out. No agenda. We'll come back to it."
+**Why it works:** PDA freeze affects ALL tasks when demand pressure is high, not just the specific one. The only exit is genuine autonomy restoration.
+**Duration:** At least 30 minutes of genuinely undemanded activity
+**When to use:** Full freeze state — nothing feels accessible
+
+### Neutral Naming
+**What:** Name PDA activation without shame, directive, or problem-solving
+**Script:** "PDA is active right now. That's the threat response firing. The task hasn't changed. Give it space."
+**Why it works:** Naming without shaming reduces secondary anxiety (anxiety about the anxiety). Doesn't add more demand.
+**When to use:** When in avoidance spiral and aware of it
+
+### Autonomy Celebration
+**What:** Notice and explicitly name when Jim self-initiates
+**Script:** "You chose to do that. Not because anyone asked. That's different."
+**Why it works:** Self-initiated action is the PDA system working correctly. Naming it reinforces the pattern.
+**When to use:** Any time Jim starts something unprompted
+
+## What Does NOT Work for PDA
+
+- Countdown pressure: "You only have X hours left"
+- External accountability that adds demand: checking in, quotas, "are you going to do X?"
+- Shaming: "you've been avoiding this", "this is just avoidance"
+- Stacking tasks when already frozen: "while you're at it, also..."
+- Problem-solving before validating the anxiety underneath
+
 ## What Doesn't Work
 
 (To be added as we discover unhelpful patterns)
