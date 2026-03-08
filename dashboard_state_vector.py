@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from shared.cache_dates import get_ai_day, normalize_ai_cache_for_date
@@ -30,6 +32,28 @@ _NEGATIVE_MOOD_SCORES = {
     "low": 35,
 }
 
+DASHBOARD_HISTORY_FILE = Path.home() / ".claude" / "cache" / "dashboard-history.json"
+
+_DOMAIN_KEYWORDS = {
+    "health": ("walk", "weights", "yoga", "stretch", "exercise", "workout", "sleep", "bath", "therapy", "health", "mindfulness"),
+    "home": ("dishwasher", "coffee", "tablets", "bathroom", "bath", "caulk", "clean", "tidy", "laundry", "garden", "shopping", "house"),
+    "admin": ("post office", "email", "call", "calendar", "schedule", "plan", "invoice", "pay", "review", "sort"),
+    "system": ("dashboard", "qmd", "claude", "script", "cache", "bead", "bd ", "weekly report", "analysis", "sync", "daemon", "api"),
+    "work": ("job", "cv", "application", "remote", "client", "freelance", "sony", "role", "outreach"),
+}
+_STRATEGIC_KEYWORDS = (
+    "qmd", "dashboard", "memory", "pattern", "analysis", "report", "system",
+    "workflow", "cv", "job", "application", "weekly", "integration",
+)
+_MAINTENANCE_KEYWORDS = (
+    "coffee", "dishwasher", "tablets", "laundry", "cat food", "bins", "bathroom",
+    "clean", "tidy", "shopping", "restock", "top up", "supplies",
+)
+_UNLOCK_KEYWORDS = (
+    "fix", "verify", "generate", "review", "sync", "install", "integrate",
+    "set up", "repair", "close", "export",
+)
+
 
 def _clamp(value: float, lower: float = 0.0, upper: float = 100.0) -> float:
     return max(lower, min(upper, value))
@@ -40,6 +64,22 @@ def _avg(values: Iterable[float]) -> float | None:
     if not cleaned:
         return None
     return sum(cleaned) / len(cleaned)
+
+
+def _to_float(raw: Any) -> float | None:
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    try:
+        return float(str(raw).strip())
+    except Exception:
+        return None
+
+
+def _safe_int(raw: Any, default: int = 0) -> int:
+    try:
+        return int(float(raw))
+    except Exception:
+        return default
 
 
 def _parse_ymd(raw: str) -> datetime | None:
@@ -73,6 +113,41 @@ def _parse_hours(raw: Any) -> float | None:
         minutes = int(match.group(2))
         return hours + (minutes / 60.0)
     return None
+
+
+def load_dashboard_history(history_file: Path | None = None) -> Dict[str, Any]:
+    target = history_file or DASHBOARD_HISTORY_FILE
+    try:
+        if target.exists():
+            payload = json.loads(target.read_text(encoding="utf-8", errors="replace"))
+            if isinstance(payload, dict):
+                payload.setdefault("by_date", {})
+                return payload
+    except Exception:
+        pass
+    return {"by_date": {}, "updated_at": ""}
+
+
+def save_dashboard_history_snapshot(snapshot: Dict[str, Any], history_file: Path | None = None) -> bool:
+    if not isinstance(snapshot, dict):
+        return False
+    date_key = str(snapshot.get("date", "")).strip()
+    if not date_key:
+        return False
+    target = history_file or DASHBOARD_HISTORY_FILE
+    try:
+        payload = load_dashboard_history(target)
+        by_date = payload.get("by_date", {}) if isinstance(payload.get("by_date", {}), dict) else {}
+        by_date[date_key] = snapshot
+        payload["by_date"] = dict(sorted(by_date.items()))
+        payload["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(target.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(target)
+        return True
+    except Exception:
+        return False
 
 
 def _trend_from_history(values: List[float]) -> str:
@@ -139,7 +214,7 @@ def _state_palette(state: str) -> Dict[str, str]:
     return palettes.get(state, palettes["mixed"])
 
 
-def _dimension(label: str, score: float, summary: str, evidence: List[str], trend: str, emoji: str) -> Dict[str, Any]:
+def _dimension(label: str, score: float, summary: str, evidence: List[str], trend: str, emoji: str, trajectory_7d: List[float] | None = None) -> Dict[str, Any]:
     score = round(_clamp(score))
     return {
         "label": label,
@@ -149,6 +224,7 @@ def _dimension(label: str, score: float, summary: str, evidence: List[str], tren
         "summary": summary.strip(),
         "evidence": [str(item).strip() for item in evidence if str(item).strip()][:3],
         "trend": trend,
+        "trajectory_7d": [round(float(v), 1) for v in (trajectory_7d or [])][:7],
     }
 
 
@@ -349,6 +425,260 @@ def _mood_shift_signal(mood_slots: Dict[str, str], ai_days: List[Dict[str, Any]]
     return f"Mood is broadly continuous with yesterday ({prior_evening} → {morning}); steady routines should carry best."
 
 
+def _recent_history_rows(history_payload: Dict[str, Any], today: str, limit: int = 30) -> List[Dict[str, Any]]:
+    by_date = history_payload.get("by_date", {}) if isinstance(history_payload.get("by_date", {}), dict) else {}
+    ordered = sorted([key for key in by_date.keys() if _parse_ymd(key)], reverse=True)
+    if today in by_date and today not in ordered:
+        ordered.insert(0, today)
+    return [by_date[key] for key in ordered[:limit] if isinstance(by_date.get(key), dict)]
+
+
+def _task_domain(task_text: str) -> str:
+    text = str(task_text or "").strip().lower()
+    if not text:
+        return "admin"
+    for domain, keywords in _DOMAIN_KEYWORDS.items():
+        if any(keyword in text for keyword in keywords):
+            return domain
+    return "admin"
+
+
+def _domain_counts(task_texts: Iterable[str]) -> Dict[str, int]:
+    counts = {key: 0 for key in _DOMAIN_KEYWORDS.keys()}
+    for text in task_texts:
+        counts[_task_domain(str(text))] += 1
+    return counts
+
+
+def _snapshot_metric(snapshot: Dict[str, Any], *path: str) -> float | None:
+    current: Any = snapshot
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return _to_float(current)
+
+
+def _window_average(rows: List[Dict[str, Any]], *path: str) -> float | None:
+    values = []
+    for row in rows:
+        value = _snapshot_metric(row, *path)
+        if value is not None:
+            values.append(value)
+    return _avg(values)
+
+
+def _window_domain_average(rows: List[Dict[str, Any]], domain: str) -> float:
+    values = []
+    for row in rows:
+        value = _snapshot_metric(row, "throughput_by_domain", domain)
+        if value is not None:
+            values.append(value)
+    return round(_avg(values) or 0.0, 1)
+
+
+def _count_task_recurrence(task_key: str, history_rows: List[Dict[str, Any]]) -> int:
+    if not task_key:
+        return 0
+    count = 0
+    for row in history_rows:
+        inputs = row.get("priority_inputs", {}) if isinstance(row.get("priority_inputs", {}), dict) else {}
+        task_keys = inputs.get("open_task_keys", []) if isinstance(inputs.get("open_task_keys", []), list) else []
+        if task_key in task_keys:
+            count += 1
+    return count
+
+
+def _build_priority_candidates(
+    action_items: List[Dict[str, Any]],
+    *,
+    history_rows: List[Dict[str, Any]],
+    now_hour: int,
+    primary_constraint: str,
+) -> List[Dict[str, Any]]:
+    candidates: List[Dict[str, Any]] = []
+    for item in action_items:
+        if not isinstance(item, dict) or bool(item.get("done")):
+            continue
+        task = str(item.get("task", "")).strip()
+        if not task:
+            continue
+        task_key = re.sub(r"\s+", " ", task.lower()).strip()
+        recurrence = _count_task_recurrence(task_key, history_rows)
+        domain = _task_domain(task)
+        lowered = task.lower()
+        strategic_value = 3 if any(keyword in lowered for keyword in _STRATEGIC_KEYWORDS) else (2 if domain in {"system", "work"} else 0)
+        maintenance_risk = 3 if any(keyword in lowered for keyword in _MAINTENANCE_KEYWORDS) else (2 if str(item.get("category", "")).lower() == "maintenance" else 0)
+        if recurrence >= 3 and maintenance_risk:
+            maintenance_risk += 1
+        dependency_unlock = 2 if any(keyword in lowered for keyword in _UNLOCK_KEYWORDS) else 0
+        prior_completion = 1 if _window_domain_average(history_rows[:7], domain) >= 1 else 0
+        if now_hour >= 20:
+            energy_fit = 2 if domain in {"home", "admin", "health"} else 0
+        elif primary_constraint.lower() in {"recovery", "load"}:
+            energy_fit = 2 if domain in {"admin", "home"} else (1 if domain == "health" else 0)
+        else:
+            energy_fit = 2 if domain in {"system", "work"} else 1
+        score = (recurrence * 1.6) + strategic_value + maintenance_risk + dependency_unlock + prior_completion + energy_fit
+        reasons: List[str] = []
+        if recurrence:
+            reasons.append(f"seen {recurrence + 1} day{'s' if recurrence + 1 != 1 else ''}")
+        if strategic_value:
+            reasons.append("builds leverage")
+        if maintenance_risk:
+            reasons.append("prevents decay")
+        if dependency_unlock:
+            reasons.append("unlocks follow-on work")
+        if prior_completion:
+            reasons.append(f"{domain} is a domain with recent follow-through")
+        candidates.append(
+            {
+                "task": task,
+                "task_key": task_key,
+                "domain": domain,
+                "score": round(score, 1),
+                "reasons": reasons[:3],
+                "source": str(item.get("source", "")).strip(),
+                "category": str(item.get("category", "")).strip(),
+            }
+        )
+    candidates.sort(key=lambda row: (-float(row.get("score", 0)), row.get("task", "").lower()))
+    return candidates[:5]
+
+
+def _report_status_payload(
+    *,
+    today: str,
+    diarium_fresh: bool,
+    weekly_context: Dict[str, Any],
+    history_rows: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    weekly_ready = bool(weekly_context.get("current_exists"))
+    weekly_placeholder = bool(weekly_context.get("needs_regeneration"))
+    month_prefix = today[:7]
+    month_rows = [row for row in history_rows if str(row.get("date", "")).startswith(month_prefix)]
+    monthly_confidence = round(min(len(month_rows) / 20.0, 1.0), 2)
+    return {
+        "daily": {"status": "fresh" if diarium_fresh else "stale", "confidence": 0.9 if diarium_fresh else 0.45},
+        "weekly": {
+            "status": "needs_regeneration" if weekly_placeholder else ("ready" if weekly_ready else "waiting"),
+            "confidence": 0.45 if weekly_placeholder else (0.9 if weekly_ready else 0.35),
+        },
+        "monthly": {
+            "status": "building" if month_rows else "sparse",
+            "confidence": monthly_confidence,
+        },
+    }
+
+
+def _build_snapshot(
+    *,
+    today: str,
+    cache: Dict[str, Any],
+    day: Dict[str, Any],
+    dimensions: List[Dict[str, Any]],
+    compounding_signals: List[str],
+    action_items: List[Dict[str, Any]],
+    completed_action_items: List[Dict[str, Any]],
+    future_action_items: List[Dict[str, Any]],
+    throughput_by_domain: Dict[str, int],
+    priority_candidates: List[Dict[str, Any]],
+    report_status: Dict[str, Any],
+) -> Dict[str, Any]:
+    diarium = cache.get("diarium", {}) if isinstance(cache.get("diarium", {}), dict) else {}
+    healthfit = cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {}
+    open_loops = cache.get("open_loops", {}) if isinstance(cache.get("open_loops", {}), dict) else {}
+    steps_history = _healthfit_steps_history(healthfit)
+    sleep_history = _healthfit_sleep_history(healthfit)
+    latest_steps = steps_history[0] if steps_history else {}
+    latest_sleep = sleep_history[0] if sleep_history else {}
+    wins_count = len([item for item in (day.get("all_insights", []) if isinstance(day.get("all_insights", []), list) else []) if isinstance(item, dict) and item.get("type") == "win"])
+    signal_count = len([item for item in (day.get("all_insights", []) if isinstance(day.get("all_insights", []), list) else []) if isinstance(item, dict) and item.get("type") == "signal"])
+    completed_texts = [
+        str(item.get("task", "")).strip()
+        for item in completed_action_items
+        if isinstance(item, dict) and str(item.get("task", "")).strip()
+    ]
+    maintenance_completed = sum(1 for text in completed_texts if _task_domain(text) in {"home", "admin", "health"})
+    maintenance_open = sum(
+        1
+        for item in action_items
+        if isinstance(item, dict)
+        and not bool(item.get("done"))
+        and (
+            str(item.get("category", "")).strip().lower() == "maintenance"
+            or _task_domain(str(item.get("task", ""))) in {"home", "admin", "health"}
+        )
+    )
+    strategic_progress = sum(1 for text in completed_texts if any(keyword in text.lower() for keyword in _STRATEGIC_KEYWORDS))
+    recovery_dim = next((row for row in dimensions if row.get("label") == "Recovery"), {})
+    physical_dim = next((row for row in dimensions if row.get("label") == "Physical"), {})
+    load_dim = next((row for row in dimensions if row.get("label") == "Load"), {})
+    momentum_dim = next((row for row in dimensions if row.get("label") == "Momentum"), {})
+    emotional_dim = next((row for row in dimensions if row.get("label") == "Emotional"), {})
+    top_loops = open_loops.get("items", []) if isinstance(open_loops.get("items", []), list) else []
+    return {
+        "date": today,
+        "coverage": {
+            "diarium": "fresh" if bool(cache.get("diarium_fresh", True)) else "stale",
+            "ai_insights": "fresh" if str(day.get("status", "")).strip().lower() in {"ok", ""} else "stale",
+            "pieces": "fresh" if str((cache.get("pieces_activity", {}) if isinstance(cache.get("pieces_activity", {}), dict) else {}).get("status", "")).strip().lower() == "ok" else "stale",
+            "weekly": report_status.get("weekly", {}).get("status", "waiting"),
+        },
+        "throughput": {
+            "throughput_total": sum(int(v) for v in throughput_by_domain.values()),
+            "ta_dah_count": len(diarium.get("ta_dah", []) if isinstance(diarium.get("ta_dah", []), list) else []),
+            "completed_action_count": len(completed_texts),
+            "wins_count": wins_count,
+            "maintenance_completed": maintenance_completed,
+            "maintenance_open": maintenance_open,
+            "strategic_progress_count": strategic_progress,
+        },
+        "throughput_by_domain": throughput_by_domain,
+        "health": {
+            "steps": _safe_int(latest_steps.get("steps")),
+            "exercise_minutes": _safe_int(latest_steps.get("exercise_minutes")),
+            "hrv": _to_float(latest_steps.get("hrv")),
+            "sleep_hours": _to_float(latest_sleep.get("asleep_hours")),
+            "sleep_efficiency": _to_float((cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {}).get("last_night", {}).get("efficiency")),
+        },
+        "regulation": {
+            "mood_morning": str((day.get("mood_slots", {}) if isinstance(day.get("mood_slots", {}), dict) else {}).get("morning", "")).strip(),
+            "mood_evening": str((day.get("mood_slots", {}) if isinstance(day.get("mood_slots", {}), dict) else {}).get("evening", "")).strip(),
+            "anxiety_reduction_score": _to_float(day.get("anxiety_reduction_score")),
+            "intervention_count": len((day.get("daily_guidance", {}) if isinstance(day.get("daily_guidance", {}), dict) else {}).get("lines", [])),
+            "wins_count": wins_count,
+            "signals_count": signal_count,
+            "feedback_count": 1 if isinstance(day.get("anxiety_reduction_score"), (int, float)) else 0,
+        },
+        "state_vector": {
+            "energy": round((float(recovery_dim.get("score", 0)) + float(physical_dim.get("score", 0))) / 2.0, 1) if recovery_dim and physical_dim else None,
+            "strain": round(100.0 - float(load_dim.get("score", 0)), 1) if load_dim else None,
+            "momentum": _to_float(momentum_dim.get("score")),
+            "recovery": _to_float(recovery_dim.get("score")),
+            "emotional": _to_float(emotional_dim.get("score")),
+            "compounding_signals": compounding_signals[:3],
+        },
+        "top_open_loops": [str(item).strip() for item in top_loops[:5] if str(item).strip()],
+        "priority_inputs": {
+            "time_of_day": "evening" if datetime.now().hour >= 18 else "day",
+            "open_tasks": [
+                str(item.get("task", "")).strip()
+                for item in action_items
+                if isinstance(item, dict) and not bool(item.get("done")) and str(item.get("task", "")).strip()
+            ][:12],
+            "open_task_keys": [
+                re.sub(r"\s+", " ", str(item.get("task", "")).strip().lower())
+                for item in action_items
+                if isinstance(item, dict) and not bool(item.get("done")) and str(item.get("task", "")).strip()
+            ][:12],
+            "future_queue_count": len(future_action_items),
+            "top_candidates": priority_candidates[:3],
+        },
+        "report_status": report_status,
+    }
+
+
 def build_daily_state_vector(
     cache: Dict[str, Any],
     *,
@@ -357,6 +687,8 @@ def build_daily_state_vector(
     action_items: List[Dict[str, Any]] | None = None,
     future_action_items: List[Dict[str, Any]] | None = None,
     completed_action_items: List[Dict[str, Any]] | None = None,
+    history_payload: Dict[str, Any] | None = None,
+    report_context: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     ai_cache = normalize_ai_cache_for_date(
         cache.get("ai_insights", {}) if isinstance(cache.get("ai_insights", {}), dict) else {},
@@ -370,6 +702,11 @@ def build_daily_state_vector(
     pieces = cache.get("pieces_activity", {}) if isinstance(cache.get("pieces_activity", {}), dict) else {}
     schedule = cache.get("schedule_analysis", {}) if isinstance(cache.get("schedule_analysis", {}), dict) else {}
     streaks = cache.get("streaks", {}) if isinstance(cache.get("streaks", {}), dict) else {}
+    habit_list = streaks.get("habits", []) if isinstance(streaks.get("habits", []), list) else []
+    at_risk_streak_count = sum(
+        1 for h in habit_list
+        if isinstance(h, dict) and not bool(h.get("completed_today")) and float(h.get("rate", 0) or 0) >= 80.0
+    )
     mood_tracking = day.get("mood_checkin", {}) if isinstance(day.get("mood_checkin", {}), dict) else {}
     mindfulness = day.get("mindfulness_completion", {}) if isinstance(day.get("mindfulness_completion", {}), dict) else {}
     progression = day.get("mental_health_progression", {}) if isinstance(day.get("mental_health_progression", {}), dict) else {}
@@ -379,6 +716,10 @@ def build_daily_state_vector(
     action_items = action_items if isinstance(action_items, list) else []
     future_action_items = future_action_items if isinstance(future_action_items, list) else []
     completed_action_items = completed_action_items if isinstance(completed_action_items, list) else []
+    history_payload = history_payload if isinstance(history_payload, dict) else load_dashboard_history()
+    report_context = report_context if isinstance(report_context, dict) else {}
+    history_rows = _recent_history_rows(history_payload, today, limit=30)
+    prior_history_rows = [row for row in history_rows if str(row.get("date", "")).strip() != today]
 
     sleep_history = _healthfit_sleep_history(healthfit)
     steps_history = _healthfit_steps_history(healthfit)
@@ -388,9 +729,14 @@ def build_daily_state_vector(
     latest_steps_count = latest_steps.get("steps") if isinstance(latest_steps, dict) else None
     latest_exercise = latest_steps.get("exercise_minutes") if isinstance(latest_steps, dict) else None
     body_check = str(diarium.get("body_check", "") or "").strip()
+    keyword_flags = diarium.get("keyword_detections", []) if isinstance(diarium.get("keyword_detections", []), list) else []
+    keyword_flag_count = len(keyword_flags)
+    diarium_emotional_tone = str(diarium.get("emotional_tone", "") or "").strip().lower()
     summary_text = str(day.get("latest_summary", "") or "").strip().lower()
     focus_patterns = activitywatch.get("focus_patterns", {}) if isinstance(activitywatch.get("focus_patterns", {}), dict) else {}
     focus_state = str(focus_patterns.get("focus_state", "")).strip().lower()
+    context_switches = int(focus_patterns.get("context_switches") or 0)
+    scattered_ratio = float(focus_patterns.get("scattered_ratio") or 0)
     productive_minutes = float(activitywatch.get("productive_minutes") or 0)
     pieces_count = int(pieces.get("count") or 0)
     updates_done = len(day.get("updates_completed_today", [])) if isinstance(day.get("updates_completed_today", []), list) else 0
@@ -531,6 +877,20 @@ def build_daily_state_vector(
     if recent_negative_corr >= 2:
         emotional_score -= 6
         emotional_evidence.append("Recent stress correlations present")
+    # Diarium keyword flags (anxious/overwhelmed/worried language detected in journal)
+    if keyword_flag_count >= 5:
+        emotional_score -= 8
+        emotional_evidence.append(f"{keyword_flag_count} distress flags in journal")
+    elif keyword_flag_count >= 3:
+        emotional_score -= 4
+        emotional_evidence.append(f"{keyword_flag_count} distress flags in journal")
+    elif keyword_flag_count == 0 and diarium:
+        emotional_score += 3
+    # Diarium emotional tone field
+    if diarium_emotional_tone in {"anxious", "overwhelmed", "stressed", "depleted", "low"}:
+        emotional_score = max(emotional_score - 5, 20.0)
+    elif diarium_emotional_tone in {"calm", "content", "positive", "energised"}:
+        emotional_score = min(emotional_score + 4, 95.0)
     emotional_summary = ", ".join(emotional_evidence[:2]) if emotional_evidence else "Mood + anxiety signal still building"
     emotional_history = []
     for row in ai_days[:6]:
@@ -619,6 +979,16 @@ def build_daily_state_vector(
         load_evidence.append(f"{len(future_action_items)} queued later")
     if open_loop_count:
         load_evidence.append(f"{open_loop_count} open loops")
+    # Context switch penalty — high app-switching signals fragmented cognitive load
+    if context_switches >= 200:
+        load_score -= 10
+        load_evidence.append(f"{context_switches} context switches (high fragmentation)")
+    elif context_switches >= 100:
+        load_score -= 5
+        load_evidence.append(f"{context_switches} context switches")
+    elif context_switches >= 50 and scattered_ratio >= 0.8:
+        load_score -= 3
+        load_evidence.append(f"Scattered focus ({int(scattered_ratio * 100)}%)")
     load_summary = ", ".join(load_evidence[:3]) if load_evidence else "Task load still resolving"
 
     momentum_score = 50.0
@@ -655,6 +1025,16 @@ def build_daily_state_vector(
         momentum_score += 6
     if "depleted" in summary_text or "resigned" in summary_text:
         momentum_score -= 6
+    # Habit streak signal — at-risk streaks (high-rate habits not yet done today)
+    if at_risk_streak_count == 0 and habit_list:
+        momentum_score += 5
+        momentum_evidence.append("All tracked habits done today")
+    elif at_risk_streak_count >= 5:
+        momentum_score -= 5
+        momentum_evidence.append(f"{at_risk_streak_count} habit streaks at risk")
+    elif at_risk_streak_count >= 2:
+        momentum_score -= 2
+        momentum_evidence.append(f"{at_risk_streak_count} habits not yet done")
     momentum_summary = ", ".join(momentum_evidence[:3]) if momentum_evidence else "Momentum is mostly being inferred from the live day"
     momentum_history = []
     for row in ai_days[:6]:
@@ -668,12 +1048,12 @@ def build_daily_state_vector(
         momentum_history.append(row_score)
 
     dimensions = [
-        _dimension("Recovery", recovery_score, recovery_summary, recovery_evidence, _trend_from_history(recent_recovery_history), "🌿"),
-        _dimension("Physical", physical_score, physical_summary, physical_evidence, _trend_from_history(physical_history), "💪"),
-        _dimension("Emotional", emotional_score, emotional_summary, emotional_evidence, _trend_from_history(emotional_history), "🫀"),
-        _dimension("Focus", focus_score, focus_summary, focus_evidence, _trend_from_history(focus_history), "🎯"),
+        _dimension("Recovery", recovery_score, recovery_summary, recovery_evidence, _trend_from_history(recent_recovery_history), "🌿", trajectory_7d=recent_recovery_history[:7]),
+        _dimension("Physical", physical_score, physical_summary, physical_evidence, _trend_from_history(physical_history), "💪", trajectory_7d=physical_history[:7]),
+        _dimension("Emotional", emotional_score, emotional_summary, emotional_evidence, _trend_from_history(emotional_history), "🫀", trajectory_7d=emotional_history[:7]),
+        _dimension("Focus", focus_score, focus_summary, focus_evidence, _trend_from_history(focus_history), "🎯", trajectory_7d=focus_history[:7]),
         _dimension("Load", load_score, load_summary, load_evidence, "live", "📦"),
-        _dimension("Momentum", momentum_score, momentum_summary, momentum_evidence, _trend_from_history(momentum_history), "🚀"),
+        _dimension("Momentum", momentum_score, momentum_summary, momentum_evidence, _trend_from_history(momentum_history), "🚀", trajectory_7d=momentum_history[:7]),
     ]
 
     overall_score = round(_avg([row["score"] for row in dimensions]) or 0)
@@ -692,8 +1072,104 @@ def build_daily_state_vector(
         _mood_shift_signal(mood_slots, ai_days),
     ]
     compounding_signals = [item for item in compounding_signals if item][:3]
+    # Compound risk: surface when multiple dimensions simultaneously in "watch"
+    watch_count = sum(1 for d in dimensions if d.get("state") == "watch")
+    if watch_count >= 2:
+        watch_labels = ", ".join(d["label"] for d in dimensions if d.get("state") == "watch")
+        compound_msg = f"Compound risk: {watch_count} dimensions in watch state ({watch_labels}) — reduce commitments today."
+        compounding_signals.insert(0, compound_msg)
+        compounding_signals = compounding_signals[:3]
     if not compounding_signals:
         compounding_signals = [weakest["summary"]]
+
+    completed_task_texts = [
+        str(item.get("task", "")).strip()
+        for item in completed_action_items
+        if isinstance(item, dict) and str(item.get("task", "")).strip()
+    ]
+    ta_dah_list = diarium.get("ta_dah", []) if isinstance(diarium.get("ta_dah", []), list) else []
+    throughput_task_texts = completed_task_texts + [str(item).strip() for item in ta_dah_list if str(item).strip()]
+    throughput_by_domain = _domain_counts(throughput_task_texts)
+    priority_candidates = _build_priority_candidates(
+        action_items,
+        history_rows=prior_history_rows[:14],
+        now_hour=datetime.now().hour,
+        primary_constraint=weakest["label"],
+    )
+    report_status = _report_status_payload(
+        today=today,
+        diarium_fresh=bool(cache.get("diarium_fresh", True)),
+        weekly_context=report_context,
+        history_rows=history_rows,
+    )
+    current_snapshot = _build_snapshot(
+        today=today,
+        cache=cache,
+        day=day,
+        dimensions=dimensions,
+        compounding_signals=compounding_signals,
+        action_items=action_items,
+        completed_action_items=completed_action_items,
+        future_action_items=future_action_items,
+        throughput_by_domain=throughput_by_domain,
+        priority_candidates=priority_candidates,
+        report_status=report_status,
+    )
+    window_7 = [current_snapshot] + prior_history_rows[:6]
+    window_30 = [current_snapshot] + prior_history_rows[:29]
+    day_throughput_total = sum(throughput_by_domain.values())
+    avg_7 = _window_average(window_7, "throughput", "throughput_total") or 0.0
+    avg_30 = _window_average(window_30, "throughput", "throughput_total") or 0.0
+    momentum_delta = {
+        "vs_7d": round(float(momentum_score) - float(_window_average(window_7[1:], "state_vector", "momentum") or momentum_score), 1),
+        "vs_30d": round(float(momentum_score) - float(_window_average(window_30[1:], "state_vector", "momentum") or momentum_score), 1),
+    }
+    trend_windows = {
+        "day": {
+            "throughput_total": day_throughput_total,
+            "completed_action_count": len(completed_task_texts),
+            "momentum": round(float(momentum_score), 1),
+        },
+        "7d": {
+            "throughput_avg": round(avg_7, 1),
+            "momentum_avg": round(float(_window_average(window_7, "state_vector", "momentum") or momentum_score), 1),
+        },
+        "30d": {
+            "throughput_avg": round(avg_30, 1),
+            "momentum_avg": round(float(_window_average(window_30, "state_vector", "momentum") or momentum_score), 1),
+        },
+    }
+    increasing_lines: List[str] = []
+    stalling_lines: List[str] = []
+    priority_lines: List[str] = []
+    if avg_7:
+        if day_throughput_total > avg_7:
+            increasing_lines.append(f"Today throughput is above the 7-day average ({day_throughput_total:g} vs {avg_7:.1f}).")
+        elif abs(day_throughput_total - avg_7) < 0.1:
+            increasing_lines.append(f"Today throughput is holding level with the 7-day average ({day_throughput_total:g}).")
+    if float(momentum_score) >= float(_window_average(window_7, 'state_vector', 'momentum') or momentum_score):
+        increasing_lines.append("Momentum is holding above the recent baseline.")
+    strongest_domain = max(throughput_by_domain.items(), key=lambda item: item[1])[0] if any(throughput_by_domain.values()) else ""
+    if strongest_domain and throughput_by_domain.get(strongest_domain, 0):
+        increasing_lines.append(f"{strongest_domain.title()} is the strongest completed domain today.")
+    recurring_candidates = [row for row in priority_candidates if any("seen " in reason for reason in row.get("reasons", []))]
+    if recurring_candidates:
+        stalling_lines.append(f"{recurring_candidates[0]['task']} keeps resurfacing and needs a real close-loop move.")
+    maintenance_open = _safe_int(current_snapshot.get("throughput", {}).get("maintenance_open"))
+    maintenance_done_avg = _window_average(window_7, "throughput", "maintenance_completed") or 0.0
+    if maintenance_open > max(1.0, maintenance_done_avg):
+        stalling_lines.append("Maintenance drag is building faster than it is being closed.")
+    if report_status.get("weekly", {}).get("status") == "needs_regeneration":
+        stalling_lines.append("Weekly deep analysis exists but is still a placeholder and needs regeneration.")
+    for candidate in priority_candidates[:3]:
+        reasons = ", ".join(candidate.get("reasons", [])[:2]) or "highest compounding score"
+        priority_lines.append(f"{candidate.get('task', '')} — {reasons}.")
+    if not increasing_lines:
+        increasing_lines.append("The compounding layer is online, but it still needs a few more days of snapshots for stronger trend claims.")
+    if not stalling_lines:
+        stalling_lines.append("No major repeating stall surfaced beyond the live task load.")
+    if not priority_lines:
+        priority_lines.append("No compounding priority candidates yet — fall back to the clearest single next task.")
 
     primary_constraint = weakest["label"].lower()
     best_now = selector.get("best_now", {}) if isinstance(selector.get("best_now", {}), dict) else {}
@@ -732,6 +1208,18 @@ def build_daily_state_vector(
         "overall_state": overall_state,
         "dimensions": dimensions,
         "compounding_signals": compounding_signals,
+        "trend_windows": trend_windows,
+        "throughput_by_domain": throughput_by_domain,
+        "momentum_delta": momentum_delta,
+        "compounding_priority_candidates": priority_candidates,
+        "report_status": report_status,
+        "built_from_prior_data": {
+            "increasing": increasing_lines[:3],
+            "stalling": stalling_lines[:3],
+            "priority": priority_lines[:3],
+        },
+        "history_snapshot": current_snapshot,
+        "conversation_context": priority_lines[:2] + stalling_lines[:1],
         "support_steps": support_steps,
         "primary_constraint": weakest["label"],
         "primary_strength": strongest[0]["label"] if strongest else "",
@@ -792,6 +1280,54 @@ def build_state_vector_html(vector: Dict[str, Any]) -> str:
         for step in (vector.get("support_steps", []) if isinstance(vector.get("support_steps", []), list) else [])[:3]
         if isinstance(step, dict)
     )
+    trend_windows = vector.get("trend_windows", {}) if isinstance(vector.get("trend_windows", {}), dict) else {}
+    day_window = trend_windows.get("day", {}) if isinstance(trend_windows.get("day", {}), dict) else {}
+    week_window = trend_windows.get("7d", {}) if isinstance(trend_windows.get("7d", {}), dict) else {}
+    month_window = trend_windows.get("30d", {}) if isinstance(trend_windows.get("30d", {}), dict) else {}
+    momentum_delta = vector.get("momentum_delta", {}) if isinstance(vector.get("momentum_delta", {}), dict) else {}
+    throughput_by_domain = vector.get("throughput_by_domain", {}) if isinstance(vector.get("throughput_by_domain", {}), dict) else {}
+    report_status = vector.get("report_status", {}) if isinstance(vector.get("report_status", {}), dict) else {}
+    prior_data = vector.get("built_from_prior_data", {}) if isinstance(vector.get("built_from_prior_data", {}), dict) else {}
+    candidates = vector.get("compounding_priority_candidates", []) if isinstance(vector.get("compounding_priority_candidates", []), list) else []
+    domain_mix_html = "".join(
+        f'<span class="optional-pill text-xs rounded px-2 py-1" style="border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.42);color:#dbeafe;">{html.escape(domain.title())} {int(count)}</span>'
+        for domain, count in sorted(throughput_by_domain.items(), key=lambda item: (-int(item[1]), item[0]))
+        if int(count) > 0
+    ) or '<span class="text-xs" style="color:#94a3b8">No completed-domain signal yet today.</span>'
+    report_status_html = "".join(
+        f'<span class="optional-pill text-xs rounded px-2 py-1" style="border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.42);color:#cbd5e1;">{html.escape(label.title())} {html.escape(str((row if isinstance(row, dict) else {}).get("status", "unknown")))} · {int(round(float((row if isinstance(row, dict) else {}).get("confidence", 0)) * 100))}%</span>'
+        for label, row in report_status.items()
+        if isinstance(row, dict)
+    )
+    candidate_html = "".join(
+        f'<li class="text-sm mb-1" style="color:#e5e7eb;line-height:1.5;">{html.escape(str(item.get("task", "")))}'
+        f'<span style="color:#93c5fd"> — {html.escape(", ".join(item.get("reasons", [])[:2]))}</span></li>'
+        for item in candidates[:3]
+        if isinstance(item, dict) and str(item.get("task", "")).strip()
+    )
+    increasing_html = "".join(
+        f'<li class="text-sm mb-1" style="color:#d1fae5;line-height:1.5;">{html.escape(str(item))}</li>'
+        for item in (prior_data.get("increasing", []) if isinstance(prior_data.get("increasing", []), list) else [])[:3]
+        if str(item).strip()
+    )
+    stalling_html = "".join(
+        f'<li class="text-sm mb-1" style="color:#fde68a;line-height:1.5;">{html.escape(str(item))}</li>'
+        for item in (prior_data.get("stalling", []) if isinstance(prior_data.get("stalling", []), list) else [])[:3]
+        if str(item).strip()
+    )
+    priority_html = "".join(
+        f'<li class="text-sm mb-1" style="color:#dbeafe;line-height:1.5;">{html.escape(str(item))}</li>'
+        for item in (prior_data.get("priority", []) if isinstance(prior_data.get("priority", []), list) else [])[:3]
+        if str(item).strip()
+    )
+    delta_7 = float(momentum_delta.get("vs_7d", 0) or 0)
+    delta_30 = float(momentum_delta.get("vs_30d", 0) or 0)
+    def _delta_text(value: float) -> str:
+        if value > 1:
+            return f"↑ {value:.1f}"
+        if value < -1:
+            return f"↓ {abs(value):.1f}"
+        return f"→ {abs(value):.1f}"
 
     return f'''
         <div class="card rounded-xl p-5 mb-4" style="background:rgba(15,23,42,0.72);border:1px solid rgba(125,211,252,0.16);">
@@ -813,6 +1349,28 @@ def build_state_vector_html(vector: Dict[str, Any]) -> str:
                 <div>
                     <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Progressive support</p>
                     <div class="grid grid-cols-1 gap-2">{support_steps_html}</div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div class="rounded-lg p-3" style="background:rgba(15,23,42,0.46);border:1px solid rgba(148,163,184,0.14);">
+                    <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Throughput &amp; Momentum</p>
+                    <div class="grid grid-cols-3 gap-2 text-xs mb-3">
+                        <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">Today<br><span style="color:#bae6fd">{html.escape(str(day_window.get("throughput_total", 0)))}</span></div>
+                        <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">7d avg<br><span style="color:#bae6fd">{html.escape(str(week_window.get("throughput_avg", 0)))}</span></div>
+                        <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">30d avg<br><span style="color:#bae6fd">{html.escape(str(month_window.get("throughput_avg", 0)))}</span></div>
+                    </div>
+                    <p class="text-xs mb-2" style="color:#cbd5e1">Momentum vs 7d: <span style="color:#a7f3d0">{_delta_text(delta_7)}</span> · vs 30d: <span style="color:#bfdbfe">{_delta_text(delta_30)}</span></p>
+                    <div class="flex flex-wrap gap-2 mb-2">{domain_mix_html}</div>
+                    <div class="flex flex-wrap gap-2">{report_status_html}</div>
+                </div>
+                <div class="rounded-lg p-3" style="background:rgba(15,23,42,0.46);border:1px solid rgba(148,163,184,0.14);">
+                    <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Built from prior data</p>
+                    <p class="text-xs mb-1" style="color:#6ee7b7">Increasing</p>
+                    <ul style="margin:0;padding-left:1rem;">{increasing_html}</ul>
+                    <p class="text-xs mt-2 mb-1" style="color:#fbbf24">Stalling</p>
+                    <ul style="margin:0;padding-left:1rem;">{stalling_html}</ul>
+                    <p class="text-xs mt-2 mb-1" style="color:#93c5fd">Prioritise next</p>
+                    <ul style="margin:0;padding-left:1rem;">{priority_html or candidate_html}</ul>
                 </div>
             </div>
             <details class="mt-3">
