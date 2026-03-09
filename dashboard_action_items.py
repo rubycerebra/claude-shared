@@ -174,8 +174,12 @@ def task_matches_completed_text(raw_text: str, completed_text_keys: list[str]) -
             if min_obj >= 3 and len(meaningful_overlap) / max(min_obj, 1) >= 0.5:
                 return True
             # Short-task rule: 1 specific shared noun (≥5 chars) on short tasks
+            # Both sides must be short — a long candidate sharing 1 noun with a
+            # short completed task is not the same task (e.g. "bedtime boundary
+            # before freelance" vs "set bedtime alarm tonight").
+            max_obj = max(len(done_object_tokens), len(candidate_object_tokens))
             specific_overlap = {tok for tok in meaningful_overlap if len(tok) >= 5}
-            if specific_overlap and min_obj <= 4:
+            if specific_overlap and min_obj <= 4 and max_obj <= 4:
                 return True
         overlap = len(candidate_tokens & done_tokens)
         union = len(candidate_tokens | done_tokens)
@@ -210,8 +214,11 @@ def tasks_equivalent(left_text: str, right_text: str) -> bool:
             return True
         # Short-task rule: if both tasks are brief and share 1 specific physical noun
         # (e.g. "Fix the bathroom shelf" ≡ "Finish the bathroom"), treat as same work.
+        # Both sides must be short — a long task sharing 1 noun with a short task
+        # is not equivalence (e.g. "bedtime boundary before freelance" ≠ "set bedtime alarm").
+        max_obj = max(len(left_obj), len(right_obj))
         specific_overlap = {tok for tok in meaningful_overlap if len(tok) >= 5}
-        if specific_overlap and min_obj <= 4:
+        if specific_overlap and min_obj <= 4 and max_obj <= 4:
             return True
     left_tokens = set(left_key.split())
     right_tokens = set(right_key.split())
@@ -801,7 +808,13 @@ def collect_akiflow_today_items(akiflow_payload) -> list[dict]:
             summary = str(task.get("summary", "")).strip()
             if not summary or summary.lower() in routine_lower:
                 continue
-            summary_key = re.sub(r"\s+", " ", summary.lower()).strip()
+            # Skip check-in/goal items copied from checkins — these contain
+            # metadata patterns like "Deadline:" or "( target)" and belong in
+            # their own section, not the action queue.
+            summary_lower = summary.lower()
+            if "deadline:" in summary_lower or "( target)" in summary_lower:
+                continue
+            summary_key = re.sub(r"\s+", " ", summary_lower).strip()
             if summary_key in seen_summary:
                 continue
             time_est = "30m"

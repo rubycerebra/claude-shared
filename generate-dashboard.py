@@ -1141,7 +1141,7 @@ def _build_pieces_shared_parts(pieces_payload, digest_text, digest_source, body_
 
     if wins:
         win_items = "".join(
-            f'<p class="text-xs mb-1" style="color:#6ee7b7">🏆 {html.escape(str(w))}</p>'
+            f'<p class="text-xs mb-1" style="color:#a7d8c4">🏆 {html.escape(str(w))}</p>'
             for w in wins[:3]
         )
         parts.append(
@@ -1945,11 +1945,52 @@ def parse_wins(content):
 def generate_html(data):
     """Generate the dashboard HTML with pastel mint/pink colour palette"""
 
+    # Energy gating default — updated after state vector is built (~line 5970)
+    _energy_low = False
+
+    # --- Notification fatigue protection ---
+    # Track which nudges were shown today; mute repeated ones on subsequent regens
+    _nudge_log_path = Path.home() / ".claude" / "cache" / "dashboard-nudge-log.json"
+    _nudge_log = {}
+    try:
+        if _nudge_log_path.exists():
+            _nudge_log = json.loads(_nudge_log_path.read_text())
+            # Reset if stale (different date)
+            if _nudge_log.get("date") != get_effective_date():
+                _nudge_log = {"date": get_effective_date(), "shown": {}}
+        else:
+            _nudge_log = {"date": get_effective_date(), "shown": {}}
+    except Exception:
+        _nudge_log = {"date": get_effective_date(), "shown": {}}
+
+    def _nudge_should_mute(nudge_key: str, cooldown_hours: int = 12) -> bool:
+        """Check if a nudge was already shown within its cooldown period. Returns True = mute it."""
+        shown = _nudge_log.get("shown", {})
+        last_shown = shown.get(nudge_key)
+        if not last_shown:
+            return False
+        try:
+            last_dt = datetime.fromisoformat(last_shown)
+            return (datetime.now() - last_dt).total_seconds() < cooldown_hours * 3600
+        except Exception:
+            return False
+
+    def _nudge_record(nudge_key: str):
+        """Record that a nudge was shown now."""
+        _nudge_log.setdefault("shown", {})[nudge_key] = datetime.now().isoformat()
+
+    def _nudge_save():
+        """Persist nudge log to disk."""
+        try:
+            _nudge_log_path.write_text(json.dumps(_nudge_log, indent=2))
+        except Exception:
+            pass
+
     # === Pastel colour tokens ===
-    # Mint: #a7f3d0 (light), #6ee7b7 (mid), #34d399 (bright), #065f46 (dark bg)
-    # Pink: #fbcfe8 (light), #f9a8d4 (mid), #f472b6 (bright), #831843 (dark bg)
-    # Lavender: #c4b5fd (accent), #8b5cf6 (bright)
-    # Warm: #fde68a (amber light), #fbbf24 (amber)
+    # Mint: #b8d8c8 (light), #a7d8c4 (mid), #34d399 (bright), #065f46 (dark bg)
+    # Pink: #fbcfe8 (light), #d4a8b8 (mid), #c8a0b0 (bright), #831843 (dark bg)
+    # Lavender: #c4b8e0 (accent), #8b5cf6 (bright)
+    # Warm: #d8c8a0 (amber light), #d4b896 (amber)
 
     def _pick_content_emoji(text):
         """Pick a contextual emoji for ANY content item (action items, gratitude, calendar, etc.).
@@ -2102,7 +2143,7 @@ def generate_html(data):
                 is_akiflow = item.get("type") == "task"
                 if is_akiflow:
                     event_emoji = "📌"
-                    text_color = "#fbbf24"
+                    text_color = "#d4b896"
                 else:
                     event_emoji = _pick_content_emoji(event_text)
                     text_color = "#e5e7eb"
@@ -2153,13 +2194,13 @@ def generate_html(data):
         "uncategorised": "✅ Other"
     }
     _category_colors = {
-        "family": "#f9a8d4",           # soft pink (warm)
-        "emotional_growth": "#fbbf24", # warm amber (growth/achievement)
+        "family": "#d4a8b8",           # soft pink (warm)
+        "emotional_growth": "#d4b896", # warm amber (growth/achievement)
         "self_care": "#7dd3fc",        # soft cyan (calming)
         "admin": "#fdba74",            # soft orange (attention)
-        "social": "#e9d5ff",           # soft lilac (social)
-        "work": "#93c5fd",             # soft blue (professional)
-        "creative": "#c4b5fd",         # soft purple (imagination)
+        "social": "#d8c8e0",           # soft lilac (social)
+        "work": "#a8c4e0",             # soft blue (professional)
+        "creative": "#c4b8e0",         # soft purple (imagination)
         "household": "#86efac",        # soft green (home)
         "uncategorised": "#d1d5db"     # soft gray (neutral)
     }
@@ -2176,7 +2217,7 @@ def generate_html(data):
         for cat_name, items in tadah_categories.items():
             tadah_html += f'<div class="mb-2"><p class="text-xs font-semibold mb-1" style="color: #9ca3af">{html.escape(str(cat_name))}</p>'
             for item in items:
-                tadah_html += f'<div class="flex items-start gap-2 text-sm ml-2"><span style="color: #6ee7b7">•</span><span style="color: #d1d5db">{html.escape(str(item))}</span></div>'
+                tadah_html += f'<div class="flex items-start gap-2 text-sm ml-2"><span style="color: #a7d8c4">•</span><span style="color: #d1d5db">{html.escape(str(item))}</span></div>'
             tadah_html += '</div>'
     else:
         # Flat list with inline category emojis from ta_dah_categorised
@@ -2273,9 +2314,9 @@ def generate_html(data):
             content_emoji = _pick_content_emoji(item_text)
             source_badge = ""
             if source == "pieces":
-                source_badge = '<span style="margin-left: 6px; padding: 1px 6px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); border-radius: 9999px; color: #fbbf24; font-size: 0.65rem; vertical-align: middle; white-space: nowrap;">⚡ Pieces</span>'
+                source_badge = '<span style="margin-left: 6px; padding: 1px 6px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); border-radius: 9999px; color: #d4b896; font-size: 0.65rem; vertical-align: middle; white-space: nowrap;">⚡ Pieces</span>'
             # ★ prefix on high-significance items (score 4+)
-            star_prefix = '<span style="color: #fbbf24; margin-right: 4px; font-size: 0.85em;">★</span>' if (score is not None and score >= 4) else ""
+            star_prefix = '<span style="color: #d4b896; margin-right: 4px; font-size: 0.85em;">★</span>' if (score is not None and score >= 4) else ""
             return (f'<div class="flex items-start gap-2 text-sm" style="margin-left: 4px;">'
                     f'<span style="color: {color}; font-size: 1.2em; line-height: 1;">●</span>'
                     f'<span style="color: #d1d5db; line-height: 1.4;">{star_prefix}{html.escape(str(item_text))} {content_emoji}{source_badge}</span>'
@@ -2299,7 +2340,7 @@ def generate_html(data):
                 current_category = _get_category(item)
                 item_score = _score_lookup.get(item)
                 if current_category != last_cat:
-                    out += (f'<div style="color: #6ee7b7; font-size: 0.85rem; font-weight: 700; '
+                    out += (f'<div style="color: #a7d8c4; font-size: 0.85rem; font-weight: 700; '
                             f'margin-top: {12 if i > 0 else 0}px; margin-bottom: 6px; '
                             f'text-transform: uppercase; letter-spacing: 0.08em;">'
                             f'{_category_labels.get(current_category, "Other")}</div>')
@@ -2311,7 +2352,7 @@ def generate_html(data):
 
         if len(tadah_sorted) > _VISIBLE_TADAH:
             extra_html = _render_tadah_list(tadah_sorted[_VISIBLE_TADAH:])
-            tadah_html += (f'<details class="mt-2"><summary style="color: #6ee7b7; font-size: 0.75rem; cursor: pointer;">'
+            tadah_html += (f'<details class="mt-2"><summary style="color: #a7d8c4; font-size: 0.75rem; cursor: pointer;">'
                            f'+{len(tadah_sorted) - _VISIBLE_TADAH} more</summary>'
                            f'<div class="mt-1 space-y-1">{extra_html}</div></details>')
 
@@ -2320,7 +2361,7 @@ def generate_html(data):
         wins_badges = ""
         for w in wins:
             win_emoji = _pick_content_emoji(w)
-            wins_badges += f'<span class="optional-pill" style="background: rgba(6,95,70,0.4); border: 1px solid rgba(110,231,183,0.3); border-radius: 9999px; padding: 2px 10px; color: #a7f3d0; font-size: 0.75rem;">{win_emoji} {html.escape(str(w))}</span>'
+            wins_badges += f'<span class="optional-pill" style="background: rgba(6,95,70,0.4); border: 1px solid rgba(110,231,183,0.3); border-radius: 9999px; padding: 2px 10px; color: #b8d8c8; font-size: 0.75rem;">{win_emoji} {html.escape(str(w))}</span>'
         tadah_html += f'<div class="flex flex-wrap gap-1 mt-3 pt-2" style="border-top: 1px solid #374151">{wins_badges}</div>'
 
     # Yesterday's ta-dahs — always separate from today's list for clear differentiation
@@ -2369,7 +2410,7 @@ def generate_html(data):
             <button id="qa-scratch-submit-ta_dah"
                 onclick="qaScratchSubmit('ta_dah')"
                 class="px-3 py-1 rounded text-xs"
-                style="background: rgba(110,231,183,0.18); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                style="background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
                 ✅ Add to Ta-Dah
             </button>
             <span id="qa-scratch-status-ta_dah" class="text-xs" style="color: #94a3b8;"></span>
@@ -2379,9 +2420,9 @@ def generate_html(data):
     habits_html = ""
     for h in data.get("habits", [])[:6]:
         rate = h.get("rate", 0)
-        color = "#6ee7b7" if rate >= 80 else "#fbbf24" if rate >= 50 else "#f9a8d4"
+        color = "#a7d8c4" if rate >= 80 else "#d4b896" if rate >= 50 else "#d4a8b8"
         # Add warning flag for habits < 60% (at risk)
-        warning_flag = '<span style="color: #fbbf24; font-size: 0.9rem; margin-right: 4px;">⚠️</span>' if rate < 60 else ''
+        warning_flag = '<span style="color: #d4b896; font-size: 0.9rem; margin-right: 4px;">⚠️</span>' if rate < 60 else ''
         habit_emoji = _pick_content_emoji(h.get("name", ""))
         habits_html += f'''
         <div class="flex items-center gap-2 mb-2">
@@ -2397,7 +2438,7 @@ def generate_html(data):
     for job in data.get("topJobs", [])[:3]:
         score = job.get("score", 0)
         badge_bg = "rgba(6,95,70,0.4)" if score >= 18 else "rgba(120,53,15,0.4)"
-        badge_color = "#a7f3d0" if score >= 18 else "#fde68a"
+        badge_color = "#b8d8c8" if score >= 18 else "#d8c8a0"
         job_emoji = _pick_content_emoji(job.get("title", ""))
         jobs_html += f'''
         <div class="flex justify-between items-center text-sm mb-1">
@@ -2431,7 +2472,7 @@ def generate_html(data):
     if workout.get("type") in {"weights", "yoga"}:
         checked_attr = "checked" if workout.get("done") else ""
         workout_meta_text = f"✅ {workout['title']} logged for today" if workout.get("done") else f"⬜ {workout['title']} not logged yet"
-        workout_meta_color = "#6ee7b7" if workout.get("done") else "#9ca3af"
+        workout_meta_color = "#a7d8c4" if workout.get("done") else "#9ca3af"
         workout_toggle_html = f'''
         <div class="mt-3 pt-3" style="border-top: 1px solid rgba(110,231,183,0.15);">
             <label class="flex items-center gap-3 cursor-pointer">
@@ -2447,7 +2488,7 @@ def generate_html(data):
         <div class="flex items-center gap-3">
             <span class="text-2xl">✅</span>
             <div>
-                <span class="text-base font-semibold" style="color: #6ee7b7">Workout Guide: {workout["title"]} — done</span>
+                <span class="text-base font-semibold" style="color: #a7d8c4">Workout Guide: {workout["title"]} — done</span>
                 {detail_badge}
             </div>
         </div>
@@ -2474,7 +2515,7 @@ def generate_html(data):
         <div class="flex items-center gap-3">
             <span class="text-2xl">{workout["emoji"]}</span>
             <div>
-                <span class="text-base font-semibold" style="color: #6ee7b7">Workout Guide: {workout["title"]}</span>
+                <span class="text-base font-semibold" style="color: #a7d8c4">Workout Guide: {workout["title"]}</span>
                 {detail_badge}
                 <p class="text-xs mt-1" style="color: #9ca3af">{window_note}</p>
             </div>
@@ -2585,8 +2626,8 @@ def generate_html(data):
             _disc_reason_html = f'<p class="text-xs mt-1" style="color:#9ca3af">{_html.escape(_disc_reason)}</p>' if _disc_reason else ""
             discovery_html = (
                 '<div class="mt-3 rounded px-3 py-2" style="background:rgba(6,78,59,0.15);border:1px solid rgba(52,211,153,0.2)">'
-                '<p class="text-xs font-semibold mb-1" style="color:#6ee7b7">\U0001f50d Discovery</p>'
-                f'<p class="text-sm" style="color:#a7f3d0">{_html.escape(_disc_film)}</p>'
+                '<p class="text-xs font-semibold mb-1" style="color:#a7d8c4">\U0001f50d Discovery</p>'
+                f'<p class="text-sm" style="color:#b8d8c8">{_html.escape(_disc_film)}</p>'
                 f'{_disc_reason_html}'
                 '</div>'
             )
@@ -2598,10 +2639,10 @@ def generate_html(data):
             year = _html.escape(str(item.get("year", "")))
             date = _html.escape(str(item.get("date", "")))
             rating_label = _format_lb_rating(item.get("rating"))
-            rating_html = f'<span class="text-xs" style="color:#fbbf24">{_html.escape(rating_label)}</span>' if rating_label else ""
+            rating_html = f'<span class="text-xs" style="color:#d4b896">{_html.escape(rating_label)}</span>' if rating_label else ""
             date_html = f'<span class="text-xs" style="color:#4b5563">{date}</span>' if date else ""
             meta_html = f'<span class="ml-auto flex items-center gap-2">{rating_html}{date_html}</span>' if (rating_html or date_html) else ""
-            watched_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#c4b5fd">🎬</span><span class="text-sm" style="color:#e5e7eb">{title} <span style="color:#6b7280">({year})</span></span>{meta_html}</div>'
+            watched_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#c4b8e0">🎬</span><span class="text-sm" style="color:#e5e7eb">{title} <span style="color:#6b7280">({year})</span></span>{meta_html}</div>'
 
         # Watchlist recently added
         watchlist_items_html = ""
@@ -2609,8 +2650,8 @@ def generate_html(data):
             title = _html.escape(str(item.get("title", "")))
             year = _html.escape(str(item.get("year", "")))
             url = item.get("url", "")
-            link = f'<a href="{_html.escape(url)}" style="color:#f9a8d4;text-decoration:none">{title}</a>' if url else title
-            watchlist_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#f9a8d4">📋</span><span class="text-sm" style="color:#e5e7eb">{link} <span style="color:#6b7280">({year})</span></span></div>'
+            link = f'<a href="{_html.escape(url)}" style="color:#d4a8b8;text-decoration:none">{title}</a>' if url else title
+            watchlist_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#d4a8b8">📋</span><span class="text-sm" style="color:#e5e7eb">{link} <span style="color:#6b7280">({year})</span></span></div>'
 
         watched_summary = f"{len(recent_watched)} diary entries" if recent_watched else "No recent diary"
         wl_str = f"{wl_count:,}" if isinstance(wl_count, int) else str(wl_count or "?")
@@ -2620,7 +2661,7 @@ def generate_html(data):
         latest_summary_html = ""
         if latest_title:
             latest_title_html = _html.escape(latest_title)
-            latest_rating_html = f' <span style="color:#fbbf24">{_html.escape(latest_rating_label)}</span>' if latest_rating_label else ""
+            latest_rating_html = f' <span style="color:#d4b896">{_html.escape(latest_rating_label)}</span>' if latest_rating_label else ""
             latest_summary_html = f" · Latest: {latest_title_html}{latest_rating_html}"
 
         primary_pick_summary_html = ""
@@ -2629,7 +2670,7 @@ def generate_html(data):
         if _film_pick_source == "ai":
             source_badge = (
                 '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
-                'style="background:rgba(6,95,70,0.28);color:#a7f3d0;border:1px solid rgba(110,231,183,0.28)">AI pick</span>'
+                'style="background:rgba(6,95,70,0.28);color:#b8d8c8;border:1px solid rgba(110,231,183,0.28)">AI pick</span>'
             )
             profile_headline = str(film_profile.get("headline", "")).strip()
             profile_reason = str(film_profile.get("reason_text", "")).strip()
@@ -2642,7 +2683,7 @@ def generate_html(data):
                 primary_url = str(film_primary.get("url", "")).strip()
                 primary_reason = str(film_primary.get("reason", "")).strip()
                 primary_link = (
-                    f'<a href="{_html.escape(primary_url)}" style="color:#f9a8d4;text-decoration:none">{_html.escape(primary_title)}</a>'
+                    f'<a href="{_html.escape(primary_url)}" style="color:#d4a8b8;text-decoration:none">{_html.escape(primary_title)}</a>'
                     if primary_url else _html.escape(primary_title)
                 )
                 primary_pick_summary_html = f" · Tonight: {_html.escape(primary_title)}"
@@ -2679,7 +2720,7 @@ def generate_html(data):
                     )
                 primary_pick_html = f'''
             <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
-              <p class="text-xs font-semibold mb-1" style="color:#f9a8d4">🍿 Tonight&apos;s watch {source_badge}</p>
+              <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">🍿 Tonight&apos;s watch {source_badge}</p>
               <p class="text-sm font-semibold" style="color:#f3e8ff">{primary_link} <span style="color:#94a3b8">({_html.escape(primary_year)})</span></p>
               <p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(profile_headline)}</p>
               {profile_reason_html}
@@ -2692,7 +2733,7 @@ def generate_html(data):
                 primary_pick_summary_html = " · Tonight: AI pick"
                 primary_pick_html = f'''
             <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
-              <p class="text-xs font-semibold mb-1" style="color:#f9a8d4">🍿 Tonight&apos;s watch {source_badge}</p>
+              <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">🍿 Tonight&apos;s watch {source_badge}</p>
               <p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(_ai_reason)}</p>
               {profile_reason_html}
               {discovery_html}
@@ -2712,13 +2753,13 @@ def generate_html(data):
             if recent_watch_note else ""
         )
         watched_block = (
-            f'<div class="mt-3"><p class="text-xs font-semibold mb-2" style="color:#c4b5fd">Recently watched</p>'
+            f'<div class="mt-3"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">Recently watched</p>'
             f'{watched_note_html}{watched_items_html}</div>'
         ) if watched_items_html else ""
         wl_block = (
             '<details class="mt-3 rounded-lg px-3 py-2" '
             'style="background:rgba(15,23,42,0.36);border:1px solid rgba(249,168,212,0.18)">'
-            '<summary class="text-xs font-semibold cursor-pointer" style="color:#f9a8d4">'
+            '<summary class="text-xs font-semibold cursor-pointer" style="color:#d4a8b8">'
             f'📋 Watchlist adds ({len(recent_watchlist)})</summary>'
             f'<div class="mt-2">{watchlist_items_html}</div>'
             '</details>'
@@ -2726,7 +2767,7 @@ def generate_html(data):
 
         film_html = f'''<details class="card rounded-xl p-5 mb-4" style="background:rgba(88,28,135,0.12);border:1px solid rgba(196,181,253,0.18)">
   <summary class="cursor-pointer flex items-center gap-2">
-    <span class="text-lg font-semibold" style="color:#c4b5fd">🎬 Film</span>
+    <span class="text-lg font-semibold" style="color:#c4b8e0">🎬 Film</span>
     <span class="text-sm ml-2" style="color:#9ca3af">{watched_summary} · {wl_str} watchlist{latest_summary_html}{primary_pick_summary_html}</span>
   </summary>
   <div class="mt-3">
@@ -3321,9 +3362,9 @@ def generate_html(data):
                 _fval = _feasibility_map.get(_fk2, "")
                 if _fval:
                     _feas_styles = {
-                        "ok":         {"bg": "rgba(6,95,70,0.28)",   "color": "#6ee7b7", "label": "🟢 ok"},
-                        "tight":      {"bg": "rgba(120,53,15,0.28)", "color": "#fde68a", "label": "🟡 tight"},
-                        "overloaded": {"bg": "rgba(153,27,27,0.28)", "color": "#fca5a5", "label": "🔴 overloaded"},
+                        "ok":         {"bg": "rgba(6,95,70,0.28)",   "color": "#a7d8c4", "label": "🟢 ok"},
+                        "tight":      {"bg": "rgba(120,53,15,0.28)", "color": "#d8c8a0", "label": "🟡 tight"},
+                        "overloaded": {"bg": "rgba(153,27,27,0.28)", "color": "#d4a0a0", "label": "🔴 overloaded"},
                     }
                     _fs = _feas_styles.get(_fval, {})
                     if _fs:
@@ -3346,28 +3387,29 @@ def generate_html(data):
                 time_html = time_html.rstrip()
                 time_html = time_html.rstrip("</p>").rstrip() + (
                     '<span class="rounded px-1.5 py-0.5" '
-                    'style="background:rgba(88,28,135,0.22);color:#c4b5fd;font-size:0.65rem;">🧩 observed</span>'
+                    'style="background:rgba(88,28,135,0.22);color:#c4b8e0;font-size:0.65rem;">🧩 observed</span>'
                     "</p>\n"
                 )
             elif _pieces_observed:
                 time_html = (
                     '<p class="text-xs mt-1 flex items-center gap-1">'
                     '<span class="rounded px-1.5 py-0.5" '
-                    'style="background:rgba(88,28,135,0.22);color:#c4b5fd;font-size:0.65rem;">🧩 observed</span>'
+                    'style="background:rgba(88,28,135,0.22);color:#c4b8e0;font-size:0.65rem;">🧩 observed</span>'
                     "</p>"
                 )
 
             if is_done:
                 row_style = "background: rgba(15,23,42,0.46); border: 1px solid rgba(148,163,184,0.2); opacity: 0.72;"
                 text_style = "color: #cbd5e1; line-height: 1.45; text-decoration: line-through; text-decoration-thickness: 1.5px; text-decoration-color: rgba(148,163,184,0.82);"
-                button_html = '<button disabled class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,64,175,0.26); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">☑ Done</button>'
+                button_html = '<button disabled class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,64,175,0.26); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">☑ Done</button>'
             else:
                 row_style = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
                 text_style = "color: #f3f4f6; line-height: 1.45;"
                 button_html = f'''
                 <div class="flex flex-col gap-1">
                     <button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" data-task-hash="{html.escape(task_hash, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">☐ Done</button>
-                    <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
+                    <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
+                    <button onclick="qaParkActionItem(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(15,23,42,0.45); color: #94a3b8; border: 1px solid rgba(148,163,184,0.18);">💤 Park</button>
                 </div>'''
             return f'''
                 <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="todo" data-task-hash="{html.escape(task_hash, quote=True)}" style="{row_style}">
@@ -3404,10 +3446,13 @@ def generate_html(data):
                 filtered_primary_items.append(section_item)
             primary_items = filtered_primary_items
         support_items = maintenance_items[:4] + system_items[:3]
+        # Energy gating: limit visible items when depleted
+        _display_primary = primary_items[:3] if _energy_low else primary_items
+        _display_support = support_items[:2] if _energy_low else support_items
         grouped_sections = [
-            ("🎯 Do Next", "#f9a8d4", primary_items),
-            ("🧰 Keep Running", "#fde68a", support_items),
-            ("✅ Done Today", "#93c5fd", completed_items[:8]),
+            ("🎯 Do Next", "#d4a8b8", _display_primary),
+            ("🧰 Keep Running", "#d8c8a0", _display_support),
+            ("✅ Done Today", "#a8c4e0", completed_items[:8]),
         ]
         for label, color, section_items in grouped_sections:
             if not section_items:
@@ -3451,7 +3496,7 @@ def generate_html(data):
                 )
             items_html += f'''
             <details data-qa-tomorrow-queue="1" class="mt-4 rounded-lg px-3 py-2" style="background: rgba(30,41,59,0.38); border: 1px solid rgba(129,140,248,0.24);">
-                <summary class="text-xs font-semibold cursor-pointer" style="color:#c4b5fd">🗓️ Tomorrow queue ({len(_tq_deduped)})</summary>
+                <summary class="text-xs font-semibold cursor-pointer" style="color:#c4b8e0">🗓️ Tomorrow queue ({len(_tq_deduped)})</summary>
                 <p class="text-xs mt-2 mb-2" style="color:#9ca3af">Hidden from today's action list. Expands into action items on its target day.</p>
                 {tomorrow_rows_html}
                 {tomorrow_extra}
@@ -3547,10 +3592,10 @@ def generate_html(data):
 
         # Category labels and colors
         category_config = {
-            "pattern": {"label": "Patterns", "color": "#c4b5fd", "bg": "rgba(196,181,253,0.08)"},
-            "signal": {"label": "Signals", "color": "#fbbf24", "bg": "rgba(251,191,36,0.08)"},
-            "win": {"label": "Wins", "color": "#6ee7b7", "bg": "rgba(110,231,183,0.08)"},
-            "connection": {"label": "Connections", "color": "#f9a8d4", "bg": "rgba(249,168,212,0.08)"},
+            "pattern": {"label": "Patterns", "color": "#c4b8e0", "bg": "rgba(196,181,253,0.08)"},
+            "signal": {"label": "Signals", "color": "#d4b896", "bg": "rgba(251,191,36,0.08)"},
+            "win": {"label": "Wins", "color": "#a7d8c4", "bg": "rgba(110,231,183,0.08)"},
+            "connection": {"label": "Connections", "color": "#d4a8b8", "bg": "rgba(249,168,212,0.08)"},
         }
 
         # Render in fixed order: patterns → wins → signals → connections, then any extras
@@ -3784,7 +3829,7 @@ def generate_html(data):
             morning_insights_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(88,28,135,0.15), rgba(6,95,70,0.1)); border: 1px solid rgba(196,181,253,0.15);">
                 <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #a7f3d0">🌅 Morning Insights</summary>
+                    <summary class="text-lg font-semibold cursor-pointer" style="color: #b8d8c8">🌅 Morning Insights</summary>
                     <div class="mt-3">
                         {morning_sections}
                     </div>
@@ -3870,7 +3915,7 @@ def generate_html(data):
             updates_insights_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(30,64,175,0.18), rgba(6,95,70,0.08)); border: 1px solid rgba(147,197,253,0.2);">
                 <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #93c5fd">📝 Update Insights</summary>
+                    <summary class="text-lg font-semibold cursor-pointer" style="color: #a8c4e0">📝 Update Insights</summary>
                     <div class="mt-3">
                         {updates_sections}
                     </div>
@@ -3935,7 +3980,7 @@ def generate_html(data):
             evening_insights_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(88,28,135,0.15), rgba(6,95,70,0.1)); border: 1px solid rgba(196,181,253,0.15);">
                 <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #c4b5fd">🌙 Evening Insights</summary>
+                    <summary class="text-lg font-semibold cursor-pointer" style="color: #c4b8e0">🌙 Evening Insights</summary>
                     <div class="mt-3">
                         {evening_sections}
                     </div>
@@ -3952,14 +3997,14 @@ def generate_html(data):
             hw_text = bullet.get("text", "") if isinstance(bullet, dict) else str(bullet)
             if hw_text:
                 therapy_emoji = _pick_content_emoji(hw_text)
-                therapy_rows.append(f'<div class="flex items-start gap-2 mb-2"><span style="color: #c4b5fd">{therapy_emoji}</span><span class="text-sm" style="color: #e5e7eb">{hw_text}</span></div>')
+                therapy_rows.append(f'<div class="flex items-start gap-2 mb-2"><span style="color: #c4b8e0">{therapy_emoji}</span><span class="text-sm" style="color: #e5e7eb">{hw_text}</span></div>')
 
         if therapy_rows:
             bullets_html = "".join(therapy_rows)
             therapy_notes_html = f'''
             <div class="card mb-4">
                 <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #c4b5fd">🧠 Therapy Homework ({len(therapy_rows)})</summary>
+                    <summary class="text-lg font-semibold cursor-pointer" style="color: #c4b8e0">🧠 Therapy Homework ({len(therapy_rows)})</summary>
                     <div class="mt-3">
                         {bullets_html}
                     </div>
@@ -4003,7 +4048,7 @@ def generate_html(data):
                 </div>'''
             insights_fallback_html = f'''
                 <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(88,28,135,0.15), rgba(6,95,70,0.1)); border: 1px solid rgba(196,181,253,0.15);">
-                    <h3 class="text-lg font-semibold mb-3" style="color: #c4b5fd">💡 Today's Guidance</h3>
+                    <h3 class="text-lg font-semibold mb-3" style="color: #c4b8e0">💡 Today's Guidance</h3>
                     {items_html}
                 </div>'''
 
@@ -4054,7 +4099,7 @@ def generate_html(data):
         )
         support_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.2);">
-                <h3 class="text-lg font-semibold mb-2" style="color: #93c5fd">🧠 Overwhelm Support</h3>
+                <h3 class="text-lg font-semibold mb-2" style="color: #a8c4e0">🧠 Overwhelm Support</h3>
                 <p class="text-xs mb-2" style="color: #94a3b8">Trigger signals detected: {", ".join(sorted(support_triggers))}</p>
                 <ul style="margin: 0; padding-left: 1rem;">{technique_html}</ul>
             </div>'''
@@ -4073,7 +4118,7 @@ def generate_html(data):
 
             if isinstance(predicted, (int, float)):
                 relief_text = f"{float(predicted):.1f} / 10"
-                relief_tone = "#6ee7b7" if float(predicted) >= 7 else "#fbbf24" if float(predicted) >= 5 else "#fca5a5"
+                relief_tone = "#a7d8c4" if float(predicted) >= 7 else "#d4b896" if float(predicted) >= 5 else "#d4a0a0"
             else:
                 relief_text = "n/a"
                 relief_tone = "#9ca3af"
@@ -4192,7 +4237,7 @@ def generate_html(data):
     if wc_workout_type != "weights":
         wc_weights_progression_html = f'''
                     <div class="rounded px-3 py-2 mb-2" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.18);">
-                        <p class="text-xs font-semibold mb-1" style="color: #93c5fd">🏋️ Weights progression snapshot</p>
+                        <p class="text-xs font-semibold mb-1" style="color: #a8c4e0">🏋️ Weights progression snapshot</p>
                         <p id="qa-wc-weights-progression-meta" class="text-xs" style="color: {wc_weights_progression_view["color"]}">{html.escape(wc_weights_progression_view["label"])}</p>
                         {f'<p id="qa-wc-weights-progression-detail" class="text-xs mt-1" style="color: #9ca3af">{html.escape(wc_weights_progression_view["detail"])}</p>' if wc_weights_progression_view["detail"] else '<p id="qa-wc-weights-progression-detail" class="text-xs mt-1" style="color: #9ca3af"></p>'}
                     </div>
@@ -4204,7 +4249,7 @@ def generate_html(data):
                 <div class="mt-3">
                     <div class="rounded px-3 py-3 mb-2" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(110,231,183,0.18);">
                         <div class="flex flex-wrap items-center gap-2 mb-2">
-                            <label for="qa-wc-recovery" class="text-xs font-semibold" style="color: #a7f3d0">Recovery gate before weights</label>
+                            <label for="qa-wc-recovery" class="text-xs font-semibold" style="color: #b8d8c8">Recovery gate before weights</label>
                             <select id="qa-wc-recovery" class="rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(110,231,183,0.25); color: #e5e7eb;">
                                 <option value="unknown" {'selected' if wc_recovery == 'unknown' else ''}>Unknown</option>
                                 <option value="pass" {'selected' if wc_recovery == 'pass' else ''}>Pass</option>
@@ -4235,7 +4280,7 @@ def generate_html(data):
                     </div>
 
                     <div id="qa-wc-yoga-feedback-wrap" class="rounded px-3 py-3 mb-3" style="display: {'block' if wc_workout_type == 'yoga' else 'none'}; background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);">
-                        <p class="text-xs font-semibold mb-2" style="color: #bfdbfe">🧘 Yoga feedback (for progression)</p>
+                        <p class="text-xs font-semibold mb-2" style="color: #b0c8d8">🧘 Yoga feedback (for progression)</p>
                         <p class="text-xs mb-2" style="color: #9ca3af">To personalise progression, fill: duration, intensity, type, anxiety, body feel.</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
                             <label class="text-xs" style="color: #9ca3af">Duration (minutes)
@@ -4288,18 +4333,18 @@ def generate_html(data):
                     </div>
 
                     <div class="rounded px-3 py-2 mb-2" style="background: rgba(6,95,70,0.14); border: 1px solid rgba(110,231,183,0.2);">
-                        <p class="text-xs font-semibold mb-1" style="color: #6ee7b7">Auto-adjust progression rule</p>
+                        <p class="text-xs font-semibold mb-1" style="color: #a7d8c4">Auto-adjust progression rule</p>
                         <p id="qa-wc-progression-meta" class="text-xs" style="color: {wc_progression_view["color"]}">{html.escape(wc_progression_view["label"])}</p>
                         {f'<p id="qa-wc-progression-detail" class="text-xs mt-1" style="color: #9ca3af">{html.escape(wc_progression_view["detail"])}</p>' if wc_progression_view["detail"] else '<p id="qa-wc-progression-detail" class="text-xs mt-1" style="color: #9ca3af"></p>'}
                     </div>
                     {wc_weights_progression_html}
 
                     <details class="mt-2">
-                        <summary class="text-xs font-semibold cursor-pointer" style="color: #93c5fd">📱 Shortcut hybrid setup (Health + dashboard sync)</summary>
+                        <summary class="text-xs font-semibold cursor-pointer" style="color: #a8c4e0">📱 Shortcut hybrid setup (Health + dashboard sync)</summary>
                         <div class="mt-2 rounded px-3 py-2 text-xs" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.2); color: #dbeafe;">
-                            <p class="mb-1">1) In iOS Shortcuts, add <span style="color:#bfdbfe;">Log Workout</span> (Traditional Strength Training).</p>
-                            <p class="mb-1">2) Add <span style="color:#bfdbfe;">Format Date</span> with <code>yyyy-MM-dd</code>.</p>
-                            <p class="mb-1">3) Add <span style="color:#bfdbfe;">Get Contents of URL</span> POST to:</p>
+                            <p class="mb-1">1) In iOS Shortcuts, add <span style="color:#b0c8d8;">Log Workout</span> (Traditional Strength Training).</p>
+                            <p class="mb-1">2) Add <span style="color:#b0c8d8;">Format Date</span> with <code>yyyy-MM-dd</code>.</p>
+                            <p class="mb-1">3) Add <span style="color:#b0c8d8;">Get Contents of URL</span> POST to:</p>
                             <p class="mb-1"><code style="word-break: break-all;">{html.escape(shortcut_endpoint)}</code></p>
                             <p class="mb-1">4) JSON body: <code>{{"done":true,"workout":"Workout A","date":"Formatted Date","source":"shortcuts"}}</code></p>
                             <p>5) Header: <code>Authorization: Bearer &lt;api-token&gt;</code> (token in <code>~/.claude/config/api-token.txt</code>).</p>
@@ -4307,7 +4352,7 @@ def generate_html(data):
                     </details>
 
                     <div class="mt-3 flex items-center gap-2">
-                        <button id="qa-wc-save-btn" onclick="qaSaveWorkoutChecklist(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="background: rgba(6,95,70,0.35); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.35);">Save checklist</button>
+                        <button id="qa-wc-save-btn" onclick="qaSaveWorkoutChecklist(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Save checklist</button>
                         <span id="qa-wc-status" class="text-xs" style="color: #9ca3af">Not saved yet.</span>
                     </div>
                 </div>
@@ -4369,7 +4414,7 @@ def generate_html(data):
                 dur = parse_duration_mins(tw.get("duration", ""))
                 fitness_items_html += f'''
             <div class="flex items-start gap-2 mb-2">
-                <span style="color: #6ee7b7">✅</span>
+                <span style="color: #a7d8c4">✅</span>
                 <span class="text-sm" style="color: #e5e7eb">{tw.get('type', '?')} — {dur}m</span>
             </div>'''
         else:
@@ -4378,7 +4423,7 @@ def generate_html(data):
             if _fl_workout.get("done"):
                 fitness_items_html += f'''
             <div class="flex items-start gap-2 mb-2">
-                <span style="color: #6ee7b7">✅</span>
+                <span style="color: #a7d8c4">✅</span>
                 <span class="text-sm" style="color: #e5e7eb">{_fl_workout["title"]} — logged in fitness-log.md</span>
             </div>'''
             else:
@@ -4428,15 +4473,15 @@ def generate_html(data):
             # Never suggest less than what was just achieved (matches embed-dashboard-in-notes.py)
             if latest_yoga >= 30:
                 next_target = ((latest_yoga // 5) + 1) * 5
-                yoga_status = f'''<span style="color: #6ee7b7">🔥 Yoga: {latest_yoga}m ({yoga_date_label}) — crushing it! Aim for {next_target}m next?</span>'''
+                yoga_status = f'''<span style="color: #a7d8c4">🔥 Yoga: {latest_yoga}m ({yoga_date_label}) — crushing it! Aim for {next_target}m next?</span>'''
             elif latest_yoga >= 25:
-                yoga_status = f'''<span style="color: #6ee7b7">💪 Yoga: {latest_yoga}m ({yoga_date_label}) — strong session! Try {latest_yoga + 5}m next?</span>'''
+                yoga_status = f'''<span style="color: #a7d8c4">💪 Yoga: {latest_yoga}m ({yoga_date_label}) — strong session! Try {latest_yoga + 5}m next?</span>'''
             elif latest_yoga >= 22:
-                yoga_status = f'''<span style="color: #6ee7b7">📈 Yoga: {latest_yoga}m ({yoga_date_label}) — building up, aim for {latest_yoga + 3}m next</span>'''
+                yoga_status = f'''<span style="color: #a7d8c4">📈 Yoga: {latest_yoga}m ({yoga_date_label}) — building up, aim for {latest_yoga + 3}m next</span>'''
             elif latest_yoga >= 20:
-                yoga_status = f'''<span style="color: #6ee7b7">✅ Yoga: {latest_yoga}m ({yoga_date_label}) — solid baseline, try 25m next</span>'''
+                yoga_status = f'''<span style="color: #a7d8c4">✅ Yoga: {latest_yoga}m ({yoga_date_label}) — solid baseline, try 25m next</span>'''
             else:
-                yoga_status = f'''<span style="color: #fbbf24">⚠️ Yoga: {latest_yoga}m ({yoga_date_label}) — below your 20m minimum</span>'''
+                yoga_status = f'''<span style="color: #d4b896">⚠️ Yoga: {latest_yoga}m ({yoga_date_label}) — below your 20m minimum</span>'''
 
             fitness_deep_html += f'''
             <div class="mt-2 pt-2" style="border-top: 1px solid rgba(110,231,183,0.1);">
@@ -4471,7 +4516,7 @@ def generate_html(data):
 
         fitness_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.1); border: 1px solid rgba(110,231,183,0.15);">
-                <h3 class="text-lg font-semibold mb-3" style="color: #6ee7b7">💪 Fitness</h3>
+                <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">💪 Fitness</h3>
                 {fitness_items_html}
             </div>'''
     else:
@@ -4481,9 +4526,9 @@ def generate_html(data):
         fallback_color = "#e5e7eb" if fallback_workout.get("done") else "#6b7280"
         fitness_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.1); border: 1px solid rgba(110,231,183,0.15);">
-                <h3 class="text-lg font-semibold mb-3" style="color: #6ee7b7">💪 Fitness</h3>
+                <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">💪 Fitness</h3>
                 <div class="flex items-start gap-2 mb-2">
-                    <span style="color: {'#6ee7b7' if fallback_workout.get("done") else '#6b7280'}">{fallback_icon}</span>
+                    <span style="color: {'#a7d8c4' if fallback_workout.get("done") else '#6b7280'}">{fallback_icon}</span>
                     <span class="text-sm" style="color: {fallback_color}">{fallback_line}</span>
                 </div>
                 {workout_checklist_html}
@@ -4532,10 +4577,10 @@ def generate_html(data):
             <div class="card rounded-xl p-5 mb-4 mood-card" style="background: rgba(88,28,135,0.1); border: 1px solid rgba(196,181,253,0.2);">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <span style="font-size: 1.2rem;">\U0001f3ad</span>
-                    <span class="text-lg font-semibold" style="color: #c4b5fd">Mood</span>
+                    <span class="text-lg font-semibold" style="color: #c4b8e0">Mood</span>
                     {current_mood_display}
                 </div>
-                <p id="qa-mood-meta" class="text-sm" style="color: {"#6ee7b7" if mood_done else "#9ca3af"}; margin-bottom: 8px; display: none;"></p>
+                <p id="qa-mood-meta" class="text-sm" style="color: {"#a7d8c4" if mood_done else "#9ca3af"}; margin-bottom: 8px; display: none;"></p>
                 <div class="mood-selector">
                     <div class="mood-emojis">
                         <button class="mood-btn" data-mood="\U0001f60a" data-label="happy" onclick="qaMoodSelect(this)" title="happy">\U0001f60a</button>
@@ -4597,7 +4642,7 @@ def generate_html(data):
             else:
                 source_label = "manual"
             status_text = f"✅ {minutes_done}m logged ({source_label})"
-            status_color = "#6ee7b7"
+            status_color = "#a7d8c4"
         else:
             status_text = f"⬜ Target: {minutes_target}m today"
             status_color = "#9ca3af"
@@ -4622,7 +4667,7 @@ def generate_html(data):
             <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.08); border: 1px solid rgba(147,197,253,0.15);">
                 <details>
                     <summary class="cursor-pointer flex items-center gap-2">
-                        <span class="text-sm font-medium" style="color: #6ee7b7">✅ Mindfulness done — {minutes_done}m</span>
+                        <span class="text-sm font-medium" style="color: #a7d8c4">✅ Mindfulness done — {minutes_done}m</span>
                         <span class="text-xs" style="color: #6b7280">({progression_line})</span>
                     </summary>
                     <div class="mt-3">
@@ -4637,7 +4682,7 @@ def generate_html(data):
         else:
             mindfulness_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.2);">
-                <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">🧠 Mindfulness</h3>
+                <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">🧠 Mindfulness</h3>
                 <label class="flex items-center gap-3 cursor-pointer">
                     <input id="qa-mindfulness-check" type="checkbox" {checked_attr} onchange="qaToggleMindfulness(this)" class="h-4 w-4">
                     <span class="text-sm" style="color: #e5e7eb">Log {minutes_target}m mindfulness</span>
@@ -4662,10 +4707,10 @@ def generate_html(data):
 
         # Streak badge color
         if streak_count >= 365:
-            streak_color = "#6ee7b7"  # mint - amazing
+            streak_color = "#a7d8c4"  # mint - amazing
             streak_emoji = "🔥"
         elif streak_count >= 30:
-            streak_color = "#fbbf24"  # amber - strong
+            streak_color = "#d4b896"  # amber - strong
             streak_emoji = "🔥"
         else:
             streak_color = "#9ca3af"
@@ -4691,14 +4736,14 @@ def generate_html(data):
                 backup_dt = datetime.strptime(backup_date, "%Y-%m-%d")
                 days_old = (datetime.now() - backup_dt).days
                 if days_old > 3:
-                    backup_warning = f'<p class="text-xs mt-2" style="color: #fbbf24">⚠️ Backup is {days_old} days old — sync Finch</p>'
+                    backup_warning = f'<p class="text-xs mt-2" style="color: #d4b896">⚠️ Backup is {days_old} days old — sync Finch</p>'
             except (ValueError, TypeError):
                 pass
 
         finch_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.08); border: 1px solid rgba(110,231,183,0.12);">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-lg font-semibold" style="color: #a7f3d0">🐦 Finch Self-Care</h3>
+                    <h3 class="text-lg font-semibold" style="color: #b8d8c8">🐦 Finch Self-Care</h3>
                     <div class="text-right">
                         <p class="text-2xl font-bold" style="color: {streak_color}">{streak_emoji} {streak_count}</p>
                         <p class="text-xs" style="color: #6b7280">day streak</p>
@@ -4706,11 +4751,11 @@ def generate_html(data):
                 </div>
                 <div class="flex gap-4 mb-3">
                     <div class="flex-1 rounded-lg p-2 text-center" style="background: rgba(6,95,70,0.15);">
-                        <p class="text-lg font-bold" style="color: #6ee7b7">{total_days}</p>
+                        <p class="text-lg font-bold" style="color: #a7d8c4">{total_days}</p>
                         <p class="text-xs" style="color: #6b7280">total days</p>
                     </div>
                     <div class="flex-1 rounded-lg p-2 text-center" style="background: rgba(88,28,135,0.1);">
-                        <p class="text-lg font-bold" style="color: #c4b5fd">{total_activities:,}</p>
+                        <p class="text-lg font-bold" style="color: #c4b8e0">{total_activities:,}</p>
                         <p class="text-xs" style="color: #6b7280">activities</p>
                     </div>
                 </div>
@@ -4733,7 +4778,7 @@ def generate_html(data):
         if stale:
             health_html = f'''
             <div class="rounded-lg p-3 text-center" style="background: rgba(120,53,15,0.15); border: 1px solid rgba(251,191,36,0.2);">
-                <p class="text-sm" style="color: #fde68a">⚠️ Health data is {age} days old — please export</p>
+                <p class="text-sm" style="color: #d8c8a0">⚠️ Health data is {age} days old — please export</p>
             </div>'''
         else:
             latest_steps = latest.get("steps", 0)
@@ -4744,13 +4789,13 @@ def generate_html(data):
             health_html = f'''
             <div class="flex gap-4">
                 <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(6,95,70,0.15); border: 1px solid rgba(110,231,183,0.15);">
-                    <p class="text-2xl font-bold" style="color: #6ee7b7">{avg_steps:,}</p>
+                    <p class="text-2xl font-bold" style="color: #a7d8c4">{avg_steps:,}</p>
                     <p class="text-xs" style="color: #9ca3af">avg steps/day</p>
                     <p class="text-lg font-semibold mt-2" style="color: #34d399">{latest_steps:,}</p>
                     <p class="text-xs" style="color: #6b7280">{day_label}</p>
                 </div>
                 <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(88,28,135,0.15); border: 1px solid rgba(196,181,253,0.15);">
-                    <p class="text-2xl font-bold" style="color: #c4b5fd">{avg_ex}m</p>
+                    <p class="text-2xl font-bold" style="color: #c4b8e0">{avg_ex}m</p>
                     <p class="text-xs" style="color: #9ca3af">avg exercise</p>
                     <p class="text-lg font-semibold mt-2" style="color: #a78bfa">{latest_ex}m</p>
                     <p class="text-xs" style="color: #6b7280">{day_label}</p>
@@ -4789,14 +4834,14 @@ def generate_html(data):
         correlation_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.18);">
                 <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #93c5fd">📈 Anxiety Relief Correlation ({points_count} days)</summary>
+                    <summary class="text-lg font-semibold cursor-pointer" style="color: #a8c4e0">📈 Anxiety Relief Correlation ({points_count} days)</summary>
                     <div class="mt-3">
                         <p class="text-xs mb-2" style="color: #94a3b8">Tracks whether your Finch anxiety scores correlate with steps, exercise, and sleep over the last 14 days — helps identify which health habits most reliably reduce anxiety.</p>
                         <p class="text-xs mb-2" style="color: #94a3b8">Last 14 days with score+health overlap: {points_count}</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs mb-3">
-                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Steps corr: <span style="color: #a7f3d0">{corr_text(step_corr)}</span></div>
-                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Exercise corr: <span style="color: #a7f3d0">{corr_text(ex_corr)}</span></div>
-                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Sleep corr: <span style="color: #a7f3d0">{corr_text(sleep_corr)}</span></div>
+                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Steps corr: <span style="color: #b8d8c8">{corr_text(step_corr)}</span></div>
+                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Exercise corr: <span style="color: #b8d8c8">{corr_text(ex_corr)}</span></div>
+                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Sleep corr: <span style="color: #b8d8c8">{corr_text(sleep_corr)}</span></div>
                         </div>
                         <p class="text-sm" style="color: #dbeafe; line-height: 1.5;">{diff_summary}</p>
                     </div>
@@ -4814,7 +4859,7 @@ def generate_html(data):
 
         mood_items_html = ""
         for c in corr_items:
-            conf_colour = {"high": "#6ee7b7", "medium": "#fbbf24", "low": "#94a3b8"}.get(c.get("confidence", "low"), "#94a3b8")
+            conf_colour = {"high": "#a7d8c4", "medium": "#d4b896", "low": "#94a3b8"}.get(c.get("confidence", "low"), "#94a3b8")
             mood_items_html += f'''
             <div class="rounded-lg p-3 mb-2" style="background: rgba(30,58,138,0.12); border-left: 3px solid {conf_colour}">
                 <p class="text-sm" style="color: #e5e7eb">{html.escape(str(c.get("finding", "")))}</p>
@@ -4823,7 +4868,7 @@ def generate_html(data):
 
         mood_correlation_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,58,138,0.12); border: 1px solid rgba(110,231,183,0.18);">
-                <h3 class="text-lg font-semibold mb-3" style="color: #6ee7b7">📊 Mood Patterns ({mood_days}d)</h3>
+                <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">📊 Mood Patterns ({mood_days}d)</h3>
                 {f'<p class="text-sm mb-3" style="color: #9ca3af">{html.escape(mood_summary)}</p>' if mood_summary else ""}
                 {mood_items_html}
             </div>'''
@@ -4882,18 +4927,18 @@ def generate_html(data):
         else ("✅ Ready" if weekly_current_exists else ("⚠️ Due today" if weekly_needs_generation else "⏳ Waiting for Sunday"))
     )
     weekly_status_color = (
-        "#fbbf24" if weekly_needs_regeneration
-        else ("#6ee7b7" if weekly_current_exists else ("#fbbf24" if weekly_needs_generation else "#94a3b8"))
+        "#d4b896" if weekly_needs_regeneration
+        else ("#a7d8c4" if weekly_current_exists else ("#d4b896" if weekly_needs_generation else "#94a3b8"))
     )
     weekly_latest_link_html = (
-        f'<a id="qa-weekly-digest-latest-link" href="{html.escape(weekly_latest_url)}" style="color: #93c5fd">{html.escape(weekly_latest_name or "Latest weekly digest")}</a>'
-        + (' <span class="text-xs" style="color:#fbbf24">placeholder</span>' if weekly_latest_placeholder else "")
+        f'<a id="qa-weekly-digest-latest-link" href="{html.escape(weekly_latest_url)}" style="color: #a8c4e0">{html.escape(weekly_latest_name or "Latest weekly digest")}</a>'
+        + (' <span class="text-xs" style="color:#d4b896">placeholder</span>' if weekly_latest_placeholder else "")
         if weekly_latest_url
         else '<span id="qa-weekly-digest-latest-link" style="color: #6b7280">No weekly digest generated yet.</span>'
     )
     weekly_current_link_html = (
-        f'<a id="qa-weekly-digest-current-link" href="{html.escape(weekly_current_url)}" style="color: #a7f3d0">{html.escape(Path(weekly_current_path).name)}</a>'
-        + (' <span class="text-xs" style="color:#fbbf24">placeholder</span>' if weekly_current_placeholder else "")
+        f'<a id="qa-weekly-digest-current-link" href="{html.escape(weekly_current_url)}" style="color: #b8d8c8">{html.escape(Path(weekly_current_path).name)}</a>'
+        + (' <span class="text-xs" style="color:#d4b896">placeholder</span>' if weekly_current_placeholder else "")
         if weekly_current_exists and weekly_current_url
         else f'<span id="qa-weekly-digest-current-link" style="color: #6b7280">Current week ({html.escape(weekly_current_week)}) digest not generated yet.</span>'
     )
@@ -4908,13 +4953,13 @@ def generate_html(data):
     weekly_digest_html = f'''
         <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.1); border: 1px solid rgba(147,197,253,0.2);">
             <div class="flex items-center justify-between gap-3 mb-2">
-                <h3 class="text-lg font-semibold" style="color: #93c5fd">📅 Weekly Report ({html.escape(weekly_current_week)})</h3>
+                <h3 class="text-lg font-semibold" style="color: #a8c4e0">📅 Weekly Report ({html.escape(weekly_current_week)})</h3>
                 <span id="qa-weekly-digest-status" class="optional-pill text-xs rounded px-2 py-1" style="border: 1px solid rgba(148,163,184,0.24); color: {weekly_status_color};">{weekly_status_label}</span>
             </div>
             <p class="text-xs mb-1" style="color: #cbd5e1">Current week: {weekly_current_link_html}</p>
             <p class="text-xs mb-2" style="color: #94a3b8">Latest: {weekly_latest_link_html}</p>
             <p id="qa-weekly-digest-meta" class="text-xs mb-3" style="color: #6b7280">{html.escape(weekly_hint)}</p>
-            <button id="qa-weekly-digest-btn" onclick="qaGenerateWeeklyDigest(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.3); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">{weekly_generate_btn_label}</button>
+            <button id="qa-weekly-digest-btn" onclick="qaGenerateWeeklyDigest(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.3); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">{weekly_generate_btn_label}</button>
         </div>''' if weekly_is_sunday else ""
     # === Screen Time Section ===
     screentime_html = ""
@@ -4948,7 +4993,7 @@ def generate_html(data):
 
         bg_color = "rgba(120,53,15,0.15)" if is_high else "rgba(88,28,135,0.15)"
         border_color = "rgba(251,191,36,0.2)" if is_high else "rgba(196,181,253,0.15)"
-        text_color = "#fde68a" if is_high else "#c4b5fd"
+        text_color = "#d8c8a0" if is_high else "#c4b8e0"
         warning_emoji = " ⚠️" if is_high else ""
         screentime_summary_label = f"📱 Screen Time • {avg_time} (7-day avg){warning_emoji}"
 
@@ -5018,9 +5063,9 @@ def generate_html(data):
 
         # Focus state emoji and color
         focus_config = {
-            "hyperfocus": {"emoji": "🎯", "color": "#6ee7b7", "bg": "rgba(6,95,70,0.15)"},
-            "deep_work": {"emoji": "🧠", "color": "#c4b5fd", "bg": "rgba(88,28,135,0.15)"},
-            "scattered": {"emoji": "💫", "color": "#fbbf24", "bg": "rgba(120,53,15,0.15)"},
+            "hyperfocus": {"emoji": "🎯", "color": "#a7d8c4", "bg": "rgba(6,95,70,0.15)"},
+            "deep_work": {"emoji": "🧠", "color": "#c4b8e0", "bg": "rgba(88,28,135,0.15)"},
+            "scattered": {"emoji": "💫", "color": "#d4b896", "bg": "rgba(120,53,15,0.15)"},
             "normal": {"emoji": "📊", "color": "#9ca3af", "bg": "rgba(55,65,81,0.15)"}
         }
 
@@ -5065,14 +5110,14 @@ def generate_html(data):
         # Context switches with explanation
         switches_warning = ""
         if switches > 20:
-            switches_warning = f'<div class="rounded p-2 mt-2" style="background: rgba(120,53,15,0.1); border-left: 2px solid #fbbf24"><p class="text-xs" style="color: #fbbf24">⚠️ {switches} app switches today (avg {round(total_mins / max(switches, 1), 1)}m per app)</p></div>'
+            switches_warning = f'<div class="rounded p-2 mt-2" style="background: rgba(120,53,15,0.1); border-left: 2px solid #d4b896"><p class="text-xs" style="color: #d4b896">⚠️ {switches} app switches today (avg {round(total_mins / max(switches, 1), 1)}m per app)</p></div>'
 
         afk_note = ""
         removed_mins = float(raw_total_mins or 0) - float(total_mins or 0)
         if afk_filter_applied and removed_mins > 5:
             afk_note = (
-                '<div class="rounded p-2 mt-2" style="background: rgba(17,24,39,0.45); border-left: 2px solid #6ee7b7">'
-                f'<p class="text-xs" style="color: #6ee7b7">✅ Idle filtered: {_mins_display(raw_total_mins)} raw → {total_display} active'
+                '<div class="rounded p-2 mt-2" style="background: rgba(17,24,39,0.45); border-left: 2px solid #a7d8c4">'
+                f'<p class="text-xs" style="color: #a7d8c4">✅ Idle filtered: {_mins_display(raw_total_mins)} raw → {total_display} active'
                 f' (−{_mins_display(removed_mins)} AFK/sleep)</p>'
                 '</div>'
             )
@@ -5104,9 +5149,9 @@ def generate_html(data):
             "unknown": "Unknown state",
         }
         status_colors = {
-            "not_running": "#fbbf24",
+            "not_running": "#d4b896",
             "no_data": "#9ca3af",
-            "error": "#f9a8d4",
+            "error": "#d4a8b8",
             "unknown": "#9ca3af",
         }
         status_label = status_labels.get(aw_status, aw_status.replace("_", " ").title() if aw_status else "Unknown state")
@@ -5159,7 +5204,7 @@ def generate_html(data):
             if _tldr_safe:
                 _parts.append(
                     f'<div class="rounded p-2.5 mb-3" style="background:rgba(6,95,70,0.12);border-left:2px solid rgba(110,231,183,0.5);">'
-                    f'<p class="text-xs font-semibold mb-1" style="color:#6ee7b7">📋 Morning Brief</p>'
+                    f'<p class="text-xs font-semibold mb-1" style="color:#a7d8c4">📋 Morning Brief</p>'
                     f'<p class="text-sm" style="color:#d1d5db;line-height:1.5;">{_tldr_safe}</p>'
                     f'</div>'
                 )
@@ -5184,7 +5229,7 @@ def generate_html(data):
     pieces_card_html = ""
     if pieces_html:
         pieces_card_html = (
-            '<details class="card"><summary class="cursor-pointer text-lg font-semibold" style="color:#c4b5fd">'
+            '<details class="card"><summary class="cursor-pointer text-lg font-semibold" style="color:#c4b8e0">'
             + html.escape(pieces_summary_label)
             + '</summary><div class="mt-3">'
             + pieces_html
@@ -5220,21 +5265,21 @@ def generate_html(data):
         "Morning Snapshot",
         "🌅",
         _summary_lines("morning"),
-        "#a7f3d0",
+        "#b8d8c8",
         "rgba(6,95,70,0.12)",
     )
     state_of_day_html = _render_day_state_block(
         "State of Day",
         "🧭",
         _summary_lines("day"),
-        "#c4b5fd",
+        "#c4b8e0",
         "rgba(88,28,135,0.12)",
     )
     evening_arc_html = _render_day_state_block(
         "Evening Arc",
         "🌙",
         _summary_lines("evening"),
-        "#f9a8d4",
+        "#d4a8b8",
         "rgba(131,24,67,0.12)",
     )
 
@@ -5282,16 +5327,16 @@ def generate_html(data):
     if morning.get("grateful"):
         grateful_content = _render_grateful_as_list(morning.get("grateful", ""))
         morning_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(6,95,70,0.1); border-left: 3px solid #6ee7b7">
-                <p class="text-xs mb-1" style="color: #6ee7b7">🙏 Grateful for</p>
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(6,95,70,0.1); border-left: 3px solid #a7d8c4">
+                <p class="text-xs mb-1" style="color: #a7d8c4">🙏 Grateful for</p>
                 <div class="text-sm" style="color: #e5e7eb">{grateful_content}</div>
             </div>'''
 
     if morning.get("intent"):
         intent_emoji = _pick_content_emoji(morning.get("intent", ""))
         morning_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border-left: 3px solid #c4b5fd">
-                <p class="text-xs mb-1" style="color: #c4b5fd">🎯 Intent</p>
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border-left: 3px solid #c4b8e0">
+                <p class="text-xs mb-1" style="color: #c4b8e0">🎯 Intent</p>
                 <p class="text-sm" style="color: #e5e7eb">{intent_emoji} {morning.get("intent", "")}</p>
             </div>'''
 
@@ -5348,7 +5393,7 @@ def generate_html(data):
         if _mb2_tldr:
             _pieces_morning_brief_html = (
                 '<div class="rounded-lg p-3 mb-2" style="background:rgba(88,28,135,0.12);border-left:3px solid rgba(196,181,253,0.6);">'
-                '<p class="text-xs font-semibold mb-1" style="color:#c4b5fd">📋 Morning Brief</p>'
+                '<p class="text-xs font-semibold mb-1" style="color:#c4b8e0">📋 Morning Brief</p>'
                 f'<p class="text-sm" style="color:#e5e7eb;line-height:1.5;">{html.escape(_mb2_tldr)}</p>'
                 '</div>'
             )
@@ -5464,10 +5509,10 @@ def generate_html(data):
             updates_preview_html = html.escape(updates_preview).replace("\n", "<br>")
             updates_card_html = f'''
     <div class="card mb-4">
-        <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
+        <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">📝 Updates</h3>
         <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border-left: 3px solid #60a5fa">
             <p class="text-sm mb-2" style="color: #e5e7eb">{updates_emoji} {updates_preview_html}</p>
-            <p class="text-xs" style="color: #93c5fd">Condensed for readability.</p>
+            <p class="text-xs" style="color: #a8c4e0">Condensed for readability.</p>
         </div>
     </div>'''
         else:
@@ -5479,7 +5524,7 @@ def generate_html(data):
                 updates_freshness_level = "ok"
             updates_card_html = f'''
     <div class="card mb-4">
-        <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
+        <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">📝 Updates</h3>
         <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border-left: 3px solid #60a5fa">
             <p class="text-sm" style="color: #e5e7eb">{updates_emoji} {updates_text_html}</p>
         </div>
@@ -5579,21 +5624,21 @@ def generate_html(data):
     if updates_completed_items:
         completed_rows = "".join(
             f'''<div class="flex items-start gap-2 text-sm">
-                <span style="color: #6ee7b7">✅</span>
+                <span style="color: #a7d8c4">✅</span>
                 <span style="color: #e5e7eb">{item}</span>
             </div>'''
             for item in updates_completed_items
         )
         completed_updates_html = f'''
     <div class="card mb-4">
-        <h3 class="text-lg font-semibold mb-3" style="color: #6ee7b7">✅ Completed today (from updates)</h3>
+        <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">✅ Completed today (from updates)</h3>
         <div class="space-y-2">{completed_rows}</div>
     </div>'''
 
     if not updates_card_html and not updates_insights_html and not completed_updates_html:
         updates_card_html = '''
     <div class="card mb-4">
-        <h3 class="text-lg font-semibold mb-3" style="color: #93c5fd">📝 Updates</h3>
+        <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">📝 Updates</h3>
         <p class="text-sm" style="color: #6b7280">No update notes logged yet today.</p>
     </div>'''
 
@@ -5605,14 +5650,14 @@ def generate_html(data):
 
     if three_things:
         if isinstance(three_things, list) and len(three_things) > 1:
-            things_html = "".join(f'<div class="flex items-start gap-2 text-sm"><span style="color: #c4b5fd">{_pick_content_emoji(item)}</span><span style="color: #e5e7eb">{item}</span></div>' for item in three_things)
+            things_html = "".join(f'<div class="flex items-start gap-2 text-sm"><span style="color: #c4b8e0">{_pick_content_emoji(item)}</span><span style="color: #e5e7eb">{item}</span></div>' for item in three_things)
         else:
             things_text = three_things[0] if isinstance(three_things, list) and three_things else str(three_things)
             things_emoji = _pick_content_emoji(things_text)
             things_html = f'<p class="text-sm" style="color: #e5e7eb">{things_emoji} {things_text}</p>'
         evening_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border-left: 3px solid #c4b5fd">
-                <p class="text-xs mb-1" style="color: #c4b5fd">🌟 Three good things</p>
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border-left: 3px solid #c4b8e0">
+                <p class="text-xs mb-1" style="color: #c4b8e0">🌟 Three good things</p>
                 {things_html}
             </div>'''
 
@@ -5620,8 +5665,8 @@ def generate_html(data):
         tomorrow_short = tomorrow  # No truncation — full-length display
         tomorrow_emoji = _pick_content_emoji(tomorrow_short)
         evening_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(131,24,67,0.1); border-left: 3px solid #f9a8d4">
-                <p class="text-xs mb-1" style="color: #f9a8d4">🌅 Tomorrow</p>
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(131,24,67,0.1); border-left: 3px solid #d4a8b8">
+                <p class="text-xs mb-1" style="color: #d4a8b8">🌅 Tomorrow</p>
                 <p class="text-sm" style="color: #e5e7eb">{tomorrow_emoji} {tomorrow_short}</p>
             </div>'''
 
@@ -5643,10 +5688,10 @@ def generate_html(data):
         # Show ALL insights grouped by type with headers in fixed order:
         # Patterns → Wins → Signals → Connections (then any remaining)
         type_config = {
-            "pattern": ("🔁", "Patterns", "#c4b5fd", "rgba(196,181,253,0.08)"),
-            "win": ("🏆", "Wins", "#6ee7b7", "rgba(6,95,70,0.1)"),
-            "signal": ("⚡", "Signals", "#fbbf24", "rgba(251,191,36,0.08)"),
-            "connection": ("🔗", "Connections", "#f9a8d4", "rgba(131,24,67,0.1)"),
+            "pattern": ("🔁", "Patterns", "#c4b8e0", "rgba(196,181,253,0.08)"),
+            "win": ("🏆", "Wins", "#a7d8c4", "rgba(6,95,70,0.1)"),
+            "signal": ("⚡", "Signals", "#d4b896", "rgba(251,191,36,0.08)"),
+            "connection": ("🔗", "Connections", "#d4a8b8", "rgba(131,24,67,0.1)"),
         }
         # Group insights by type
         _eve_grouped = {}
@@ -5720,8 +5765,8 @@ def generate_html(data):
     if carrying:
         carry_emoji = _pick_content_emoji(carrying)
         evening_raw_html += f'''
-            <div class="rounded-lg p-3" style="background: rgba(120,53,15,0.1); border-left: 3px solid #fbbf24">
-                <p class="text-xs mb-1" style="color: #fbbf24">📌 Carrying forward</p>
+            <div class="rounded-lg p-3" style="background: rgba(120,53,15,0.1); border-left: 3px solid #d4b896">
+                <p class="text-xs mb-1" style="color: #d4b896">📌 Carrying forward</p>
                 <p class="text-sm" style="color: #e5e7eb">{carry_emoji} {carrying}</p>
             </div>'''
 
@@ -5932,7 +5977,7 @@ def generate_html(data):
         if guidance_items_html or state_of_day_html:
             todays_guidance_html = f'''
     <div class="card" style="border: 1px solid rgba(196,181,253,0.15)">
-        <h3 class="text-sm font-semibold mb-3" style="color: #c4b5fd">💡 Today\'s Guidance</h3>
+        <h3 class="text-sm font-semibold mb-3" style="color: #c4b8e0">💡 Today\'s Guidance</h3>
         {state_of_day_html}
         {guidance_items_html}
     </div>'''
@@ -5965,6 +6010,11 @@ def generate_html(data):
         except Exception:
             state_vector_payload = {}
         state_vector_html = build_state_vector_html(state_vector_payload)
+    # Energy gating: when state vector shows caution/critical, reduce dashboard complexity
+    _sv_overall = state_vector_payload.get("overall_score", 50) if state_vector_payload else 50
+    _sv_state = state_vector_payload.get("overall_state", "mixed") if state_vector_payload else "mixed"
+    _energy_low = _sv_state in ("caution", "critical") or _sv_overall < 35
+
     if state_vector_payload:
         data["stateVector"] = state_vector_payload
         try:
@@ -5987,22 +6037,24 @@ def generate_html(data):
         _has_high = any(str(a.get("severity", "")).lower() == "high" for a in _active_alerts)
         _alert_open = " open" if _has_high else ""
         _alert_items = ""
-        _severity_colors = {"high": "#fca5a5", "medium": "#fde68a", "low": "#bae6fd"}
+        _severity_colors = {"high": "#d4a0a0", "medium": "#d8c8a0", "low": "#bae6fd"}
         for _al in _active_alerts[:4]:
             _sev = str(_al.get("severity", "low")).strip().lower()
             _col = _severity_colors.get(_sev, "#cbd5e1")
+            _al_detail = str(_al.get("detail", "")).strip()
+            _al_detail_html = f'<br><span class="text-xs" style="color:#94a3b8">{html.escape(_al_detail)}</span>' if _al_detail else ""
             _alert_items += (
                 f'<li class="text-sm mb-2" style="color:{_col};line-height:1.45;">'
                 f'<span class="text-xs rounded px-1.5 py-0.5 mr-1" '
                 f'style="border:1px solid {_col}33;background:{_col}18;color:{_col};">{html.escape(_sev)}</span>'
-                f'{html.escape(str(_al.get("message", "")))}</li>'
+                f'{html.escape(str(_al.get("message", "")))}{_al_detail_html}</li>'
             )
         _alert_count = len(_active_alerts)
         _alert_label = f"{_alert_count} alert{'s' if _alert_count != 1 else ''} active"
         alerts_html = f'''
         <div class="card rounded-xl p-4 mb-3" style="background:rgba(127,29,29,0.14);border:1px solid rgba(252,165,165,0.2);">
             <details{_alert_open}>
-                <summary class="text-xs cursor-pointer font-semibold" style="color:#fca5a5;user-select:none;">&#9888; {html.escape(_alert_label)}</summary>
+                <summary class="text-xs cursor-pointer font-semibold" style="color:#d4a0a0;user-select:none;">&#9888; {html.escape(_alert_label)}</summary>
                 <ul class="mt-2" style="margin:0;padding-left:1rem;">{_alert_items}</ul>
             </details>
         </div>'''
@@ -6017,7 +6069,7 @@ def generate_html(data):
             if not isinstance(_pp, dict):
                 continue
             _trend = str(_pp.get("trend", "")).strip()
-            _trend_colors = {"escalating": "#fca5a5", "stable": "#fde68a", "declining": "#a7f3d0", "insufficient_data": "#94a3b8"}
+            _trend_colors = {"escalating": "#d4a0a0", "stable": "#d8c8a0", "declining": "#b8d8c8", "insufficient_data": "#94a3b8"}
             _tc = _trend_colors.get(_trend, "#94a3b8")
             _plc_pills += (
                 f'<span class="optional-pill text-xs rounded px-2 py-1" '
@@ -6033,7 +6085,7 @@ def generate_html(data):
                 _plc_insights += f'<li class="text-xs mb-1" style="color:#cbd5e1;line-height:1.4;">{html.escape(_ins)}</li>'
         plc_html = f'''
             <details class="mt-2">
-                <summary class="text-xs cursor-pointer" style="color:#93c5fd;user-select:none;">Pattern lifecycle ({len(_plc_patterns)} tracked)</summary>
+                <summary class="text-xs cursor-pointer" style="color:#a8c4e0;user-select:none;">Pattern lifecycle ({len(_plc_patterns)} tracked)</summary>
                 <div class="flex flex-wrap gap-2 mt-2 mb-2">{_plc_pills}</div>
                 <ul style="margin:0;padding-left:1rem;">{_plc_insights}</ul>
             </details>'''
@@ -6076,7 +6128,7 @@ def generate_html(data):
         for theme, count in sorted(themes.items(), key=lambda x: -x[1]):
             label = theme_labels.get(theme, theme.title())
             pct = round(count / total * 100) if total > 0 else 0
-            bar_color = {"family": "#f9a8d4", "emotional_growth": "#fbbf24", "self_care": "#6ee7b7", "work": "#c4b5fd", "household": "#86efac", "creative": "#f472b6", "social": "#e9d5ff", "admin": "#fdba74"}.get(theme, "#9ca3af")
+            bar_color = {"family": "#d4a8b8", "emotional_growth": "#d4b896", "self_care": "#a7d8c4", "work": "#c4b8e0", "household": "#86efac", "creative": "#c8a0b0", "social": "#d8c8e0", "admin": "#fdba74"}.get(theme, "#9ca3af")
             theme_items_html += f'''
                 <div class="flex items-center gap-2 mb-2">
                     <span class="w-32 text-sm" style="color: #d1d5db">{label}</span>
@@ -6087,7 +6139,7 @@ def generate_html(data):
                 </div>'''
         tadah_cat_html = f'''
     <div class="card">
-        <h3 class="text-lg font-semibold mb-3" style="color: #6ee7b7">✅ Ta-Dah Themes ({total} items)</h3>
+        <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">✅ Ta-Dah Themes ({total} items)</h3>
         {theme_items_html}
     </div>'''
 
@@ -6148,7 +6200,7 @@ def generate_html(data):
             for p in eve_patterns:
                 felt_parts += f'''
             <div class="flex items-start gap-2 mb-2">
-                <span style="color: #c4b5fd">🔄</span>
+                <span style="color: #c4b8e0">🔄</span>
                 <p class="text-sm" style="color: #d1d5db">{p.get("text", "")}</p>
             </div>'''
 
@@ -6157,7 +6209,7 @@ def generate_html(data):
             for s in eve_signals:
                 felt_parts += f'''
             <div class="flex items-start gap-2 mb-2">
-                <span style="color: #fbbf24">⚠️</span>
+                <span style="color: #d4b896">⚠️</span>
                 <p class="text-sm" style="color: #d1d5db">{s.get("text", "")}</p>
             </div>'''
 
@@ -6176,7 +6228,7 @@ def generate_html(data):
 
         how_felt_html = f'''
     <div class="card" style="border: 1px solid rgba(196,181,253,0.1)">
-        <h3 class="text-lg font-semibold mb-3" style="color: #c4b5fd">💭 How Today Felt</h3>
+        <h3 class="text-lg font-semibold mb-3" style="color: #c4b8e0">💭 How Today Felt</h3>
         {felt_parts}
     </div>'''
 
@@ -6226,7 +6278,7 @@ def generate_html(data):
 
                 # P2 (Medium Priority)
                 if p2_beads:
-                    beads_lines.append('<p class="text-xs font-semibold mt-3 mb-1" style="color: #fbbf24">📌 Priority 2 (Medium)</p>')
+                    beads_lines.append('<p class="text-xs font-semibold mt-3 mb-1" style="color: #d4b896">📌 Priority 2 (Medium)</p>')
                     for bead in p2_beads[:5]:
                         icon = type_icons.get(bead.get("issue_type", "task"), "📋")
                         beads_lines.append(f'<p class="text-xs py-1" style="color: #9ca3af; border-bottom: 1px solid rgba(75,85,99,0.2)">{icon} {bead["id"]}: {bead["title"]}</p>')
@@ -6357,10 +6409,21 @@ def generate_html(data):
         source_date=data.get("diariumDataDate"),
         reason=data.get("diariumFreshReason"),
     )
+    # Nudge fatigue: mute stale Diarium notice if already shown today
+    if stale_notice_html and _nudge_should_mute("stale_diarium", cooldown_hours=12):
+        stale_notice_html = f'<div style="opacity: 0.4">{stale_notice_html}</div>'
+    elif stale_notice_html:
+        _nudge_record("stale_diarium")
+
     important_thing_warning_html = build_important_thing_warning_html(
         diarium_fresh=_diarium_is_fresh,
         important_thing_missing=bool(data.get("importantThingMissing", False)),
     )
+    # Nudge fatigue: mute important thing warning if already shown today
+    if important_thing_warning_html and _nudge_should_mute("important_thing", cooldown_hours=12):
+        important_thing_warning_html = f'<div style="opacity: 0.4">{important_thing_warning_html}</div>'
+    elif important_thing_warning_html:
+        _nudge_record("important_thing")
 
     ideas_status_html = ""
     ideas_payload = data.get("appleNotesIdeas", {}) if isinstance(data.get("appleNotesIdeas", {}), dict) else {}
@@ -6588,7 +6651,7 @@ def generate_html(data):
 
     qa_end_day_done_today = bool(qa_end_day_state.get("done_today"))
     qa_end_day_status_text = end_day_status_text(qa_end_day_state)
-    qa_end_day_status_color = "#6ee7b7" if qa_end_day_done_today else "#94a3b8"
+    qa_end_day_status_color = "#a7d8c4" if qa_end_day_done_today else "#94a3b8"
     qa_today_score_raw = qa_today_day.get("anxiety_reduction_score") if isinstance(qa_today_day, dict) else None
     qa_slider_value = int(round(float(qa_today_score_raw))) if isinstance(qa_today_score_raw, (int, float)) else 5
     qa_points, qa_week_avg = _anxiety_week_points(qa_ai, qa_today, days=7)
@@ -6606,7 +6669,7 @@ def generate_html(data):
     if qa_week_avg is not None:
         qa_week_summary_html = f'''
             <div class="mt-2 rounded px-2 py-2" style="background: rgba(30,41,59,0.45); border: 1px solid rgba(251,191,36,0.15);">
-                <p class="text-xs" style="color: #fcd34d">📊 This week avg: <span class="font-semibold">{qa_week_avg:g} / 10</span></p>
+                <p class="text-xs" style="color: #d4c090">📊 This week avg: <span class="font-semibold">{qa_week_avg:g} / 10</span></p>
                 <p class="text-xs mt-1" style="color: #9ca3af">Trend: <span style="letter-spacing: 1px">{qa_spark}</span></p>
                 <p class="text-xs mt-1" style="color: #6b7280">{' • '.join(qa_history_items) if qa_history_items else 'No scored days yet.'}</p>
             </div>
@@ -6661,8 +6724,8 @@ def generate_html(data):
             qa_loop_rows_html += f'''
             <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="loop" style="background: rgba(120,53,15,0.28); border: 1px solid rgba(251,191,36,0.25);">
                 <span class="text-sm" style="line-height: 1.4;">{loop_emoji}</span>
-                <span class="text-sm font-medium flex-1" title="{html.escape(loop_text, quote=True)}" style="color: #fde68a; line-height: 1.45;">{html.escape(loop_compact)}</span>
-                <button onclick="qaCompleteLoopFromButton(this)" data-text="{html.escape(loop_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(6,95,70,0.35); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.35);">Close</button>
+                <span class="text-sm font-medium flex-1" title="{html.escape(loop_text, quote=True)}" style="color: #d8c8a0; line-height: 1.45;">{html.escape(loop_compact)}</span>
+                <button onclick="qaCompleteLoopFromButton(this)" data-text="{html.escape(loop_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Close</button>
             </div>'''
     else:
         qa_loop_rows_html = '<p class="text-sm" style="color: #9ca3af">No extra open loops right now.</p>'
@@ -6674,7 +6737,7 @@ def generate_html(data):
     qa_counts_html = f'''
         <div class="flex flex-wrap gap-2 mb-3">
             <span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(131,24,67,0.28); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.25);">Action items: {len(qa_todo_options)}</span>
-            <span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(120,53,15,0.28); color: #fde68a; border: 1px solid rgba(251,191,36,0.25);">Open loops: {len(qa_loop_options)}</span>
+            <span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(120,53,15,0.28); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.25);">Open loops: {len(qa_loop_options)}</span>
         </div>
     '''
 
@@ -6686,12 +6749,12 @@ def generate_html(data):
         one_compact = _compact_task_text(one_text, max_len=155)
         qa_one_thing_html = f'''
         <div data-qa-one-thing="1" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26);">
-            <p class="text-xs font-semibold mb-1" style="color: #a7f3d0">🎯 One Thing Now</p>
-            <p data-qa-one-thing-text="1" class="text-sm mb-2" title="{html.escape(one_text, quote=True)}" style="color: #d1fae5; line-height: 1.45;">{one_emoji} {html.escape(one_compact)}</p>
+            <p class="text-xs font-semibold mb-1" style="color: #b8d8c8">🎯 One Thing Now</p>
+            <p data-qa-one-thing-text="1" class="text-sm mb-2" title="{html.escape(one_text, quote=True)}" style="color: #c8e0d4; line-height: 1.45;">{one_emoji} {html.escape(one_compact)}</p>
             <div data-qa-one-thing-actions="1" class="flex flex-wrap items-center gap-2">
-                <button data-qa-one-thing-start="1" onclick="qaStartOneThing(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.32); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">Start</button>
+                <button data-qa-one-thing-start="1" onclick="qaStartOneThing(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.32); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Start</button>
                 <button data-qa-one-thing-done="1" onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" data-task-hash="{html.escape(one_hash, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">☐ Done</button>
-                <button data-qa-one-thing-defer="1" onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
+                <button data-qa-one-thing-defer="1" onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
             </div>
         </div>
         '''
@@ -6768,36 +6831,44 @@ def generate_html(data):
     qa_yoga_prompt_needed = bool(qa_prompt_missing_fields)
     qa_yoga_missing_text = ", ".join(qa_prompt_missing_fields)
     qa_yoga_nudge_html = ""
+    _yoga_nudge_muted = _nudge_should_mute("yoga_feedback", cooldown_hours=12)
     if qa_yoga_prompt_needed:
+        _nudge_record("yoga_feedback")
+        _yoga_mute_style = "opacity: 0.4;" if _yoga_nudge_muted else ""
         qa_yoga_nudge_html = f'''
-        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="true" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
-            <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #bfdbfe">{html.escape(qa_prompt_title)}</p>
+        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="true" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3); {_yoga_mute_style}">
+            <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">{html.escape(qa_prompt_title)}</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">{html.escape(qa_prompt_hint)}</span> <span id="qa-yoga-feedback-missing">{html.escape(qa_yoga_missing_text)}</span></p>
-            <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
+            <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
         </div>
         '''
     else:
         qa_yoga_nudge_html = '''
         <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="false" style="display:none; background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
-            <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #bfdbfe">🧾 Add details to unlock progression advice</p>
+            <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">🧾 Add details to unlock progression advice</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">What I need:</span> <span id="qa-yoga-feedback-missing"></span></p>
-            <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
+            <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
         </div>
         '''
     qa_quick_done_count = int(bool(qa_mindfulness_done)) + int(bool(qa_quick_workout_done)) + int(bool(qa_quick_mood_done))
     qa_quick_done_total = 3 if qa_quick_workout_trackable else 2
-    qa_quick_meta = f"{qa_quick_done_count}/{qa_quick_done_total} check-ins done."
+    # Neutral framing: show remaining items, not score
+    _remaining_checkins = []
+    if not qa_mindfulness_done:
+        _remaining_checkins.append("Mindfulness")
+    if qa_quick_workout_trackable and not qa_quick_workout_done:
+        _remaining_checkins.append(qa_quick_workout_title)
+    if not qa_quick_mood_done:
+        _remaining_checkins.append(qa_quick_mood_habit)
+    qa_quick_meta = " · ".join(_remaining_checkins) if _remaining_checkins else "All done"
     qa_quick_workout_html = ""
     if qa_quick_workout_trackable:
         qa_quick_workout_checked = "checked" if qa_quick_workout_done else ""
         qa_quick_workout_html = f'''
-            <div class="flex items-center gap-1.5 flex-wrap">
-                <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #d1fae5;">
-                    <input id="qa-quick-workout-check" type="checkbox" {qa_quick_workout_checked} onchange="qaQuickToggleWorkout(this)" class="h-3.5 w-3.5">
-                    💪 {html.escape(qa_quick_workout_title)}
-                </label>
-                <button id="qa-quick-workout-akiflow" type="button" onclick="qaToggleCheckinAkiflow('workout')" data-item="workout" data-active="{'true' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else 'false'}" class="rounded px-2 py-1 text-xs font-semibold" style="background: {'rgba(120,53,15,0.35)' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else 'rgba(15,23,42,0.45)'}; color: {'#fde68a' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else '#cbd5e1'}; border: 1px solid {'rgba(251,191,36,0.35)' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else 'rgba(148,163,184,0.24)'};">{'📥 In Akiflow' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else '📥 Akiflow'}</button>
-            </div>
+                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #c8e0d4;">
+                        <input id="qa-quick-workout-check" type="checkbox" {qa_quick_workout_checked} onchange="qaQuickToggleWorkout(this)" class="h-3.5 w-3.5">
+                        💪 {html.escape(qa_quick_workout_title)}
+                    </label>
         '''
 
     qa_quick_end_day_html = ""
@@ -6806,56 +6877,35 @@ def generate_html(data):
     qa_quick_end_day_opacity = "0.72" if qa_end_day_done_today else "1"
     if is_evening:
         qa_quick_end_day_html = f'''
-            <button id="qa-quick-end-day" onclick="qaRunEndDay(this)" {qa_quick_end_day_disabled} class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(120,53,15,0.35); color: #fde68a; border: 1px solid rgba(251,191,36,0.35); opacity: {qa_quick_end_day_opacity};">
+            <button id="qa-quick-end-day" onclick="qaRunEndDay(this)" {qa_quick_end_day_disabled} class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(120,53,15,0.35); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.35); opacity: {qa_quick_end_day_opacity};">
                 {qa_quick_end_day_label}
             </button>
         '''
 
     qa_quick_mind_checked = "checked" if qa_mindfulness_done else ""
     qa_quick_mood_checked = "checked" if qa_quick_mood_done else ""
-    qa_akiflow_pending_items = []
-    if qa_dashboard_checkins_state.get("mindfulness", {}).get("akiflow_added") and not qa_mindfulness_done:
-        qa_akiflow_pending_items.append("Mindfulness")
-    if qa_dashboard_checkins_state.get("workout", {}).get("akiflow_added") and not qa_quick_workout_done and qa_quick_workout_trackable:
-        qa_akiflow_pending_items.append(qa_quick_workout_title)
-    if qa_dashboard_checkins_state.get("mood", {}).get("akiflow_added") and not qa_quick_mood_done:
-        qa_akiflow_pending_items.append(qa_quick_mood_habit)
-    qa_akiflow_pending_count = len(qa_akiflow_pending_items)
-    qa_checkins_summary = f"{qa_quick_done_count}/{qa_quick_done_total} done"
-    if qa_akiflow_pending_count:
-        qa_checkins_summary += f" • {qa_akiflow_pending_count} in Akiflow"
-    qa_checkins_nudge_hidden_attr = "" if qa_akiflow_pending_items else ' hidden="hidden"'
-    qa_checkins_nudge_text = ""
-    if qa_akiflow_pending_items:
-        qa_checkins_nudge_text = f"⏰ Parked in Akiflow — still finish here: {', '.join(qa_akiflow_pending_items)}."
+    qa_checkins_summary = qa_quick_meta
     qa_quick_bar_html = f'''
-        <details id="qa-checkins-section" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);" {'open' if (qa_quick_done_count < qa_quick_done_total or qa_akiflow_pending_count or qa_yoga_prompt_needed) else ''}>
+        <details id="qa-checkins-section" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);" {'open' if (qa_quick_done_count < qa_quick_done_total or qa_yoga_prompt_needed) else ''}>
             <summary class="flex items-center justify-between gap-3 cursor-pointer" style="list-style: none;">
-                <span class="text-xs font-semibold" style="color: #bfdbfe">⚡ Check-ins &amp; follow-through</span>
-                <span id="qa-checkins-summary" class="text-xs" style="color: {'#fbbf24' if qa_akiflow_pending_count else '#93c5fd'}">{html.escape(qa_checkins_summary)}</span>
+                <span class="text-xs font-semibold" style="color: #b0c8d8">⚡ Check-ins &amp; follow-through</span>
+                <span id="qa-checkins-summary" class="text-xs" style="color: #a8c4e0">{html.escape(qa_checkins_summary)}</span>
             </summary>
             <div class="mt-3">
                 <div class="flex flex-wrap gap-2">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                        <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #d1fae5;">
-                            <input id="qa-quick-mindfulness-check" type="checkbox" {qa_quick_mind_checked} onchange="qaQuickToggleMindfulness(this)" class="h-3.5 w-3.5">
-                            🧠 Mindfulness
-                        </label>
-                        <button id="qa-quick-mindfulness-akiflow" type="button" onclick="qaToggleCheckinAkiflow('mindfulness')" data-item="mindfulness" data-active="{'true' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else 'false'}" class="rounded px-2 py-1 text-xs font-semibold" style="background: {'rgba(120,53,15,0.35)' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else 'rgba(15,23,42,0.45)'}; color: {'#fde68a' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else '#cbd5e1'}; border: 1px solid {'rgba(251,191,36,0.35)' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else 'rgba(148,163,184,0.24)'};">{'📥 In Akiflow' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else '📥 Akiflow'}</button>
-                    </div>
+                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #c8e0d4;">
+                        <input id="qa-quick-mindfulness-check" type="checkbox" {qa_quick_mind_checked} onchange="qaQuickToggleMindfulness(this)" class="h-3.5 w-3.5">
+                        🧠 Mindfulness
+                    </label>
                     {qa_quick_workout_html}
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                        <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(88,28,135,0.2); border: 1px solid rgba(196,181,253,0.26); color: #e9d5ff;">
-                            <input id="qa-quick-mood-check" type="checkbox" {qa_quick_mood_checked} onchange="qaToggleMoodQuick(this)" class="h-3.5 w-3.5">
-                            🙂 {html.escape(qa_quick_mood_habit)}
-                        </label>
-                        <button id="qa-quick-mood-akiflow" type="button" onclick="qaToggleCheckinAkiflow('mood')" data-item="mood" data-active="{'true' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else 'false'}" class="rounded px-2 py-1 text-xs font-semibold" style="background: {'rgba(120,53,15,0.35)' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else 'rgba(15,23,42,0.45)'}; color: {'#fde68a' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else '#cbd5e1'}; border: 1px solid {'rgba(251,191,36,0.35)' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else 'rgba(148,163,184,0.24)'};">{'📥 In Akiflow' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else '📥 Akiflow'}</button>
-                    </div>
+                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(88,28,135,0.2); border: 1px solid rgba(196,181,253,0.26); color: #d8c8e0;">
+                        <input id="qa-quick-mood-check" type="checkbox" {qa_quick_mood_checked} onchange="qaToggleMoodQuick(this)" class="h-3.5 w-3.5">
+                        🙂 {html.escape(qa_quick_mood_habit)}
+                    </label>
                     <span id="qa-mood-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
                     {qa_quick_end_day_html}
                 </div>
-                <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: {'#fbbf24' if qa_akiflow_pending_count else '#93c5fd'}">{html.escape(qa_quick_meta if not qa_akiflow_pending_count else f"{qa_quick_done_count}/{qa_quick_done_total} check-ins done • {qa_akiflow_pending_count} in Akiflow.")}</p>
-                <p id="qa-quick-akiflow-nudge" class="text-xs mt-2" style="color: #fbbf24"{qa_checkins_nudge_hidden_attr}>{html.escape(qa_checkins_nudge_text)}</p>
+                <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: #a8c4e0">{html.escape(qa_quick_meta)}</p>
             </div>
         </details>
     '''
@@ -6863,17 +6913,17 @@ def generate_html(data):
     qa_yoga_evening_hint_html = ""
     if qa_yoga_prompt_needed:
         qa_yoga_evening_hint_html = f'''
-            <p class="text-xs mt-2" style="color: #93c5fd">🧾 Still missing yoga details: {html.escape(qa_yoga_missing_text)}.</p>
+            <p class="text-xs mt-2" style="color: #a8c4e0">🧾 Still missing yoga details: {html.escape(qa_yoga_missing_text)}.</p>
         '''
 
     qa_evening_unlock_hidden_attr = "" if is_evening else ' hidden="hidden"'
     qa_anxiety_relief_html = f'''
         <div id="qa-anxiety-relief-wrap"{qa_evening_unlock_hidden_attr}>
             <div class="mt-4 pt-4" style="border-top: 1px solid rgba(251,191,36,0.16);">
-                <label class="text-xs block mb-1" style="color: #fbbf24">📉 Rate today's anxiety relief (0-10)</label>
+                <label class="text-xs block mb-1" style="color: #d4b896">📉 Rate today's anxiety relief (0-10)</label>
                 <div class="flex items-center gap-3">
                     <input id="qa-anxiety-score" type="range" min="0" max="10" step="1" value="{qa_slider_value}" class="flex-1" oninput="qaOnAnxietyInput(this)" onchange="qaOnAnxietyInput(this, true)">
-                    <span id="qa-anxiety-score-val" class="text-sm font-semibold" style="color: #fcd34d">{qa_slider_value}</span>
+                    <span id="qa-anxiety-score-val" class="text-sm font-semibold" style="color: #d4c090">{qa_slider_value}</span>
                     <span id="qa-anxiety-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
                 </div>
                 {qa_yoga_evening_hint_html}
@@ -6888,7 +6938,7 @@ def generate_html(data):
     qa_end_day_controls_html = f'''
         <div id="qa-end-day-wrap"{qa_evening_unlock_hidden_attr}>
             <div class="flex items-center gap-2 flex-wrap">
-                <button id="qa-end-day-btn" onclick="qaRunEndDay(this)" {qa_end_day_disabled} class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(120,53,15,0.35); color: #fde68a; border: 1px solid rgba(251,191,36,0.35); opacity: {qa_end_day_opacity};">{qa_end_day_label}</button>
+                <button id="qa-end-day-btn" onclick="qaRunEndDay(this)" {qa_end_day_disabled} class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(120,53,15,0.35); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.35); opacity: {qa_end_day_opacity};">{qa_end_day_label}</button>
             </div>
             <p id="qa-end-day-status" class="text-xs mt-1" style="color: {qa_end_day_status_color}">{html.escape(qa_end_day_status_text)}</p>
         </div>
@@ -6948,14 +6998,14 @@ def generate_html(data):
         return "".join(rows)
 
     _daily_story_palette = [
-        ("rgba(6,95,70,0.16)", "#6ee7b7", "#e5e7eb"),
-        ("rgba(131,24,67,0.14)", "#f9a8d4", "#e5e7eb"),
-        ("rgba(120,53,15,0.16)", "#fbbf24", "#e5e7eb"),
-        ("rgba(30,64,175,0.14)", "#93c5fd", "#e5e7eb"),
+        ("rgba(6,95,70,0.16)", "#a7d8c4", "#e5e7eb"),
+        ("rgba(131,24,67,0.14)", "#d4a8b8", "#e5e7eb"),
+        ("rgba(120,53,15,0.16)", "#d4b896", "#e5e7eb"),
+        ("rgba(30,64,175,0.14)", "#a8c4e0", "#e5e7eb"),
     ]
     _daily_tomorrow_palette = [
-        ("rgba(131,24,67,0.14)", "#f9a8d4", "#fce7f3"),
-        ("rgba(120,53,15,0.16)", "#fbbf24", "#fef3c7"),
+        ("rgba(131,24,67,0.14)", "#d4a8b8", "#fce7f3"),
+        ("rgba(120,53,15,0.16)", "#d4b896", "#fef3c7"),
     ]
     daily_report_html = ""
     if daily_report_story_text or daily_report_tomorrow_text:
@@ -6963,20 +7013,20 @@ def generate_html(data):
         <div class="card" style="border: 1px solid rgba(110,231,183,0.18); background: rgba(15,23,42,0.74);">
             <div class="flex items-center justify-between gap-3 mb-3">
                 <div>
-                    <h3 class="text-lg font-semibold" style="color:#a7f3d0">📖 Daily report</h3>
+                    <h3 class="text-lg font-semibold" style="color:#b8d8c8">📖 Daily report</h3>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                    <button type="button" onclick="qaExitReportFocus()" class="rounded px-2.5 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.22); color:#bfdbfe; border:1px solid rgba(147,197,253,0.28);">🌐 Dashboard</button>
+                    <button type="button" onclick="qaExitReportFocus()" class="rounded px-2.5 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.22); color:#b0c8d8; border:1px solid rgba(147,197,253,0.28);">🌐 Dashboard</button>
                 </div>
             </div>
             {daily_report_meta_html}
             <div class="mb-4">
-                <p class="text-xs font-semibold mb-2" style="color:#6ee7b7">📖 Today&apos;s story</p>
+                <p class="text-xs font-semibold mb-2" style="color:#a7d8c4">📖 Today&apos;s story</p>
                 {_daily_report_prose_html(daily_report_story_text, _daily_story_palette)}
             </div>
-            {f'<div class="mb-4 pt-3" style="border-top:1px solid rgba(196,181,253,0.1)"><p class="text-xs font-semibold mb-2" style="color:#c4b5fd">💭 How today felt</p>{felt_parts}</div>' if felt_parts else ''}
+            {f'<div class="mb-4 pt-3" style="border-top:1px solid rgba(196,181,253,0.1)"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💭 How today felt</p>{felt_parts}</div>' if felt_parts else ''}
             <div>
-                <p class="text-xs font-semibold mb-2" style="color:#f9a8d4">🌅 Tomorrow</p>
+                <p class="text-xs font-semibold mb-2" style="color:#d4a8b8">🌅 Tomorrow</p>
                 {_daily_report_prose_html(daily_report_tomorrow_text, _daily_tomorrow_palette)}
                 {f'<div class="mt-4 pt-3" style="border-top:1px solid rgba(249,168,212,0.12)">{tomorrow_items_html}</div>' if is_evening and tomorrow_items_html else ''}
             </div>
@@ -6986,7 +7036,7 @@ def generate_html(data):
     # Section is visible all day when there's content; only the focus chip is evening-gated
     daily_report_section_hidden_attr = ""
     qa_daily_report_focus_btn_html = f'''
-        <button id="qa-daily-report-focus-btn" onclick="qaOpenReportFocus()" type="button" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.28); color:#a7f3d0; border:1px solid rgba(110,231,183,0.3);">
+        <button id="qa-daily-report-focus-btn" onclick="qaOpenReportFocus()" type="button" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.28); color:#b8d8c8; border:1px solid rgba(110,231,183,0.3);">
             📖 Focus report
         </button>
     ''' if daily_report_html else ""
@@ -6996,9 +7046,9 @@ def generate_html(data):
     schedule_insight_html = ""
     if _schedule_insight and _sa_today:
         _risk_styles = {
-            "low":    {"bg": "rgba(6,95,70,0.2)",    "border": "rgba(110,231,183,0.26)", "text": "#a7f3d0", "dot": "🟢"},
-            "medium": {"bg": "rgba(120,53,15,0.2)",  "border": "rgba(251,191,36,0.26)",  "text": "#fde68a", "dot": "🟡"},
-            "high":   {"bg": "rgba(153,27,27,0.2)",  "border": "rgba(248,113,113,0.26)", "text": "#fca5a5", "dot": "🔴"},
+            "low":    {"bg": "rgba(6,95,70,0.2)",    "border": "rgba(110,231,183,0.26)", "text": "#b8d8c8", "dot": "🟢"},
+            "medium": {"bg": "rgba(120,53,15,0.2)",  "border": "rgba(251,191,36,0.26)",  "text": "#d8c8a0", "dot": "🟡"},
+            "high":   {"bg": "rgba(153,27,27,0.2)",  "border": "rgba(248,113,113,0.26)", "text": "#d4a0a0", "dot": "🔴"},
         }
         _rs = _risk_styles.get(_burnout_risk, _risk_styles["low"])
         _density_txt = _schedule_density.capitalize() if _schedule_density else ""
@@ -7112,11 +7162,11 @@ def generate_html(data):
             # Re-escalate: if in Akiflow >7d, show warning
             _akiflow_btn_text = "⚠️ 7d+ in Akiflow" if _akiflow_stale else ("📥 In Akiflow" if _akiflow_active else "📥 Akiflow")
             _akiflow_bg = "rgba(153,27,27,0.2)" if _akiflow_stale else ("rgba(120,53,15,0.24)" if _akiflow_active else "rgba(15,23,42,0.45)")
-            _akiflow_color = "#fca5a5" if _akiflow_stale else ("#fde68a" if _akiflow_active else "#cbd5e1")
+            _akiflow_color = "#d4a0a0" if _akiflow_stale else ("#d8c8a0" if _akiflow_active else "#cbd5e1")
             _akiflow_border = "rgba(248,113,113,0.25)" if _akiflow_stale else ("rgba(251,191,36,0.25)" if _akiflow_active else "rgba(148,163,184,0.18)")
             _akiflow_note_style = "" if _akiflow_active else "display:none;"
             _akiflow_note_text = "⚠️ In Akiflow for 7+ days — needs attention or closing." if _akiflow_stale else "📥 Added to Akiflow — still stays here until done."
-            _akiflow_note_color = "#fca5a5" if _akiflow_stale else "#fbbf24"
+            _akiflow_note_color = "#d4a0a0" if _akiflow_stale else "#d4b896"
             # Escalated items get a red left border
             _row_border_left = "border-left:3px solid rgba(248,113,113,0.5);" if _akiflow_stale else ""
             _bell_rows.append(
@@ -7127,14 +7177,14 @@ def generate_html(data):
                 f'</div>'
                 f'<div style="display:flex;gap:0.35rem;flex-shrink:0;padding-top:0.1rem;flex-wrap:wrap;justify-content:flex-end;">'
                 f'<button id="bell-akiflow-btn-{_idx}" onclick="qaBellAkiflowToggle({_idx},\'{_esc_type}\',\'{_esc_id}\')" data-task-text="{_esc_task_text_attr}" data-akiflow-active="{str(_akiflow_active).lower()}" style="background:{_akiflow_bg};color:{_akiflow_color};border:1px solid {_akiflow_border};border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">{_akiflow_btn_text}</button>'
-                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\')" style="background:rgba(6,95,70,0.25);color:#6ee7b7;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✓ Done</button>'
-                f'<button onclick="qaBellToggleReply({_idx})" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(147,197,253,0.15);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">💬</button>'
+                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\')" style="background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✓ Done</button>'
+                f'<button onclick="qaBellToggleReply({_idx})" style="background:rgba(59,130,246,0.15);color:#a8c4e0;border:1px solid rgba(147,197,253,0.15);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">💬</button>'
                 f'</div></div>'
                 f'<p id="bell-akiflow-note-{_idx}" style="font-size:0.72rem;margin:0.35rem 0 0;color:{_akiflow_note_color};{_akiflow_note_style}">{_akiflow_note_text}</p>'
                 f'<div id="bell-reply-{_idx}" style="display:none;margin-top:0.4rem;">'
                 f'<div style="display:flex;gap:0.35rem;">'
                 f'<input id="bell-reply-text-{_idx}" type="text" placeholder="Quick response..." style="flex:1;background:rgba(15,23,42,0.55);border:1px solid var(--panel-border);border-radius:0.4rem;padding:0.3rem 0.5rem;font-size:0.75rem;color:#e5e7eb;font-family:inherit;">'
-                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\',true)" style="background:rgba(6,95,70,0.25);color:#6ee7b7;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">Send</button>'
+                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\',true)" style="background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">Send</button>'
                 f'</div></div>'
                 f'</div>'
             )
@@ -7146,20 +7196,33 @@ def generate_html(data):
         if _bell_stale_count:
             _bell_summary_parts.append(f'{_bell_stale_count} overdue')
         _bell_summary_text = ' · '.join(_bell_summary_parts)
-        _bell_summary_color = '#fca5a5' if _bell_stale_count else ('#fbbf24' if _bell_akiflow_count else '#94a3b8')
+        _bell_summary_color = '#d4a0a0' if _bell_stale_count else ('#d4b896' if _bell_akiflow_count else '#94a3b8')
         notifications_bell_html = f'''
-    <details class="card" style="padding:0.72rem 0.9rem;" open>
+    <details class="card" style="padding:0.72rem 0.9rem;">
         <summary style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;">
             <span style="font-size:1.15rem">🔔</span>
             <span style="font-size:0.9rem;font-weight:600;color:#e5e7eb">Check In</span>
-            <span style="background:rgba(59,130,246,0.25);color:#93c5fd;font-size:0.7rem;font-weight:600;padding:0.1rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
+            <span style="background:rgba(59,130,246,0.25);color:#a8c4e0;font-size:0.7rem;font-weight:600;padding:0.1rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
             {f'<span style="font-size:0.72rem;color:{_bell_summary_color};">{html.escape(_bell_summary_text)}</span>' if _bell_summary_text else ''}
         </summary>
         <div style="margin-top:0.55rem;">{"".join(_bell_rows)}</div>
     </details>'''
 
+    # --- "Where Was I?" recall line from ActivityWatch ---
+    _recall_html = ""
+    _recall_apps = aw_data.get("top_apps", []) if isinstance(aw_data.get("top_apps"), list) else []
+    if _recall_apps and aw_data.get("status") == "success":
+        _recall_names = [str(a.get("app", "")).strip() for a in _recall_apps[:5] if str(a.get("app", "")).strip()]
+        if _recall_names:
+            _recall_chain = " → ".join(_recall_names)
+            _recall_html = f'''
+    <div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(55,65,81,0.2); border: 1px solid rgba(148,163,184,0.1);">
+        <p class="text-xs" style="color: #6b7280">📍 Where was I: <span style="color: #94a3b8">{html.escape(_recall_chain)}</span></p>
+    </div>'''
+
     action_items_html = rf'''
     {notifications_bell_html}
+    {_recall_html}
     <div class="card rounded-xl p-5 mb-4" style="background: rgba(131,24,67,0.15); border: 1px solid rgba(249,168,212,0.2);">
         <h3 class="text-lg font-semibold mb-2" style="color: #fbcfe8">✅ Action Items</h3>
         {qa_quick_bar_html}
@@ -7170,7 +7233,7 @@ def generate_html(data):
         {action_items_list_html}
 
         <details class="mt-4 pt-4" style="border-top: 1px solid rgba(251,191,36,0.16);">
-            <summary class="text-xs font-semibold cursor-pointer" style="color: #fde68a">🔄 Open Loops ({len(qa_loop_options)})</summary>
+            <summary class="text-xs font-semibold cursor-pointer" style="color: #d8c8a0">🔄 Open Loops ({len(qa_loop_options)})</summary>
             <p class="text-xs mt-2 mb-2" style="color: rgba(253,230,138,0.65)">Items still taking mental space.</p>
             <div class="mb-2">
                 {qa_loop_rows_html}
@@ -7187,7 +7250,7 @@ def generate_html(data):
                 </div>
                 <div class="flex gap-2">
                     <input id="qa-loop-text" type="text" placeholder="Open loop text..." class="flex-1 rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.7); border: 1px solid rgba(110,231,183,0.25); color: #e5e7eb;">
-                    <button onclick="qaCompleteLoop()" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.35); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.35);">Close</button>
+                    <button onclick="qaCompleteLoop()" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Close</button>
                 </div>
             </div>
         </details>
@@ -7206,7 +7269,7 @@ def generate_html(data):
                 <button id="qa-sync-resume" onclick="qaSetSyncPause(0)" style="display:none">Resume</button>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-                <button id="qa-refresh-btn" onclick="qaRefreshData(this)" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(30,64,175,0.35); color: #bfdbfe; border: 1px solid rgba(147,197,253,0.35);">🔄 Refresh Data Now</button>
+                <button id="qa-refresh-btn" onclick="qaRefreshData(this)" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">🔄 Refresh Data Now</button>
                 <span class="text-xs" style="color: #94a3b8">Runs live daemon refresh via API.</span>
             </div>
         </div>
@@ -7351,7 +7414,7 @@ def generate_html(data):
             status.textContent = isQueued
                 ? `📶 Deferred locally (${{deferLabel}}); will sync when API is reachable.`
                 : `⏭️ Deferred to ${{deferLabel}}.`;
-            status.style.color = isQueued ? "#fbbf24" : "#93c5fd";
+            status.style.color = isQueued ? "#d4b896" : "#a8c4e0";
         }}
     }}
     function qaApplyTodoDoneUi(text) {{
@@ -7364,7 +7427,7 @@ def generate_html(data):
             btn.disabled = true;
             btn.textContent = "☑ Done";
             btn.style.background = "rgba(30,64,175,0.26)";
-            btn.style.color = "#bfdbfe";
+            btn.style.color = "#b0c8d8";
             btn.style.borderColor = "rgba(147,197,253,0.35)";
             const row = btn.closest("[data-qa-row='todo']");
             if (row) {{
@@ -7414,7 +7477,7 @@ def generate_html(data):
             btn.disabled = true;
             btn.textContent = "Closed";
             btn.style.background = "rgba(6,95,70,0.35)";
-            btn.style.color = "#6ee7b7";
+            btn.style.color = "#a7d8c4";
             btn.style.borderColor = "rgba(110,231,183,0.35)";
             const row = btn.closest("[data-qa-row='loop']");
             if (row) {{
@@ -7518,16 +7581,16 @@ def generate_html(data):
         const btn = document.getElementById("qa-scratch-submit-" + sectionId);
         const statusEl = document.getElementById("qa-scratch-status-" + sectionId);
         if (!textarea || !textarea.value.trim()) {{
-            if (statusEl) {{ statusEl.textContent = "Nothing to save"; statusEl.style.color = "#fbbf24"; }}
+            if (statusEl) {{ statusEl.textContent = "Nothing to save"; statusEl.style.color = "#d4b896"; }}
             return;
         }}
         if (btn) btn.disabled = true;
-        if (statusEl) {{ statusEl.textContent = "Saving…"; statusEl.style.color = "#93c5fd"; }}
+        if (statusEl) {{ statusEl.textContent = "Saving…"; statusEl.style.color = "#a8c4e0"; }}
         const scratchText = textarea.value.trim();
         const data = await qaSaveScratchText(sectionId, scratchText);
         if (data && data.status === "ok") {{
             qaRemovePendingScratch(sectionId, scratchText);
-            if (statusEl) {{ statusEl.textContent = "✓ Saved to journal"; statusEl.style.color = "#6ee7b7"; }}
+            if (statusEl) {{ statusEl.textContent = "✓ Saved to journal"; statusEl.style.color = "#a7d8c4"; }}
             try {{ localStorage.removeItem(textarea.dataset.storageKey); }} catch(_e) {{}}
             if (typeof qaApplyNarrativeFromScratch === "function") {{
                 qaApplyNarrativeFromScratch(sectionId, scratchText);
@@ -7544,7 +7607,7 @@ def generate_html(data):
             qaAddPendingScratch(sectionId, scratchText);
             if (statusEl) {{
                 statusEl.textContent = "📶 Queued — will sync when API is reachable";
-                statusEl.style.color = "#fbbf24";
+                statusEl.style.color = "#d4b896";
             }}
         }}
         if (btn) btn.disabled = false;
@@ -7857,7 +7920,7 @@ def generate_html(data):
         const statusLine = document.getElementById("qa-end-day-status");
         if (statusLine) {{
             statusLine.textContent = qaEndDayStatusLabel(qaEndDayState);
-            statusLine.style.color = done ? "#6ee7b7" : "#94a3b8";
+            statusLine.style.color = done ? "#a7d8c4" : "#94a3b8";
         }}
         const mainBtn = document.getElementById("qa-end-day-btn");
         if (mainBtn) {{
@@ -7980,7 +8043,7 @@ def generate_html(data):
             if (existing.toLowerCase().includes(item.toLowerCase())) return;
             const div = document.createElement("div");
             div.className = "flex items-start gap-2 text-sm";
-            div.innerHTML = '<span style="color:#6ee7b7">•</span><span style="color:#d1d5db">' + item.replace(/</g,"&lt;").replace(/>/g,"&gt;") + '</span>';
+            div.innerHTML = '<span style="color:#a7d8c4">•</span><span style="color:#d1d5db">' + item.replace(/</g,"&lt;").replace(/>/g,"&gt;") + '</span>';
             listEl.appendChild(div);
             added++;
         }});
@@ -8006,7 +8069,7 @@ def generate_html(data):
             if (existingText.includes(s.toLowerCase())) return;
             const div = document.createElement("div");
             div.className = "flex items-start gap-2 text-sm";
-            div.innerHTML = '<span style="color:#6ee7b7">•</span><span style="color:#d1d5db">' + s.replace(/</g,"&lt;").replace(/>/g,"&gt;") + '</span>';
+            div.innerHTML = '<span style="color:#a7d8c4">•</span><span style="color:#d1d5db">' + s.replace(/</g,"&lt;").replace(/>/g,"&gt;") + '</span>';
             listEl.appendChild(div);
             added++;
         }});
@@ -8130,7 +8193,7 @@ def generate_html(data):
             const status = document.getElementById("qa-status");
             if (status) {{
                 status.textContent = reason === "scratch" ? "✅ Dashboard sections refreshed." : "🔄 Synced latest sections.";
-                status.style.color = "#93c5fd";
+                status.style.color = "#a8c4e0";
             }}
         }}
         return patched;
@@ -8250,8 +8313,8 @@ def generate_html(data):
             return "📅";
         }}
         function eventColor(e) {{
-            if (e.type === "task") return "#fbbf24";
-            if (e.type === "work") return "#93c5fd";
+            if (e.type === "task") return "#d4b896";
+            if (e.type === "work") return "#a8c4e0";
             return "#e5e7eb";
         }}
         function renderEvent(e) {{
@@ -8408,7 +8471,7 @@ def generate_html(data):
         const status = document.getElementById("qa-status");
         if (status) {{
             status.textContent = "🔐 Session expired. Reloading secured dashboard...";
-            status.style.color = "#fbbf24";
+            status.style.color = "#d4b896";
         }}
         setTimeout(() => {{
             try {{
@@ -8515,7 +8578,7 @@ def generate_html(data):
         const status = document.getElementById("qa-status");
         if (status) {{
             status.textContent = "⏳ Sending...";
-            status.style.color = "#93c5fd";
+            status.style.color = "#a8c4e0";
         }}
         window.__qaPendingRequests = Number(window.__qaPendingRequests || 0) + 1;
         try {{
@@ -8542,13 +8605,13 @@ def generate_html(data):
                 const detail = (data && (data.detail || data.message)) ? JSON.stringify(data.detail || data.message) : `HTTP ${{response.status}}`;
                 if (status) {{
                     status.textContent = "❌ " + detail;
-                    status.style.color = "#fca5a5";
+                    status.style.color = "#d4a0a0";
                 }}
                 return null;
             }}
             if (status) {{
                 status.textContent = "✅ Saved";
-                status.style.color = "#6ee7b7";
+                status.style.color = "#a7d8c4";
             }}
             return data;
         }} catch (err) {{
@@ -8558,7 +8621,7 @@ def generate_html(data):
                 status.textContent = timeout
                     ? "⏱️ Request timed out. Reload dashboard and retry."
                     : "❌ API unavailable: " + err.message;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
             return null;
         }} finally {{
@@ -8584,7 +8647,7 @@ def generate_html(data):
             if (attempt < retries) {{
                 if (status) {{
                     status.textContent = `↻ Retrying ${{label}}...`;
-                    status.style.color = "#fbbf24";
+                    status.style.color = "#d4b896";
                 }}
                 await qaDelay(backoffMs * (attempt + 1));
             }}
@@ -8623,7 +8686,7 @@ def generate_html(data):
         const remainMin = Math.ceil(remainMs / 60000);
         if (meta) {{
             meta.textContent = paused ? `Live sync paused (${{remainMin}}m left)` : "Live sync active";
-            meta.style.color = paused ? "#fbbf24" : "#94a3b8";
+            meta.style.color = paused ? "#d4b896" : "#94a3b8";
         }}
         if (btn10) {{
             btn10.style.opacity = paused ? "0.8" : "1";
@@ -8647,7 +8710,7 @@ def generate_html(data):
             const status = document.getElementById("qa-status");
             if (status) {{
                 status.textContent = "✅ Live sync resumed";
-                status.style.color = "#6ee7b7";
+                status.style.color = "#a7d8c4";
             }}
             qaUpdateSyncPauseUi();
             qaSyncTodayFromApi({{ force: true }});
@@ -8666,7 +8729,7 @@ def generate_html(data):
         const status = document.getElementById("qa-status");
         if (status) {{
             status.textContent = `📖 Live sync paused for ${{mins}}m`;
-            status.style.color = "#fbbf24";
+            status.style.color = "#d4b896";
         }}
         qaUpdateSyncPauseUi();
     }}
@@ -8678,10 +8741,10 @@ def generate_html(data):
 
     function qaFreshLevelColor(level) {{
         const normalized = qaNormalizeFreshLevel(level);
-        if (normalized === "ok") return "#6ee7b7";
-        if (normalized === "warn") return "#fbbf24";
-        if (normalized === "error") return "#fca5a5";
-        return "#93c5fd";
+        if (normalized === "ok") return "#a7d8c4";
+        if (normalized === "warn") return "#d4b896";
+        if (normalized === "error") return "#d4a0a0";
+        return "#a8c4e0";
     }}
 
     function qaSetFreshnessLine(id, text, level) {{
@@ -8908,16 +8971,16 @@ def generate_html(data):
             ? `🧭 Section freshness (${{attentionCount}} need attention)`
             : "🧭 Section freshness (all monitored)";
         const summaryColour = {{
-            ok: "#a7f3d0",
-            info: "#93c5fd",
-            warn: "#fde68a",
-            error: "#fca5a5",
-        }}[worstLevel] || "#93c5fd";
+            ok: "#b8d8c8",
+            info: "#a8c4e0",
+            warn: "#d8c8a0",
+            error: "#d4a0a0",
+        }}[worstLevel] || "#a8c4e0";
         const toneMap = {{
-            ok: ["🟢", "#a7f3d0", "rgba(6,95,70,0.22)", "rgba(110,231,183,0.22)"],
-            info: ["🔵", "#bfdbfe", "rgba(30,64,175,0.18)", "rgba(147,197,253,0.22)"],
-            warn: ["🟡", "#fde68a", "rgba(120,53,15,0.22)", "rgba(251,191,36,0.22)"],
-            error: ["🔴", "#fca5a5", "rgba(127,29,29,0.22)", "rgba(239,68,68,0.22)"],
+            ok: ["🟢", "#b8d8c8", "rgba(6,95,70,0.22)", "rgba(110,231,183,0.22)"],
+            info: ["🔵", "#b0c8d8", "rgba(30,64,175,0.18)", "rgba(147,197,253,0.22)"],
+            warn: ["🟡", "#d8c8a0", "rgba(120,53,15,0.22)", "rgba(251,191,36,0.22)"],
+            error: ["🔴", "#d4a0a0", "rgba(127,29,29,0.22)", "rgba(239,68,68,0.22)"],
         }};
         const rowsHtml = ordered.map((rawItem) => {{
             const item = (rawItem && typeof rawItem === "object") ? rawItem : {{}};
@@ -8934,7 +8997,7 @@ def generate_html(data):
                 ? `<p class="text-xs mt-1" style="color:#94a3b8">${{metaBits.join(" • ")}}</p>`
                 : "";
             const reasonHtml = (staleReason && (level === "warn" || level === "error"))
-                ? `<p class="text-xs mt-1" style="color:#fcd34d">${{qaEscapeHtml(staleReason)}}</p>`
+                ? `<p class="text-xs mt-1" style="color:#d4c090">${{qaEscapeHtml(staleReason)}}</p>`
                 : "";
             return `<div class="rounded-lg px-3 py-2.5" style="border:1px solid ${{tone[3]}}; background:${{tone[2]}};">`
                 + `<div class="flex items-center gap-2 flex-wrap"><span class="text-xs font-semibold" style="color:${{tone[1]}}">${{tone[0]}} ${{qaEscapeHtml(item.label || item.id || "Section")}}</span></div>`
@@ -9390,17 +9453,17 @@ def generate_html(data):
         if (daemonBadge) {{
             if (merged.daemon_ok === true) {{
                 daemonBadge.textContent = "🟢 Daemon";
-                daemonBadge.style.color = "#6ee7b7";
+                daemonBadge.style.color = "#a7d8c4";
                 daemonBadge.style.borderColor = "rgba(110,231,183,0.28)";
                 daemonBadge.style.background = "rgba(6,95,70,0.22)";
             }} else if (merged.daemon_ok === false) {{
                 daemonBadge.textContent = "🔴 Daemon";
-                daemonBadge.style.color = "#fca5a5";
+                daemonBadge.style.color = "#d4a0a0";
                 daemonBadge.style.borderColor = "rgba(239,68,68,0.28)";
                 daemonBadge.style.background = "rgba(127,29,29,0.22)";
             }} else {{
                 daemonBadge.textContent = "🟡 Daemon";
-                daemonBadge.style.color = "#fde68a";
+                daemonBadge.style.color = "#d8c8a0";
                 daemonBadge.style.borderColor = "rgba(251,191,36,0.28)";
                 daemonBadge.style.background = "rgba(120,53,15,0.24)";
             }}
@@ -9408,17 +9471,17 @@ def generate_html(data):
         if (apiBadge) {{
             if (merged.api_ok === true) {{
                 apiBadge.textContent = "🟢 API";
-                apiBadge.style.color = "#93c5fd";
+                apiBadge.style.color = "#a8c4e0";
                 apiBadge.style.borderColor = "rgba(147,197,253,0.28)";
                 apiBadge.style.background = "rgba(30,64,175,0.2)";
             }} else if (merged.api_ok === false) {{
                 apiBadge.textContent = "🔴 API";
-                apiBadge.style.color = "#fca5a5";
+                apiBadge.style.color = "#d4a0a0";
                 apiBadge.style.borderColor = "rgba(239,68,68,0.28)";
                 apiBadge.style.background = "rgba(127,29,29,0.22)";
             }} else {{
                 apiBadge.textContent = "🟡 API";
-                apiBadge.style.color = "#fde68a";
+                apiBadge.style.color = "#d8c8a0";
                 apiBadge.style.borderColor = "rgba(251,191,36,0.28)";
                 apiBadge.style.background = "rgba(120,53,15,0.24)";
             }}
@@ -9428,23 +9491,23 @@ def generate_html(data):
             if (Number.isFinite(age)) {{
                 if (age <= 10) {{
                     cacheBadge.textContent = `🟢 ${{age}}m`;
-                    cacheBadge.style.color = "#a7f3d0";
+                    cacheBadge.style.color = "#b8d8c8";
                     cacheBadge.style.borderColor = "rgba(110,231,183,0.28)";
                     cacheBadge.style.background = "rgba(6,95,70,0.22)";
                 }} else if (age <= 60) {{
                     cacheBadge.textContent = `🟡 ${{age}}m`;
-                    cacheBadge.style.color = "#fde68a";
+                    cacheBadge.style.color = "#d8c8a0";
                     cacheBadge.style.borderColor = "rgba(251,191,36,0.28)";
                     cacheBadge.style.background = "rgba(120,53,15,0.24)";
                 }} else {{
                     cacheBadge.textContent = `🔴 ${{age}}m`;
-                    cacheBadge.style.color = "#fca5a5";
+                    cacheBadge.style.color = "#d4a0a0";
                     cacheBadge.style.borderColor = "rgba(239,68,68,0.28)";
                     cacheBadge.style.background = "rgba(127,29,29,0.22)";
                 }}
             }} else {{
                 cacheBadge.textContent = "🔴 Cache";
-                cacheBadge.style.color = "#fca5a5";
+                cacheBadge.style.color = "#d4a0a0";
                 cacheBadge.style.borderColor = "rgba(239,68,68,0.28)";
                 cacheBadge.style.background = "rgba(127,29,29,0.22)";
             }}
@@ -9556,7 +9619,7 @@ def generate_html(data):
                 button.dataset.akiflowActive = nextValue ? "true" : "false";
                 button.textContent = nextValue ? "📥 In Akiflow" : "📥 Akiflow";
                 button.style.background = nextValue ? "rgba(120,53,15,0.24)" : "rgba(15,23,42,0.45)";
-                button.style.color = nextValue ? "#fde68a" : "#cbd5e1";
+                button.style.color = nextValue ? "#d8c8a0" : "#cbd5e1";
                 button.style.borderColor = nextValue ? "rgba(251,191,36,0.25)" : "rgba(148,163,184,0.18)";
                 if (note) {{
                     note.style.display = nextValue ? "block" : "none";
@@ -9587,10 +9650,10 @@ def generate_html(data):
                             ? "📋 Copied to clipboard and parked in Akiflow — I’ll keep it visible here."
                             : "📥 Check-in parked in Akiflow — clipboard copy failed, but I’ll keep it visible here.")
                         : "↩️ Removed Akiflow marker from check-in.";
-                    status.style.color = nextValue ? "#fbbf24" : "#94a3b8";
+                    status.style.color = nextValue ? "#d4b896" : "#94a3b8";
                 }}
             }} else if (row) {{
-                row.insertAdjacentHTML("beforeend", '<p style="font-size:0.7rem;color:#fbbf24;margin:0.35rem 0 0">⚠ Could not update Akiflow state — try again</p>');
+                row.insertAdjacentHTML("beforeend", '<p style="font-size:0.7rem;color:#d4b896;margin:0.35rem 0 0">⚠ Could not update Akiflow state — try again</p>');
             }}
         }} finally {{
             button.disabled = false;
@@ -9621,7 +9684,7 @@ def generate_html(data):
             if (row) {{
                 row.querySelectorAll("button").forEach(b => {{ b.disabled = false; }});
                 const p = row.querySelector("p");
-                if (p) p.insertAdjacentHTML("afterend", '<p style="font-size:0.7rem;color:#fbbf24;margin:0.2rem 0 0">⚠ Could not save — try again</p>');
+                if (p) p.insertAdjacentHTML("afterend", '<p style="font-size:0.7rem;color:#d4b896;margin:0.2rem 0 0">⚠ Could not save — try again</p>');
             }}
         }}
     }}
@@ -9646,14 +9709,14 @@ def generate_html(data):
                 const status = document.getElementById("qa-status");
                 if (status) {{
                     status.textContent = "📶 Saved locally; loop close queued for sync when API is reachable.";
-                    status.style.color = "#fbbf24";
+                    status.style.color = "#d4b896";
                 }}
                 return;
             }}
             button.disabled = true;
             button.textContent = "📶 Queued";
             button.style.background = "rgba(120,53,15,0.35)";
-            button.style.color = "#fde68a";
+            button.style.color = "#d8c8a0";
             button.style.borderColor = "rgba(251,191,36,0.35)";
             const row = button.closest("[data-qa-row='loop']");
             if (row) {{
@@ -9662,7 +9725,7 @@ def generate_html(data):
                 if (!msg) {{
                     msg = document.createElement("p");
                     msg.className = "qa-offline-msg text-xs mt-1";
-                    msg.style.color = "#fde68a";
+                    msg.style.color = "#d8c8a0";
                     msg.textContent = "Queued — will sync when API is reachable.";
                     const flexOne = row.querySelector(".flex-1");
                     if (flexOne) flexOne.appendChild(msg);
@@ -9691,14 +9754,14 @@ def generate_html(data):
                 const status = document.getElementById("qa-status");
                 if (status) {{
                     status.textContent = "📶 Saved locally; action item completion queued for sync when API is reachable.";
-                    status.style.color = "#fbbf24";
+                    status.style.color = "#d4b896";
                 }}
                 return;
             }}
             button.disabled = true;
             button.textContent = "📶 Queued";
             button.style.background = "rgba(120,53,15,0.35)";
-            button.style.color = "#fde68a";
+            button.style.color = "#d8c8a0";
             button.style.borderColor = "rgba(251,191,36,0.35)";
             const row = button.closest("[data-qa-row='todo']");
             if (row) {{
@@ -9707,7 +9770,7 @@ def generate_html(data):
                 if (!msg) {{
                     msg = document.createElement("p");
                     msg.className = "qa-offline-msg text-xs mt-1";
-                    msg.style.color = "#fde68a";
+                    msg.style.color = "#d8c8a0";
                     msg.textContent = "Queued — will sync when API is reachable.";
                     const flexOne = row.querySelector(".flex-1");
                     if (flexOne) flexOne.appendChild(msg);
@@ -9742,8 +9805,39 @@ def generate_html(data):
             button.disabled = true;
             button.textContent = "📶 Queued";
             button.style.background = "rgba(120,53,15,0.35)";
-            button.style.color = "#fde68a";
+            button.style.color = "#d8c8a0";
             button.style.borderColor = "rgba(251,191,36,0.35)";
+        }}
+    }}
+
+    async function qaParkActionItem(button) {{
+        const text = ((button && button.dataset && button.dataset.text) || "").trim();
+        if (!text) return;
+        const targetDate = qaTomorrowDateKey();
+        if (button) {{
+            button.disabled = true;
+            button.textContent = "Parking...";
+        }}
+        const ok = await qaDeferTodoText(text, targetDate);
+        if (ok || QA_IS_FILE_PROTOCOL) {{
+            qaSetLocalDeferred(text, targetDate);
+            // Park = vanish the entire row, no "deferred" badge
+            const row = button.closest("[data-qa-row]");
+            if (row) {{
+                row.style.transition = "opacity 0.3s ease";
+                row.style.opacity = "0";
+                setTimeout(() => {{ row.style.display = "none"; }}, 350);
+            }}
+            const status = document.getElementById("qa-status");
+            if (status) {{
+                status.textContent = "💤 Parked — gone until tomorrow.";
+                status.style.color = "#94a3b8";
+            }}
+            return;
+        }}
+        if (button) {{
+            button.disabled = true;
+            button.textContent = "💤 Parked";
         }}
     }}
 
@@ -9755,7 +9849,7 @@ def generate_html(data):
         const status = document.getElementById("qa-status");
         if (status && text) {{
             status.textContent = `▶️ Started: ${{text.slice(0, 120)}}`;
-            status.style.color = "#93c5fd";
+            status.style.color = "#a8c4e0";
         }}
     }}
 
@@ -9766,25 +9860,25 @@ def generate_html(data):
         badge.hidden = false;
         if (k === "saving") {{
             badge.textContent = "saving...";
-            badge.style.color = "#93c5fd";
+            badge.style.color = "#a8c4e0";
             badge.style.borderColor = "rgba(147,197,253,0.35)";
             return;
         }}
         if (k === "retrying") {{
             badge.textContent = "retrying";
-            badge.style.color = "#fbbf24";
+            badge.style.color = "#d4b896";
             badge.style.borderColor = "rgba(251,191,36,0.35)";
             return;
         }}
         if (k === "error") {{
             badge.textContent = "save failed";
-            badge.style.color = "#fca5a5";
+            badge.style.color = "#d4a0a0";
             badge.style.borderColor = "rgba(248,113,113,0.4)";
             return;
         }}
         badge.hidden = true;
         badge.textContent = "synced";
-        badge.style.color = "#6ee7b7";
+        badge.style.color = "#a7d8c4";
         badge.style.borderColor = "rgba(110,231,183,0.4)";
     }}
 
@@ -9836,7 +9930,7 @@ def generate_html(data):
                 qaSetAnxietySaveState("synced");
                 if (status) {{
                     status.textContent = `✅ Anxiety relief saved (${{saved}}/10)`;
-                    status.style.color = "#6ee7b7";
+                    status.style.color = "#a7d8c4";
                 }}
             }}
         }} catch (_err) {{
@@ -10059,9 +10153,9 @@ def generate_html(data):
         const confidence = String(safe.confidence || "").trim().toLowerCase();
         const label = labelRaw || "⚪ Progression signal not available yet.";
         let color = "#9ca3af";
-        if (action === "increase_reps" || action === "increase_duration") color = "#6ee7b7";
-        else if (action === "hold_reps" || action === "hold_or_deload" || action === "hold_duration" || action === "reduce_duration") color = "#fbbf24";
-        else if (action === "build_base" || action === "capture_feedback") color = "#93c5fd";
+        if (action === "increase_reps" || action === "increase_duration") color = "#a7d8c4";
+        else if (action === "hold_reps" || action === "hold_or_deload" || action === "hold_duration" || action === "reduce_duration") color = "#d4b896";
+        else if (action === "build_base" || action === "capture_feedback") color = "#a8c4e0";
         const confidenceText = ["low", "medium", "high"].includes(confidence) ? `Confidence: ${{confidence}}.` : "";
         const detail = [reason, confidenceText].filter(Boolean).join(" ").trim();
         return {{ label, color, detail }};
@@ -10202,14 +10296,14 @@ def generate_html(data):
         if (done) {{
             button.textContent = "✅ Done";
             button.style.background = "rgba(6,95,70,0.2)";
-            button.style.color = "#a7f3d0";
+            button.style.color = "#b8d8c8";
             button.style.borderColor = "rgba(110,231,183,0.26)";
             return;
         }}
         if (added) {{
             button.textContent = "📥 In Akiflow";
             button.style.background = "rgba(120,53,15,0.35)";
-            button.style.color = "#fde68a";
+            button.style.color = "#d8c8a0";
             button.style.borderColor = "rgba(251,191,36,0.35)";
             return;
         }}
@@ -10255,7 +10349,7 @@ def generate_html(data):
             const status = document.getElementById("qa-status");
             if (status) {{
                 status.textContent = `✅ ${{qaCheckinLabel(item)}} already done here.`;
-                status.style.color = "#6ee7b7";
+                status.style.color = "#a7d8c4";
             }}
             return;
         }}
@@ -10281,13 +10375,13 @@ def generate_html(data):
                 status.textContent = nextValue
                     ? `📥 ${{qaCheckinLabel(item)}} marked as added to Akiflow. I’ll keep nudging you here.`
                     : `↩️ ${{qaCheckinLabel(item)}} removed from Akiflow tracking.`;
-                status.style.color = nextValue ? "#fbbf24" : "#94a3b8";
+                status.style.color = nextValue ? "#d4b896" : "#94a3b8";
             }}
         }} catch (_err) {{
             const status = document.getElementById("qa-status");
             if (status) {{
                 status.textContent = `❌ Couldn't update Akiflow tracking for ${{qaCheckinLabel(item)}}.`;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} finally {{
             delete qaCheckinAkiflowSaving[item];
@@ -10343,7 +10437,7 @@ def generate_html(data):
         const meta = document.getElementById("qa-mindfulness-meta");
         if (meta) {{
             meta.textContent = qaMindfulnessSummary(safeState);
-            meta.style.color = safeState.done ? "#6ee7b7" : "#9ca3af";
+            meta.style.color = safeState.done ? "#a7d8c4" : "#9ca3af";
         }}
         qaSetCheckinAkiflowButtonState("mindfulness");
         qaUpdateQuickDoneMeta();
@@ -10363,7 +10457,7 @@ def generate_html(data):
         const status = document.getElementById("qa-status");
         if (status) {{
             status.textContent = desired ? "⏳ Saving mindfulness..." : "⏳ Clearing mindfulness...";
-            status.style.color = "#93c5fd";
+            status.style.color = "#a8c4e0";
         }}
 
         const payload = {{
@@ -10417,7 +10511,7 @@ def generate_html(data):
                     const minutes = Number(latestState.minutes_done || QA_MINDFULNESS_TARGET);
                     if (desired) {{
                         status.textContent = `✅ Mindfulness saved (${{Math.max(0, Math.round(minutes))}}m)`;
-                        status.style.color = "#6ee7b7";
+                        status.style.color = "#a7d8c4";
                     }} else {{
                         status.textContent = "↩️ Mindfulness cleared";
                         status.style.color = "#9ca3af";
@@ -10427,14 +10521,14 @@ def generate_html(data):
                 input.checked = !desired;
                 if (status) {{
                     status.textContent = "❌ Mindfulness save failed. Retry from http://127.0.0.1:8765/dashboard";
-                    status.style.color = "#fca5a5";
+                    status.style.color = "#d4a0a0";
                 }}
             }}
         }} catch (err) {{
             input.checked = !desired;
             if (status) {{
                 status.textContent = `❌ Mindfulness save failed: ${{(err && err.message) ? err.message : "unknown error"}}`;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} finally {{
             input.disabled = false;
@@ -10478,25 +10572,25 @@ def generate_html(data):
         badge.hidden = false;
         if (k === "saving") {{
             badge.textContent = "saving...";
-            badge.style.color = "#93c5fd";
+            badge.style.color = "#a8c4e0";
             badge.style.borderColor = "rgba(147,197,253,0.35)";
             return;
         }}
         if (k === "retrying") {{
             badge.textContent = "retrying";
-            badge.style.color = "#fbbf24";
+            badge.style.color = "#d4b896";
             badge.style.borderColor = "rgba(251,191,36,0.35)";
             return;
         }}
         if (k === "error") {{
             badge.textContent = "save failed";
-            badge.style.color = "#fca5a5";
+            badge.style.color = "#d4a0a0";
             badge.style.borderColor = "rgba(248,113,113,0.4)";
             return;
         }}
         badge.hidden = true;
         badge.textContent = "synced";
-        badge.style.color = "#6ee7b7";
+        badge.style.color = "#a7d8c4";
         badge.style.borderColor = "rgba(110,231,183,0.4)";
     }}
 
@@ -10510,7 +10604,7 @@ def generate_html(data):
         const moodMeta = document.getElementById("qa-mood-meta");
         if (moodMeta) {{
             moodMeta.textContent = qaMoodSummary(safe);
-            moodMeta.style.color = done ? "#6ee7b7" : "#9ca3af";
+            moodMeta.style.color = done ? "#a7d8c4" : "#9ca3af";
         }}
         qaSetCheckinAkiflowButtonState("mood");
         qaUpdateQuickDoneMeta();
@@ -10548,7 +10642,7 @@ def generate_html(data):
                 qaSetMoodSaveState("synced");
                 if (status) {{
                     status.textContent = desired ? "✅ Mood check-in saved" : "↩️ Mood check-in cleared";
-                    status.style.color = desired ? "#6ee7b7" : "#9ca3af";
+                    status.style.color = desired ? "#a7d8c4" : "#9ca3af";
                 }}
             }} else {{
                 qaSetMoodSaveState("retrying");
@@ -10566,7 +10660,7 @@ def generate_html(data):
             qaSetMoodSaveState("error");
             if (status) {{
                 status.textContent = `❌ Mood save failed: ${{(err && err.message) ? err.message : "unknown error"}}`;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} finally {{
             input.disabled = false;
@@ -10599,7 +10693,7 @@ def generate_html(data):
         try {{
             if (status) {{
                 status.textContent = "⏳ Saving mood...";
-                status.style.color = "#93c5fd";
+                status.style.color = "#a8c4e0";
             }}
             const data = await qaPostWithRetry('/v1/ui/mood/entry', {{mood, label, context: _qaMoodCtx}}, {{ retries: 1, label: "mood entry" }});
             if (data && data.status === 'ok') {{
@@ -10649,18 +10743,18 @@ def generate_html(data):
                 qaSetMoodSaveState("synced");
                 if (status) {{
                     status.textContent = data.deduped ? "✅ Mood saved (deduped tap)" : "✅ Mood saved";
-                    status.style.color = "#6ee7b7";
+                    status.style.color = "#a7d8c4";
                 }}
             }} else if (status) {{
                 qaSetMoodSaveState("error");
                 status.textContent = "❌ Mood save failed";
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} catch(err) {{
             qaSetMoodSaveState("error");
             if (status) {{
                 status.textContent = `\u274c Mood save failed`;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} finally {{
             moodButtons.forEach((b) => {{ b.disabled = false; }});
@@ -10674,44 +10768,26 @@ def generate_html(data):
         const mind = document.getElementById("qa-quick-mindfulness-check");
         const workout = document.getElementById("qa-quick-workout-check");
         const mood = document.getElementById("qa-quick-mood-check");
-        let total = 0;
-        let done = 0;
-        if (mind) {{
-            total += 1;
-            if (mind.checked) done += 1;
-        }}
-        if (workout) {{
-            total += 1;
-            if (workout.checked) done += 1;
-        }}
-        if (mood) {{
-            total += 1;
-            if (mood.checked) done += 1;
-        }}
-        const pendingAkiflow = qaPendingAkiflowCheckins();
-        const akiflowCount = pendingAkiflow.length;
-        meta.textContent = akiflowCount
-            ? `${{done}}/${{total || 0}} check-ins done • ${{akiflowCount}} in Akiflow.`
-            : `${{done}}/${{total || 0}} check-ins done.`;
-        meta.style.color = akiflowCount ? "#fbbf24" : (done >= Math.max(1, total) ? "#6ee7b7" : "#93c5fd");
+        const remaining = [];
+        if (mind && !mind.checked) remaining.push("Mindfulness");
+        if (workout && !workout.checked) remaining.push(workout.closest("label")?.textContent?.trim()?.replace(/^[^\w]*/, "") || "Workout");
+        if (mood && !mood.checked) remaining.push(mood.closest("label")?.textContent?.trim()?.replace(/^[^\w]*/, "") || "Mood");
+        const text = remaining.length ? remaining.join(" · ") : "All done";
+        const allDone = remaining.length === 0;
+        meta.textContent = text;
+        meta.style.color = allDone ? "#a7d8c4" : "#a8c4e0";
 
         const summary = document.getElementById("qa-checkins-summary");
         if (summary) {{
-            summary.textContent = akiflowCount
-                ? `${{done}}/${{total || 0}} done • ${{akiflowCount}} in Akiflow`
-                : `${{done}}/${{total || 0}} done`;
-            summary.style.color = akiflowCount ? "#fbbf24" : "#93c5fd";
+            summary.textContent = text;
+            summary.style.color = allDone ? "#a7d8c4" : "#a8c4e0";
         }}
 
+        /* Legacy nudge element — no longer rendered but clean up if present */
         const nudge = document.getElementById("qa-quick-akiflow-nudge");
         if (nudge) {{
-            if (pendingAkiflow.length) {{
-                nudge.hidden = false;
-                nudge.textContent = `⏰ Parked in Akiflow — still finish here: ${{pendingAkiflow.map((item) => qaCheckinLabel(item)).join(", ")}}.`;
-            }} else {{
-                nudge.hidden = true;
-                nudge.textContent = "";
-            }}
+            nudge.hidden = true;
+            nudge.textContent = "";
         }}
     }}
 
@@ -10729,7 +10805,7 @@ def generate_html(data):
             const label = String(workoutLabel || "Workout").trim() || "Workout";
             if (done) {{
                 meta.textContent = `✅ ${{label}} logged for today`;
-                meta.style.color = "#6ee7b7";
+                meta.style.color = "#a7d8c4";
             }} else {{
                 meta.textContent = `⬜ ${{label}} not logged yet`;
                 meta.style.color = "#9ca3af";
@@ -10755,7 +10831,7 @@ def generate_html(data):
         try {{
             if (status) {{
                 status.textContent = desired ? `⏳ Logging ${{workoutLabel}}...` : `⏳ Clearing ${{workoutLabel}}...`;
-                status.style.color = "#93c5fd";
+                status.style.color = "#a8c4e0";
             }}
             const resultWithRetry = await qaPostWithRetry("/v1/ui/workout/log", {{
                 done: desired,
@@ -10777,7 +10853,7 @@ def generate_html(data):
                 qaApplyYogaFeedbackPrompt({{ autoOpen: savedDone && qaCurrentWorkoutType === "yoga" }});
                 if (status) {{
                     status.textContent = desired ? `✅ ${{workoutLabel}} logged` : `↩️ ${{workoutLabel}} marked not done`;
-                    status.style.color = desired ? "#6ee7b7" : "#9ca3af";
+                    status.style.color = desired ? "#a7d8c4" : "#9ca3af";
                 }}
                 // Refresh dynamic cards without forcing a full dashboard reload (prevents stale checkbox resets).
                 setTimeout(() => {{ qaSyncTodayFromApi({{ force: true }}); }}, 350);
@@ -10785,14 +10861,14 @@ def generate_html(data):
                 input.checked = !desired;
                 if (status) {{
                     status.textContent = `❌ ${{workoutLabel}} save failed`;
-                    status.style.color = "#fca5a5";
+                    status.style.color = "#d4a0a0";
                 }}
             }}
         }} catch (err) {{
             input.checked = !desired;
             if (status) {{
                 status.textContent = `❌ ${{workoutLabel}} save failed: ${{(err && err.message) ? err.message : "unknown error"}}`;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} finally {{
             input.disabled = false;
@@ -10885,7 +10961,7 @@ def generate_html(data):
         const baselineUpdatedAt = String((QA_WORKOUT_CHECKLIST_INITIAL && QA_WORKOUT_CHECKLIST_INITIAL.updated_at) || "").trim();
         if (status) {{
             status.textContent = "⏳ Saving checklist...";
-            status.style.color = "#93c5fd";
+            status.style.color = "#a8c4e0";
         }}
         if (button) {{
             button.disabled = true;
@@ -10896,7 +10972,7 @@ def generate_html(data):
             if (!["pass", "fail", "unknown"].includes(recoveryGate)) {{
                 if (status) {{
                     status.textContent = "⚠️ Recovery gate must be pass/fail/unknown.";
-                    status.style.color = "#fbbf24";
+                    status.style.color = "#d4b896";
                 }}
                 return;
             }}
@@ -11051,17 +11127,17 @@ def generate_html(data):
                     status.textContent = savedViaVerify
                         ? (anxietySaved ? "✅ Checklist + anxiety saved (verified)" : "✅ Checklist saved (verified)")
                         : (anxietySaved ? "✅ Checklist + anxiety saved" : "✅ Checklist saved");
-                    status.style.color = "#6ee7b7";
+                    status.style.color = "#a7d8c4";
                 }}
             }} else if (status) {{
                 status.textContent = "⚠️ Saved may have succeeded. Reload once to confirm.";
-                status.style.color = "#fbbf24";
+                status.style.color = "#d4b896";
             }}
         }} catch (err) {{
             if (status) {{
                 const msg = (err && err.message) ? err.message : "Unexpected checklist error";
                 status.textContent = "❌ " + msg;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} finally {{
             if (button) {{
@@ -11084,7 +11160,7 @@ def generate_html(data):
         }}
         if (status) {{
             status.textContent = "⏳ Generating weekly report...";
-            status.style.color = "#93c5fd";
+            status.style.color = "#a8c4e0";
         }}
         try {{
             const result = await qaPostWithRetry("/v1/ui/weekly-deep-analysis/generate", {{}}, {{ retries: 0, label: "weekly deep analysis" }});
@@ -11098,16 +11174,16 @@ def generate_html(data):
                 if (currentLink) {{
                     currentLink.textContent = fileName;
                     if (fileUrl) currentLink.href = fileUrl;
-                    currentLink.style.color = "#a7f3d0";
+                    currentLink.style.color = "#b8d8c8";
                 }}
                 if (latestLink) {{
                     latestLink.textContent = fileName;
                     if (fileUrl) latestLink.href = fileUrl;
-                    latestLink.style.color = "#93c5fd";
+                    latestLink.style.color = "#a8c4e0";
                 }}
                 if (badge) {{
                     badge.textContent = "✅ Ready";
-                    badge.style.color = "#6ee7b7";
+                    badge.style.color = "#a7d8c4";
                 }}
                 if (meta) {{
                     meta.textContent = "Weekly deep analysis generated and linked.";
@@ -11115,19 +11191,19 @@ def generate_html(data):
                 }}
                 if (status) {{
                     status.textContent = "✅ Weekly deep analysis generated";
-                    status.style.color = "#6ee7b7";
+                    status.style.color = "#a7d8c4";
                 }}
                 if (button) {{
                     button.textContent = "↻ Regenerate week report";
                 }}
             }} else if (status) {{
                 status.textContent = "⚠️ Weekly report generation may have failed";
-                status.style.color = "#fbbf24";
+                status.style.color = "#d4b896";
             }}
         }} catch (err) {{
             if (status) {{
                 status.textContent = `❌ Weekly report failed: ${{(err && err.message) ? err.message : "unknown error"}}`;
-                status.style.color = "#fca5a5";
+                status.style.color = "#d4a0a0";
             }}
         }} finally {{
             if (button) button.disabled = false;
@@ -11161,7 +11237,7 @@ def generate_html(data):
         try {{
             const trigger = await qaPostWithRetry('/v1/ui/refresh/trigger', {{}}, {{ retries: 1, label: "refresh trigger" }});
             if (trigger && (trigger.status === 'already_running' || trigger.status === 'started')) {{
-                if (status) {{ status.textContent = "🔄 Refreshing..."; status.style.color = "#93c5fd"; }}
+                if (status) {{ status.textContent = "🔄 Refreshing..."; status.style.color = "#a8c4e0"; }}
                 const triggerRefresh = (trigger.refresh && typeof trigger.refresh === "object") ? trigger.refresh : {{}};
                 const activeRunId = String(trigger.run_id || triggerRefresh.run_id || "").trim();
                 const startedRaw = String(trigger.started_at || triggerRefresh.started_at || "").trim();
@@ -11197,18 +11273,18 @@ def generate_html(data):
 
                             if (sameRun && (refreshStatus === "ok" || cacheAdvanced || (!daemonRunning && refreshStatus !== "error" && refreshStatus !== "timeout"))) {{
                                 stopPolling();
-                                finish("✅ Refreshed — reload to see updates", "#6ee7b7", true, 1500);
+                                finish("✅ Refreshed — reload to see updates", "#a7d8c4", true, 1500);
                                 return;
                             }}
                             if (sameRun && refreshStatus === "error") {{
                                 stopPolling();
                                 const errMsg = String(refresh.error || "refresh failed");
-                                finish(`❌ Refresh failed: ${{errMsg}}`, "#fca5a5", false);
+                                finish(`❌ Refresh failed: ${{errMsg}}`, "#d4a0a0", false);
                                 return;
                             }}
                             if (sameRun && refreshStatus === "timeout") {{
                                 stopPolling();
-                                finish("⚠️ Refresh timed out", "#fbbf24", false);
+                                finish("⚠️ Refresh timed out", "#d4b896", false);
                                 return;
                             }}
                         }}
@@ -11219,11 +11295,11 @@ def generate_html(data):
                     if (!warnedSlow && elapsed >= SOFT_TIMEOUT_SECONDS && status) {{
                         warnedSlow = true;
                         status.textContent = "⏳ Refresh still running…";
-                        status.style.color = "#fbbf24";
+                        status.style.color = "#d4b896";
                     }}
                     if (elapsed >= HARD_TIMEOUT_SECONDS) {{
                         stopPolling();
-                        finish("⚠️ Refresh timed out", "#fbbf24", false);
+                        finish("⚠️ Refresh timed out", "#d4b896", false);
                         return;
                     }}
                     schedulePoll();
@@ -11233,13 +11309,13 @@ def generate_html(data):
                 const ok = await qaPostWithRetry("/v1/ui/refresh", {{}}, {{ retries: 1, label: "refresh" }});
                 if (ok && status) {{
                     status.textContent = "✅ Refresh complete.";
-                    status.style.color = "#6ee7b7";
+                    status.style.color = "#a7d8c4";
                     setTimeout(() => window.location.reload(), 1500);
                 }}
                 resetButton();
             }}
         }} catch(err) {{
-            finish("❌ Refresh failed", "#fca5a5", false);
+            finish("❌ Refresh failed", "#d4a0a0", false);
         }}
     }}
 
@@ -11275,7 +11351,7 @@ def generate_html(data):
                 const status = document.getElementById("qa-status");
                 if (status) {{
                     status.textContent = "✅ End-day pipeline complete. Marked done for today.";
-                    status.style.color = "#6ee7b7";
+                    status.style.color = "#a7d8c4";
                 }}
                 try {{
                     localStorage.setItem("dashboard.focus.mode.v1", "report");
@@ -11290,7 +11366,7 @@ def generate_html(data):
                 const status = document.getElementById("qa-status");
                 if (status) {{
                     status.textContent = "❌ End-day pipeline failed";
-                    status.style.color = "#fca5a5";
+                    status.style.color = "#d4a0a0";
                 }}
             }}
         }} finally {{
@@ -11310,7 +11386,7 @@ def generate_html(data):
             const status = document.getElementById("qa-status");
             if (status) {{
                 status.textContent = "✅ Self-heal complete";
-                status.style.color = "#6ee7b7";
+                status.style.color = "#a7d8c4";
             }}
         }}
         if (button) {{
@@ -11358,7 +11434,7 @@ def generate_html(data):
             <button id="qa-scratch-submit-{sid}"
                 onclick="qaScratchSubmit('{sid}')"
                 class="px-3 py-1 rounded text-xs"
-                style="background: rgba(110,231,183,0.18); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                style="background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
                 Save to journal
             </button>
             <span id="qa-scratch-status-{sid}" class="text-xs" style="color: #94a3b8;"></span>
@@ -11392,6 +11468,9 @@ def generate_html(data):
     )
     weekly_nav_link_html = '<a href="#weekly">📅 Weekly</a>' if weekly_digest_html else ""
 
+    # Persist nudge fatigue log
+    _nudge_save()
+
     return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11412,8 +11491,8 @@ def generate_html(data):
             --panel-border: rgba(148,163,184,0.08);
             --text: #e2e8f0;
             --muted: #94a3b8;
-            --focus: #6ee7b7;
-            --focus-soft: #cbefdf;
+            --focus: #a7d8c4;
+            --focus-soft: #d4e8dc;
             --section-gap: 0.6rem;
         }}
         * {{ box-sizing: border-box; }}
@@ -11480,6 +11559,19 @@ def generate_html(data):
         body[data-optional-pills="off"] #status-legend-wrap {{ display: none !important; }}
 
         .card h3 {{ line-height: 1.35; letter-spacing: 0.01em; }}
+        /* Muted collapsed sections — less visual noise */
+        details.card:not([open]) {{
+            opacity: 0.55;
+            border-color: rgba(148,163,184,0.08);
+            transition: opacity 0.2s ease, border-color 0.2s ease;
+        }}
+        details.card:not([open]):hover {{
+            opacity: 0.85;
+            border-color: rgba(148,163,184,0.16);
+        }}
+        details.card[open] {{
+            opacity: 1;
+        }}
         .dashboard-section {{ margin-bottom: 1.1rem; }}
         .dashboard-section:empty {{ display: none; }}
         .dashboard-section[id] {{ scroll-margin-top: 4.6rem; }}
@@ -11607,7 +11699,7 @@ def generate_html(data):
         }}
         .quick-nav a:hover,
         .focus-chip:hover {{
-            color: #a7f3d0;
+            color: #b8d8c8;
             border-color: rgba(167,243,208,0.32);
             background: rgba(6,95,70,0.16);
         }}
@@ -11623,7 +11715,7 @@ def generate_html(data):
         }}
         .focus-chip.is-active {{
             background: rgba(6,95,70,0.45);
-            color: #d1fae5;
+            color: #c8e0d4;
             border-color: rgba(110,231,183,0.55);
             box-shadow: 0 0 0 1px rgba(110,231,183,0.2) inset;
         }}
@@ -11667,17 +11759,17 @@ def generate_html(data):
             flex: 0 0 auto;
         }}
         .backend-pill[data-level="ok"] {{
-            color: #a7f3d0;
+            color: #b8d8c8;
             border-color: rgba(110,231,183,0.34);
             background: rgba(6,95,70,0.2);
         }}
         .backend-pill[data-level="info"] {{
-            color: #bfdbfe;
+            color: #b0c8d8;
             border-color: rgba(147,197,253,0.32);
             background: rgba(30,64,175,0.18);
         }}
         .backend-pill[data-level="warn"] {{
-            color: #fde68a;
+            color: #d8c8a0;
             border-color: rgba(251,191,36,0.34);
             background: rgba(120,53,15,0.22);
         }}
@@ -11747,17 +11839,17 @@ def generate_html(data):
             flex: 0 0 auto;
         }}
         .status-chip.done {{
-            color: #cbefdf;
+            color: #d4e8dc;
             border-color: rgba(110,231,183,0.38);
             background: rgba(6,95,70,0.24);
         }}
         .status-chip.progress {{
-            color: #bfdbfe;
+            color: #b0c8d8;
             border-color: rgba(147,197,253,0.34);
             background: rgba(30,64,175,0.22);
         }}
         .status-chip.action {{
-            color: #fde68a;
+            color: #d8c8a0;
             border-color: rgba(251,191,36,0.34);
             background: rgba(120,53,15,0.22);
         }}
@@ -11794,9 +11886,9 @@ def generate_html(data):
             color: var(--muted);
             margin: 0 0 0.4rem 0.15rem;
         }}
-        .section-label-morning {{ color: #6ee7b7; }}
-        .section-label-day {{ color: #93c5fd; }}
-        .section-label-evening {{ color: #c4b5fd; }}
+        .section-label-morning {{ color: #a7d8c4; }}
+        .section-label-day {{ color: #a8c4e0; }}
+        .section-label-evening {{ color: #c4b8e0; }}
         body[data-compact=\"on\"] .dashboard-shell {{
             padding-top: 0.75rem;
             padding-bottom: 1.45rem;
@@ -11881,7 +11973,7 @@ def generate_html(data):
             color: #94a3b8;
         }}
         body[data-low-stim=\"on\"] .status-legend-summary {{
-            color: #93c5fd;
+            color: #a8c4e0;
             border-color: rgba(147,197,253,0.3);
             background: rgba(30,64,175,0.14);
         }}
@@ -11895,6 +11987,13 @@ def generate_html(data):
         }}
         body[data-low-stim=\"on\"] * {{
             transition: none !important;
+        }}
+        /* Density mode: focus = essentials only, everything = all open */
+        body[data-density=\"focus\"] .dashboard-section:not([data-density-keep]) {{
+            display: none !important;
+        }}
+        body[data-density=\"everything\"] details.card {{
+            /* Force all details open via CSS — JS handles the actual open attr */
         }}
         @media (prefers-reduced-motion: reduce) {{
             * {{
@@ -11940,7 +12039,7 @@ def generate_html(data):
         }}
     </style>
 </head>
-<body data-optional-pills="{optional_pills_attr}">
+<body data-optional-pills="{optional_pills_attr}" data-energy-low="{'on' if _energy_low else 'off'}">
     <main class="dashboard-shell">
     <!-- Header -->
     <header style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem;">
@@ -11951,7 +12050,7 @@ def generate_html(data):
             {context_bar_html}
         </div>
         <div style="text-align: center; flex-shrink: 0; padding: 0.35rem 0;">
-            <p style="font-size: 1.6rem; font-weight: 700; color: #6ee7b7; margin: 0; line-height: 1;">{data.get("sleepCalm", 0)}</p>
+            <p style="font-size: 1.6rem; font-weight: 700; color: #a7d8c4; margin: 0; line-height: 1;">{data.get("sleepCalm", 0)}</p>
             <p style="font-size: 0.65rem; color: rgba(110,231,183,0.4); margin: 0.15rem 0 0; text-transform: uppercase; letter-spacing: 0.05em;">calm</p>
         </div>
     </header>
@@ -11979,69 +12078,84 @@ def generate_html(data):
         <span style="flex: 1;"></span>
         <button type="button" class="focus-chip" id="low-stim-toggle" style="font-size: 0.68rem; opacity: 0.6;">Low stim</button>
         <button type="button" class="focus-chip" id="compact-toggle" style="font-size: 0.68rem; opacity: 0.6;">Compact</button>
+        <button type="button" class="focus-chip" id="density-toggle" style="font-size: 0.68rem; opacity: 0.6;">Focus</button>
         <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
     </div>
     <p id="focus-mode-note" class="focus-note">All sections visible.</p>
     <p id="focus-meta-note" class="focus-note">Style: Standard • Density: Standard.</p>
 
-    <!-- 1. TRIAGE: Actions + Daily Report -->
-    <section id="actions" class="dashboard-section" data-focus="always morning day evening">{action_items_html}</section>
+    {'<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(127,29,29,0.12); border: 1px solid rgba(212,160,160,0.2);"><p class="text-xs" style="color: #d4a0a0">Low energy detected — showing essentials only. Tap sections to expand.</p></div>' if _energy_low else ''}
 
-    {(f'<section id="daily-report" class="dashboard-section" data-focus="always morning day evening report"{daily_report_section_hidden_attr}><p class="section-label">Daily Report</p>{daily_report_html}</section>') if daily_report_html else ''}
+    <!-- 1. TRIAGE: Actions + Daily Report -->
+    <section id="actions" class="dashboard-section" data-focus="always morning day evening" data-density-keep>{action_items_html}</section>
+
+    {(f'<section id="daily-report" class="dashboard-section" data-focus="always morning day evening report"{daily_report_section_hidden_attr}><details class="card"><summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Daily Report</span></summary><div class="mt-3">{daily_report_html}</div></details></section>') if daily_report_html else ''}
 
     <!-- 2. COACHING: Guidance + State Vector -->
-    {(f'<section id="guidance" class="dashboard-section" data-focus="morning day evening"><p class="section-label">Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
+    {(f'<section id="guidance" class="dashboard-section" data-focus="morning day evening"><details class="card"><summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Guidance</span></summary><div class="mt-3">{guidance_section_html}</div></details></section>') if guidance_section_html else ''}
 
     {(f'<section class="dashboard-section" data-focus="morning day evening">{support_section_html}</section>') if support_section_html else ''}
 
     <!-- 3. JOURNAL: chronological (morning → updates → evening) -->
-    <section id="morning" class="dashboard-section" data-focus="morning">
-    <p class="section-label section-label-morning">Morning</p>
-    <div class="card mb-4">
+    <section id="morning" class="dashboard-section" data-focus="morning"{' data-density-keep' if is_morning else ''}>
+    <details class="card mb-4"{' open' if is_morning and not _energy_low else ''}>
+        <summary class="cursor-pointer"><span class="section-label section-label-morning" style="margin:0;padding:0;">Morning</span></summary>
+        <div class="mt-3">
         {morning_mood_pill_html}
         {morning_card_html}
-    </div>
+        </div>
+    </details>
     {morning_insights_html}
     {_scratch_pad_html("morning", "Morning", effective_today)}
     </section>
 
-    <section id="updates" class="dashboard-section" data-focus="day">
-    <p class="section-label section-label-day">Updates</p>
+    <section id="updates" class="dashboard-section" data-focus="day"{' data-density-keep' if not is_morning and not is_evening else ''}>
+    <details class="card mb-4"{' open' if not is_morning and not is_evening and not _energy_low else ''}>
+        <summary class="cursor-pointer"><span class="section-label section-label-day" style="margin:0;padding:0;">Updates</span></summary>
+        <div class="mt-3">
         {updates_card_html}
         {updates_insights_html}
         {completed_updates_html}
-        {_scratch_pad_html("updates", "Updates", effective_today)}
+        </div>
+    </details>
+    {_scratch_pad_html("updates", "Updates", effective_today)}
     </section>
 
-    <section id="evening" class="dashboard-section" data-focus="evening">
-    <p class="section-label section-label-evening">Evening</p>
-    <div class="card mb-4">
+    <section id="evening" class="dashboard-section" data-focus="evening"{' data-density-keep' if is_evening else ''}>
+    <details class="card mb-4"{' open' if is_evening and not _energy_low else ''}>
+        <summary class="cursor-pointer"><span class="section-label section-label-evening" style="margin:0;padding:0;">Evening</span></summary>
+        <div class="mt-3">
         {evening_mood_pill_html}
         {evening_card_html}
-    </div>
+        </div>
+    </details>
     {evening_insights_html}
     {_scratch_pad_html("evening", "Evening", effective_today)}
     </section>
 
     <!-- 4. INTERACTIVE: Mood + Ta-Dah scratch -->
-    <section class="dashboard-section" data-focus="always morning day evening">{mood_tracking_html}</section>
+    <section class="dashboard-section" data-focus="always morning day evening" data-density-keep>{mood_tracking_html}</section>
     {tadah_scratch_html}
 
     <!-- 5. REVIEW: Calendar + Ta-Dah + Weekly -->
     <section id="review" class="dashboard-section" data-focus="day evening">
-    <p class="section-label">Review</p>
-    <div class="review-grid mb-4">
-        <div class="card">
-            <h3 class="text-sm font-semibold mb-3" style="color: #f9a8d4">Today</h3>
-            <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
+    <details class="card mb-4">
+        <summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Review</span> <span class="text-xs" style="color:#94a3b8">Ta-Dah: {len(tadah_flat)}</span></summary>
+        <div class="mt-3">
+        <div class="review-grid mb-4">
+            <div>
+                <h3 class="text-sm font-semibold mb-3" style="color: #d4a8b8">Today</h3>
+                <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
+            </div>
+            <div>
+                <h3 class="text-sm font-semibold mb-3"><a href="{journal_today}" style="color: #a7d8c4">Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
+                <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
+                {yesterday_tadah_html}
+                {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
+            </div>
         </div>
-        <div class="card">
-            <h3 class="text-sm font-semibold mb-3"><a href="{journal_today}" style="color: #6ee7b7">Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
-            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
-            {yesterday_tadah_html}
-            {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
         </div>
-    </div>
+    </details>
     </section>
 
     {(f'<section id="day-narrative" class="dashboard-section" data-focus="day evening">{_pieces_day_html}</section>') if _pieces_day_html else ''}
@@ -12059,13 +12173,15 @@ def generate_html(data):
 
     <!-- Health & Wellbeing (consolidated) -->
     <section id="health" class="dashboard-section" data-focus="day evening">
-    <p class="section-label">Health &amp; Wellbeing</p>
-    <div class="card">
+    <details class="card">
+        <summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Health &amp; Wellbeing</span></summary>
+        <div class="mt-3">
         {workout_html}{fitness_html}
         {('<div style="border-top: 1px solid var(--panel-border); margin: 0.75rem 0; padding-top: 0.75rem;">' + mindfulness_html + '</div>') if mindfulness_html else ''}
         {('<div style="border-top: 1px solid var(--panel-border); margin: 0.75rem 0; padding-top: 0.75rem;"><div class="grid grid-cols-1 md:grid-cols-2 gap-4">' + '<div>' + (health_html if health_html else '') + '</div>' + '<div>' + (habits_html if habits_html else '') + '</div>' + '</div></div>') if (health_html or habits_html) else ''}
         {('<details style="border-top: 1px solid var(--panel-border); margin-top: 0.75rem; padding-top: 0.75rem;"><summary class="text-sm cursor-pointer" style="color: var(--muted)">Self-care details</summary><div style="margin-top: 0.5rem;">' + finch_html + '</div></details>') if finch_html else ''}
-    </div>
+        </div>
+    </details>
     </section>
 
     <!-- Film -->
@@ -12095,15 +12211,15 @@ def generate_html(data):
         <div style="margin-top: 0.75rem;">
         <div class="flex gap-4 mb-4">
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(6,95,70,0.15)">
-                <p class="text-2xl font-bold" style="color: #6ee7b7">{data.get("actualApps", 0)}</p>
+                <p class="text-2xl font-bold" style="color: #a7d8c4">{data.get("actualApps", 0)}</p>
                 <p class="text-xs" style="color: #9ca3af">submitted</p>
             </div>
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(88,28,135,0.1)">
-                <p class="text-sm font-semibold" style="color: #c4b5fd">{data.get("focus_label", "Remote £35k+ / local £40k+")}</p>
+                <p class="text-sm font-semibold" style="color: #c4b8e0">{data.get("focus_label", "Remote £35k+ / local £40k+")}</p>
                 <p class="text-xs" style="color: #9ca3af">focus</p>
             </div>
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(131,24,67,0.1)">
-                <p class="text-lg font-semibold" style="color: #f9a8d4">{data.get("jobAlerts", 0)}</p>
+                <p class="text-lg font-semibold" style="color: #d4a8b8">{data.get("jobAlerts", 0)}</p>
                 <p class="text-xs" style="color: #9ca3af">alerts</p>
             </div>
         </div>
@@ -12126,7 +12242,7 @@ def generate_html(data):
     <div id="cmd-palette" class="focus-hidden" style="position: fixed; inset: 0; z-index: 1000; background: rgba(2,6,23,0.72);">
         <div style="max-width: 680px; margin: 8vh auto 0; padding: 0 1rem;">
             <div class="card" style="padding: 0.8rem; border: 1px solid rgba(147,197,253,0.28); background: rgba(15,23,42,0.96);">
-                <p class="text-xs mb-2" style="color: #93c5fd">⌨️ Command Palette</p>
+                <p class="text-xs mb-2" style="color: #a8c4e0">⌨️ Command Palette</p>
                 <input id="cmd-input" type="text" placeholder="Type command... (focus day, open health, refresh, self-heal)" class="w-full rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.3); color: #e5e7eb;">
                 <div id="cmd-list" class="mt-2 space-y-1"></div>
                 <p class="text-xs mt-2" style="color: #6b7280">Enter to run • Esc to close • Cmd/Ctrl+K to open</p>
@@ -12284,6 +12400,37 @@ def generate_html(data):
                     localStorage.setItem(COMPACT_KEY, on ? "on" : "off");
                 }} catch (_err) {{}}
             }}
+        }}
+
+        const DENSITY_KEY = "dashboard.density.mode.v1";
+        const DENSITY_MODES = ["standard", "focus", "everything"];
+        const densityButton = document.getElementById("density-toggle");
+        const DENSITY_LABELS = {{ standard: "Standard", focus: "🎯 Focus", everything: "📖 Everything" }};
+        function setDensity(mode, persist = true) {{
+            const m = DENSITY_MODES.includes(mode) ? mode : "standard";
+            document.body.dataset.density = m;
+            if (densityButton) {{
+                densityButton.classList.toggle("is-active", m !== "standard");
+                densityButton.textContent = DENSITY_LABELS[m] || m;
+            }}
+            if (m === "everything") {{
+                document.querySelectorAll("details.card").forEach((d) => {{ d.open = true; }});
+            }}
+            updateFocusMeta();
+            if (persist) {{
+                try {{
+                    localStorage.setItem(DENSITY_KEY, m);
+                }} catch (_err) {{}}
+            }}
+        }}
+        function cycleDensity() {{
+            const current = document.body.dataset.density || "standard";
+            const idx = DENSITY_MODES.indexOf(current);
+            const next = DENSITY_MODES[(idx + 1) % DENSITY_MODES.length];
+            setDensity(next);
+        }}
+        if (densityButton) {{
+            densityButton.addEventListener("click", cycleDensity);
         }}
 
         function setStatusLegendOpen(enabled, persist = true) {{
@@ -12525,6 +12672,11 @@ def generate_html(data):
                 setCompact(!compactOn, true);
                 return;
             }}
+            if (event.key === "6") {{
+                event.preventDefault();
+                cycleDensity();
+                return;
+            }}
             const mode = hotkeys[event.key];
             if (!mode) return;
             event.preventDefault();
@@ -12575,8 +12727,17 @@ def generate_html(data):
         if (urlStatusLegendRaw === "0" || urlStatusLegendRaw === "false" || urlStatusLegendRaw === "off" || urlStatusLegendRaw === "closed") {{
             initialStatusLegend = false;
         }}
+        let initialDensity = "standard";
+        try {{
+            const savedDensity = localStorage.getItem(DENSITY_KEY) || "standard";
+            if (DENSITY_MODES.includes(savedDensity)) initialDensity = savedDensity;
+        }} catch (_err) {{}}
+        const urlDensityRaw = (urlParams.get("density") || "").toLowerCase();
+        if (DENSITY_MODES.includes(urlDensityRaw)) initialDensity = urlDensityRaw;
+
         setLowStim(initialLowStim, false);
         setCompact(initialCompact, false);
+        setDensity(initialDensity, false);
         setStatusLegendOpen(initialStatusLegend, false);
 
         let modeApplied = false;
