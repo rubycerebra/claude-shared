@@ -2530,25 +2530,38 @@ def generate_html(data):
             pass
 
         _film_pick_source = "heuristic"
+        _ai_title = ""
+        _ai_year = ""
+        _ai_reason = ""
         if _ai_film_text:
-            # Match *Title* (markdown), quoted title, or plain "Wind-down option: Title (Year)" phrasing.
-            _title_m = _re.search(
-                r"\*([^*]+)\*|'([A-Z][^']{1,60})'|:\s*([A-Z][A-Za-z0-9&:,\- ]{1,80}?)(?:\s*\(\d{4}\)|\s+from\b|\s*—)",
-                _ai_film_text,
-            )
-            _ai_title = next(
-                (grp.strip() for grp in (_title_m.groups() if _title_m else []) if grp and grp.strip()),
-                "",
-            )
-            # Use full AI text as headline (minus emoji and markdown asterisks)
+            # Prefer a clean title/year parse from the AI line, but still surface the
+            # recommendation even if it cannot be matched back to Letterboxd.
             _ai_reason = _ai_film_text.replace("\U0001f3ac", "").strip()
             _ai_reason = _re.sub(r'\*([^*]+)\*', r'\1', _ai_reason).strip()
+            _title_patterns = (
+                r'^\s*["“]?([A-Z][A-Za-z0-9&:,\-\' ]{1,80}?)["”]?\s*\((\d{4})\)\s*[—-]',
+                r'^\s*["“]?([A-Z][A-Za-z0-9&:,\-\' ]{1,80}?)["”]?\s*[—-]',
+                r'\*([^*]+)\*',
+                r"'([A-Z][^']{1,60})'",
+                r':\s*([A-Z][A-Za-z0-9&:,\- ]{1,80}?)(?:\s*\(\d{4}\)|\s+from\b|\s*[—-])',
+            )
+            for _pattern in _title_patterns:
+                _title_m = _re.search(_pattern, _ai_reason)
+                if not _title_m:
+                    continue
+                _groups = [grp.strip() for grp in _title_m.groups() if grp and str(grp).strip()]
+                if _groups:
+                    _ai_title = _groups[0]
+                if len(_groups) > 1 and _re.fullmatch(r"\d{4}", _groups[1]):
+                    _ai_year = _groups[1]
+                if _ai_title:
+                    break
             _wl_all = film_data.get("full_watchlist", film_data.get("recent_watchlist", []))
             _wl_m = next((w for w in _wl_all if str(w.get("title", "")).strip().lower() == _ai_title.lower()), None) if _ai_title else None
-            if _wl_m or _ai_title:
+            if _ai_reason:
                 film_primary = {
                     "title": _wl_m["title"] if _wl_m else _ai_title,
-                    "year": str(_wl_m.get("year", "") if _wl_m else ""),
+                    "year": str(_wl_m.get("year", "") if _wl_m else _ai_year),
                     "url": _wl_m.get("url", "") if _wl_m else "",
                     "reason": "",
                 }
@@ -2607,60 +2620,58 @@ def generate_html(data):
         primary_pick_summary_html = ""
         primary_pick_html = ""
         primary_title = str(film_primary.get("title", "")).strip()
-        if primary_title and _film_pick_source == "ai":
-            primary_year = str(film_primary.get("year", "")).strip()
-            primary_url = str(film_primary.get("url", "")).strip()
-            primary_reason = str(film_primary.get("reason", "")).strip()
-            primary_link = (
-                f'<a href="{_html.escape(primary_url)}" style="color:#f9a8d4;text-decoration:none">{_html.escape(primary_title)}</a>'
-                if primary_url else _html.escape(primary_title)
-            )
-            primary_pick_summary_html = f" · Tonight: {_html.escape(primary_title)}"
-            profile_headline = str(film_profile.get("headline", "")).strip()
-            profile_reason = str(film_profile.get("reason_text", "")).strip()
+        if _film_pick_source == "ai":
             source_badge = (
                 '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
                 'style="background:rgba(6,95,70,0.28);color:#a7f3d0;border:1px solid rgba(110,231,183,0.28)">AI pick</span>'
-                if _film_pick_source == "ai"
-                else '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
-                     'style="background:rgba(120,53,15,0.22);color:#fde68a;border:1px solid rgba(253,230,138,0.22)">Fallback heuristic</span>'
             )
+            profile_headline = str(film_profile.get("headline", "")).strip()
+            profile_reason = str(film_profile.get("reason_text", "")).strip()
             profile_reason_html = (
                 f'<p class="text-xs mt-1" style="color:#9ca3af">{_html.escape(profile_reason)}</p>'
                 if profile_reason else ""
             )
-            alternate_rows_html = ""
-            for alt in film_alternates[:2]:
-                alt_title = str(alt.get("title", "")).strip()
-                if not alt_title:
-                    continue
-                alt_year = str(alt.get("year", "")).strip()
-                alt_url = str(alt.get("url", "")).strip()
-                alt_reason = str(alt.get("reason", "")).strip()
-                alt_link = (
-                    f'<a href="{_html.escape(alt_url)}" style="color:#cbd5e1;text-decoration:none">{_html.escape(alt_title)}</a>'
-                    if alt_url else _html.escape(alt_title)
+            if primary_title:
+                primary_year = str(film_primary.get("year", "")).strip()
+                primary_url = str(film_primary.get("url", "")).strip()
+                primary_reason = str(film_primary.get("reason", "")).strip()
+                primary_link = (
+                    f'<a href="{_html.escape(primary_url)}" style="color:#f9a8d4;text-decoration:none">{_html.escape(primary_title)}</a>'
+                    if primary_url else _html.escape(primary_title)
                 )
-                alt_reason_html = (
-                    f'<span class="text-xs" style="color:#94a3b8">{_html.escape(alt_reason)}</span>'
-                    if alt_reason else ""
-                )
-                alternate_rows_html += (
-                    f'<div class="flex items-start gap-2 mb-1">'
-                    f'<span style="color:#cbd5e1">•</span>'
-                    f'<div class="min-w-0"><p class="text-sm" style="color:#cbd5e1">{alt_link} '
-                    f'<span style="color:#6b7280">({ _html.escape(alt_year) })</span></p>{alt_reason_html}</div>'
-                    f'</div>'
-                )
-            alternates_html = ""
-            if alternate_rows_html:
-                alternates_html = (
-                    '<div class="mt-3">'
-                    '<p class="text-xs font-semibold mb-2" style="color:#cbd5e1">Back-up picks</p>'
-                    f'{alternate_rows_html}'
-                    '</div>'
-                )
-            primary_pick_html = f'''
+                primary_pick_summary_html = f" · Tonight: {_html.escape(primary_title)}"
+                alternate_rows_html = ""
+                for alt in film_alternates[:2]:
+                    alt_title = str(alt.get("title", "")).strip()
+                    if not alt_title:
+                        continue
+                    alt_year = str(alt.get("year", "")).strip()
+                    alt_url = str(alt.get("url", "")).strip()
+                    alt_reason = str(alt.get("reason", "")).strip()
+                    alt_link = (
+                        f'<a href="{_html.escape(alt_url)}" style="color:#cbd5e1;text-decoration:none">{_html.escape(alt_title)}</a>'
+                        if alt_url else _html.escape(alt_title)
+                    )
+                    alt_reason_html = (
+                        f'<span class="text-xs" style="color:#94a3b8">{_html.escape(alt_reason)}</span>'
+                        if alt_reason else ""
+                    )
+                    alternate_rows_html += (
+                        f'<div class="flex items-start gap-2 mb-1">'
+                        f'<span style="color:#cbd5e1">•</span>'
+                        f'<div class="min-w-0"><p class="text-sm" style="color:#cbd5e1">{alt_link} '
+                        f'<span style="color:#6b7280">({_html.escape(alt_year)})</span></p>{alt_reason_html}</div>'
+                        f'</div>'
+                    )
+                alternates_html = ""
+                if alternate_rows_html:
+                    alternates_html = (
+                        '<div class="mt-3">'
+                        '<p class="text-xs font-semibold mb-2" style="color:#cbd5e1">Back-up picks</p>'
+                        f'{alternate_rows_html}'
+                        '</div>'
+                    )
+                primary_pick_html = f'''
             <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
               <p class="text-xs font-semibold mb-1" style="color:#f9a8d4">🍿 Tonight&apos;s watch {source_badge}</p>
               <p class="text-sm font-semibold" style="color:#f3e8ff">{primary_link} <span style="color:#94a3b8">({_html.escape(primary_year)})</span></p>
@@ -2671,9 +2682,19 @@ def generate_html(data):
               {discovery_html}
             </div>
             '''
+            elif _ai_reason:
+                primary_pick_summary_html = " · Tonight: AI pick"
+                primary_pick_html = f'''
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
+              <p class="text-xs font-semibold mb-1" style="color:#f9a8d4">🍿 Tonight&apos;s watch {source_badge}</p>
+              <p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(_ai_reason)}</p>
+              {profile_reason_html}
+              {discovery_html}
+            </div>
+            '''
 
         # If no tonight pick but discovery exists, surface it standalone
-        if not primary_title and discovery_html:
+        if not primary_title and discovery_html and not primary_pick_html:
             primary_pick_html = f'''
             <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
               {discovery_html}
@@ -5951,15 +5972,75 @@ def generate_html(data):
         except Exception:
             pass
 
+    # --- Active Alerts Banner (System 2.0) ---
+    alerts_html = ""
+    _alerts_data = data.get("active_alerts", {}) if isinstance(data.get("active_alerts", {}), dict) else {}
+    _alerts_list = _alerts_data.get("alerts", []) if isinstance(_alerts_data.get("alerts", []), list) else []
+    _active_alerts = [a for a in _alerts_list if isinstance(a, dict) and str(a.get("message", "")).strip()]
+    if _active_alerts:
+        _has_high = any(str(a.get("severity", "")).lower() == "high" for a in _active_alerts)
+        _alert_open = " open" if _has_high else ""
+        _alert_items = ""
+        _severity_colors = {"high": "#fca5a5", "medium": "#fde68a", "low": "#bae6fd"}
+        for _al in _active_alerts[:4]:
+            _sev = str(_al.get("severity", "low")).strip().lower()
+            _col = _severity_colors.get(_sev, "#cbd5e1")
+            _alert_items += (
+                f'<li class="text-sm mb-2" style="color:{_col};line-height:1.45;">'
+                f'<span class="text-xs rounded px-1.5 py-0.5 mr-1" '
+                f'style="border:1px solid {_col}33;background:{_col}18;color:{_col};">{html.escape(_sev)}</span>'
+                f'{html.escape(str(_al.get("message", "")))}</li>'
+            )
+        _alert_count = len(_active_alerts)
+        _alert_label = f"{_alert_count} alert{'s' if _alert_count != 1 else ''} active"
+        alerts_html = f'''
+        <div class="card rounded-xl p-4 mb-3" style="background:rgba(127,29,29,0.14);border:1px solid rgba(252,165,165,0.2);">
+            <details{_alert_open}>
+                <summary class="text-xs cursor-pointer font-semibold" style="color:#fca5a5;user-select:none;">&#9888; {html.escape(_alert_label)}</summary>
+                <ul class="mt-2" style="margin:0;padding-left:1rem;">{_alert_items}</ul>
+            </details>
+        </div>'''
+
+    # --- Pattern Lifecycle Summary (System 2.0) ---
+    _plc_data = data.get("pattern_lifecycle", {}) if isinstance(data.get("pattern_lifecycle", {}), dict) else {}
+    _plc_patterns = _plc_data.get("patterns", []) if isinstance(_plc_data.get("patterns", []), list) else []
+    plc_html = ""
+    if _plc_patterns:
+        _plc_pills = ""
+        for _pp in _plc_patterns[:6]:
+            if not isinstance(_pp, dict):
+                continue
+            _trend = str(_pp.get("trend", "")).strip()
+            _trend_colors = {"escalating": "#fca5a5", "stable": "#fde68a", "declining": "#a7f3d0", "insufficient_data": "#94a3b8"}
+            _tc = _trend_colors.get(_trend, "#94a3b8")
+            _plc_pills += (
+                f'<span class="optional-pill text-xs rounded px-2 py-1" '
+                f'style="border:1px solid {_tc}44;background:{_tc}14;color:{_tc};">'
+                f'{html.escape(str(_pp.get("pattern", ""))[:30])} {html.escape(_trend)}</span>'
+            )
+        _plc_insights = ""
+        for _pp in _plc_patterns[:4]:
+            if not isinstance(_pp, dict):
+                continue
+            _ins = str(_pp.get("insight", "")).strip()
+            if _ins:
+                _plc_insights += f'<li class="text-xs mb-1" style="color:#cbd5e1;line-height:1.4;">{html.escape(_ins)}</li>'
+        plc_html = f'''
+            <details class="mt-2">
+                <summary class="text-xs cursor-pointer" style="color:#93c5fd;user-select:none;">Pattern lifecycle ({len(_plc_patterns)} tracked)</summary>
+                <div class="flex flex-wrap gap-2 mt-2 mb-2">{_plc_pills}</div>
+                <ul style="margin:0;padding-left:1rem;">{_plc_insights}</ul>
+            </details>'''
+
     # Lean mode (default): reduce repeated suggestion surfaces to one ranked intervention card.
     feature_flags_payload = data.get("feature_flags", {}) if isinstance(data.get("feature_flags", {}), dict) else {}
     lean_mode_enabled = bool(feature_flags_payload.get("dashboard_lean_mode", True))
     if lean_mode_enabled:
-        guidance_section_html = f"{state_vector_html}{intervention_html or todays_guidance_html or insights_fallback_html}"
+        guidance_section_html = f"{alerts_html}{state_vector_html}{plc_html}{intervention_html or todays_guidance_html or insights_fallback_html}"
         support_section_html = ""
     else:
-        guidance_section_html = f"{todays_guidance_html}{insights_fallback_html}"
-        support_section_html = f"{state_vector_html}{support_html}{intervention_html}"
+        guidance_section_html = f"{alerts_html}{todays_guidance_html}{insights_fallback_html}"
+        support_section_html = f"{state_vector_html}{plc_html}{support_html}{intervention_html}"
 
     # === Ta-Dah Categorisation (theme breakdown) ===
     # Recompute themes from actual ta-dah items using dashboard's own categoriser
@@ -6043,8 +6124,8 @@ def generate_html(data):
     ]
 
     # Always show if we have ANY data
+    felt_parts = ""
     if emotional_summary or tone or felt_themes or eve_felt_summary:
-        felt_parts = ""
 
         # Evening emotional summary (rich prose — primary)
         if eve_felt_summary:
@@ -6878,7 +6959,79 @@ def generate_html(data):
             <p class="text-sm" style="color:{_rs["text"]};line-height:1.45;">{html.escape(_schedule_insight)}</p>
         </div>'''
 
+    # === Notifications Bell — surfaces forward signals + NOW.md actions ===
+    # Each item: (icon, text, context, item_type, item_id)
+    _bell_items = []
+    try:
+        _fs_path = Path.home() / ".claude" / "cache" / "forward-signals.json"
+        if _fs_path.exists():
+            _fs = json.loads(_fs_path.read_text(encoding="utf-8"))
+            _fs_weeks = _fs.get("by_week", {})
+            if _fs_weeks:
+                _latest_wk = sorted(_fs_weeks.keys(), reverse=True)[0]
+                for sig in _fs_weeks[_latest_wk]:
+                    if isinstance(sig, dict) and not sig.get("resolved"):
+                        _pri = "🔴" if sig.get("priority") == "high" else "🟡"
+                        _bell_items.append((_pri, str(sig.get("question", "?")), str(sig.get("context", "")), "forward_signal", str(sig.get("id", ""))))
+    except Exception:
+        pass
+    try:
+        _now_path = Path.home() / ".claude" / "NOW.md"
+        if _now_path.exists():
+            _now_text = _now_path.read_text(encoding="utf-8")
+            _in_tbl = False
+            for _line in _now_text.splitlines():
+                if _line.strip().startswith("| Action"):
+                    _in_tbl = True
+                    continue
+                if _in_tbl and _line.strip().startswith("|---"):
+                    continue
+                if _in_tbl and _line.strip().startswith("|"):
+                    _cols = [c.strip() for c in _line.strip().strip("|").split("|")]
+                    if len(_cols) >= 3 and "done" not in _cols[2].lower():
+                        _bell_items.append(("📋", _cols[0], f"Deadline: {_cols[1]}", "now_action", _cols[0]))
+                elif _in_tbl:
+                    break
+    except Exception:
+        pass
+
+    notifications_bell_html = ""
+    if _bell_items:
+        _bell_rows = []
+        for _idx, (_icon, _text, _ctx, _itype, _iid) in enumerate(_bell_items):
+            _ctx_html = f'<p style="font-size:0.75rem;margin:0.2rem 0 0;color:rgba(174,174,178,0.75);line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
+            _esc_type = html.escape(_itype)
+            _esc_id = html.escape(_iid)
+            _bell_rows.append(
+                f'<div id="bell-item-{_idx}" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;">'
+                f'<div style="display:flex;align-items:flex-start;gap:0.5rem;">'
+                f'<div style="flex:1;min-width:0;">'
+                f'<p style="font-size:0.875rem;color:#e5e7eb;margin:0">{_icon} {html.escape(_text)}</p>{_ctx_html}'
+                f'</div>'
+                f'<div style="display:flex;gap:0.35rem;flex-shrink:0;padding-top:0.1rem;">'
+                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\')" style="background:rgba(6,95,70,0.25);color:#6ee7b7;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✓ Done</button>'
+                f'<button onclick="qaBellToggleReply({_idx})" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(147,197,253,0.15);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">💬</button>'
+                f'</div></div>'
+                f'<div id="bell-reply-{_idx}" style="display:none;margin-top:0.4rem;">'
+                f'<div style="display:flex;gap:0.35rem;">'
+                f'<input id="bell-reply-text-{_idx}" type="text" placeholder="Quick response..." style="flex:1;background:rgba(15,23,42,0.55);border:1px solid var(--panel-border);border-radius:0.4rem;padding:0.3rem 0.5rem;font-size:0.75rem;color:#e5e7eb;font-family:inherit;">'
+                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\',true)" style="background:rgba(6,95,70,0.25);color:#6ee7b7;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">Send</button>'
+                f'</div></div>'
+                f'</div>'
+            )
+        _bell_count = len(_bell_items)
+        notifications_bell_html = f'''
+    <div class="card" style="padding:1rem 1.1rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.65rem;">
+            <span style="font-size:1.15rem">🔔</span>
+            <span style="font-size:0.9rem;font-weight:600;color:#e5e7eb">Check In</span>
+            <span style="background:rgba(59,130,246,0.25);color:#93c5fd;font-size:0.7rem;font-weight:600;padding:0.1rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
+        </div>
+        {"".join(_bell_rows)}
+    </div>'''
+
     action_items_html = rf'''
+    {notifications_bell_html}
     <div class="card rounded-xl p-5 mb-4" style="background: rgba(131,24,67,0.15); border: 1px solid rgba(249,168,212,0.2);">
         <h3 class="text-lg font-semibold mb-2" style="color: #fbcfe8">✅ Action Items</h3>
         {qa_quick_bar_html}
@@ -9240,6 +9393,45 @@ def generate_html(data):
         }}
     }}
 
+    function qaBellToggleReply(idx) {{
+        const el = document.getElementById("bell-reply-" + idx);
+        if (!el) return;
+        el.style.display = el.style.display === "none" ? "block" : "none";
+        if (el.style.display !== "none") {{
+            const input = document.getElementById("bell-reply-text-" + idx);
+            if (input) input.focus();
+        }}
+    }}
+
+    async function qaBellResolve(idx, itemType, itemId, withReply) {{
+        const row = document.getElementById("bell-item-" + idx);
+        let response = "";
+        if (withReply) {{
+            const input = document.getElementById("bell-reply-text-" + idx);
+            response = (input && input.value ? input.value : "").trim();
+        }}
+        if (row) row.querySelectorAll("button").forEach(b => {{ b.disabled = true; }});
+        const result = await qaPostWithRetry("/v1/ui/bell/resolve", {{
+            item_type: itemType,
+            item_id: itemId,
+            response: response || null,
+        }}, {{ retries: 1, label: "bell resolve" }});
+        if (result && result.status === "ok") {{
+            if (row) {{
+                row.style.opacity = "0.4";
+                row.style.pointerEvents = "none";
+                const p = row.querySelector("p");
+                if (p) p.innerHTML = "✅ " + p.textContent;
+            }}
+        }} else {{
+            if (row) {{
+                row.querySelectorAll("button").forEach(b => {{ b.disabled = false; }});
+                const p = row.querySelector("p");
+                if (p) p.insertAdjacentHTML("afterend", '<p style="font-size:0.7rem;color:#fbbf24;margin:0.2rem 0 0">⚠ Could not save — try again</p>');
+            }}
+        }}
+    }}
+
     async function qaCompleteLoopFromButton(button) {{
         const text = ((button && button.dataset && button.dataset.text) || "").trim();
         if (!text) return;
@@ -10921,6 +11113,11 @@ def generate_html(data):
         .dashboard-section {{ margin-bottom: 1.1rem; }}
         .dashboard-section:empty {{ display: none; }}
         .dashboard-section[id] {{ scroll-margin-top: 4.6rem; }}
+        .review-grid {{ display: grid; grid-template-columns: 1fr; gap: 1rem; }}
+        .review-grid > .card {{ min-width: 0; }}
+        @media (min-width: 768px) {{
+            .review-grid {{ grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); }}
+        }}
         .settings-stack {{
             margin: 0 0 0.82rem 0;
             display: grid;
@@ -11463,7 +11660,7 @@ def generate_html(data):
     <!-- 5. REVIEW: Calendar + Ta-Dah + Weekly -->
     <section id="review" class="dashboard-section" data-focus="day evening">
     <p class="section-label">Review</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <div class="review-grid mb-4">
         <div class="card">
             <h3 class="text-sm font-semibold mb-3" style="color: #f9a8d4">Today</h3>
             <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
@@ -11549,7 +11746,10 @@ def generate_html(data):
     <section id="system" class="dashboard-section" data-focus="all">
     <details class="card">
         <summary class="cursor-pointer text-sm" style="color: var(--muted)">System &amp; maintenance</summary>
-        <div style="margin-top: 0.75rem;">{backlog_html}</div>
+        <div style="margin-top: 0.75rem;">
+            {system_status_html}
+            {('<div style="margin-top: 0.75rem;">' + backlog_html + '</div>') if backlog_html else ''}
+        </div>
     </details>
     </section>
 
