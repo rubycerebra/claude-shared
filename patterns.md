@@ -1,6 +1,8 @@
 # Patterns
 
-Cross-project patterns observed over time. Updated automatically by coaching sessions.
+Cross-project patterns observed over time. Updated by weekly analysis pipeline + coaching sessions.
+
+<!-- _last_updated: 2026-W10 | _auto_update: update-living-docs.py -->
 
 ---
 

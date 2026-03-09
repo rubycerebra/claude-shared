@@ -1,6 +1,8 @@
 # Mental Health Insights
 
-Key patterns and insights extracted from Diarium entries and Apple Notes therapy sessions.
+Key patterns and insights extracted from Diarium entries, therapy sessions, and weekly analyses. Updated by weekly analysis pipeline.
+
+<!-- _last_updated: 2026-W10 | _auto_update: update-living-docs.py -->
 
 ---
 
@@ -275,18 +277,16 @@ The Excel tracker contains:
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-07 (hash: 40fead3d9e20f7af)*
+*Auto-synced from Pieces persona summary on 2026-03-09 (hash: 7bdce371907e5b27)*
 
 ### Job search anxiety patterns
-- What You Work On
-- James's work primarily revolves around designing, implementing, and maintaining his personal AI-driven systems. This includes:
-- How You Work
-- James employs a flexible, self-directed work style, balancing deep technical foc
+- What They Work On
+- **Project Commissioning and Freelance Opportunities:** This remains a primary and central area of interaction, now more clearly defined as Chris acting as a client or commissioner. James Cherry sent him a detailed email outlining freelance rates for a "Project Inquiry" directly t
 
 ### Coping mechanisms Pieces has observed
-- Who You Are
-- James is a meticulous and proactive individual, constantly seeking to refine his personal and digital environments. His "Personal Infrastructure & Life SRE" mindset means he applies engineering principles to optimize daily routines, personal data flows, and cognitive processes, e
+- Chris Milton's professional identity is now unequivocally linked to **AtomicFilm.Services**. He explicitly provided `Ops@AtomicFilm.Services` as his current professional email to James Cherry (observed in `WhatsApp` event on 2026-03-06 12:35 PM), and James subsequently directed a
+- What They Work On
 
 ### Work habits Pieces has observed
-- James Cherry continues to evolve as a London-based self-employed professional, solidifying his role as an **integrated Personal Infrastructure & Life Site Reliability Engineer (SRE)** with a pronounced focus on **AI Systems and Infrastructure Architecture for self-management**. H
-- James is a meticulous and proactive individual, constantly seeking to refine his personal and digital environments. His "Personal Infrastructure & Life SRE" mindset means he applies engineering principles to optimize daily routines, personal data flows, and cognitive processes, e
+- Chris Milton's engagement, as observed through James Cherry's events, continues to consistently revolve around:
+- **Project Commissioning and Freelance Opportunities:** This remains a primary and central area of interaction, now more clearly defined as Chris acting as a client or commissioner. James Cherry sent him a detailed email outlining freelance rates for a "Project Inquiry" directly t
