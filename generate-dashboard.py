@@ -17,6 +17,7 @@ import html
 import json
 import os
 import re
+import shutil
 import socket
 import sys
 import webbrowser
@@ -109,7 +110,12 @@ SHARED_DIR = Path.home() / "Documents" / "Claude Projects" / "claude-shared"
 WINS_FILE = SHARED_DIR / "wins.md"
 JOURNAL_DIR = SHARED_DIR / "journal"  # Used only for hyperlinks, not for reading raw text
 OUTPUT_FILE = SHARED_DIR / "dashboard.html"
+SYNC_DASHBOARD_TARGETS = [
+    Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "dashboard.html",
+    Path.home() / "My Drive (james.cherry01@gmail.com)" / "dashboard.html",
+]
 COMPLETED_TODOS_FILE = Path.home() / ".claude" / "cache" / "completed-todos.json"
+DASHBOARD_BELL_STATE_FILE = Path.home() / ".claude" / "cache" / "dashboard-bell-state.json"
 
 DASHBOARD_DUMP_MARKER_PATTERNS = (
     r"^\s*(?:📊\s*)?Dashboard\s*[-—:|]",
@@ -7010,6 +7016,20 @@ def generate_html(data):
     # === Notifications Bell — surfaces forward signals + NOW.md actions ===
     # Each item: (icon, text, context, item_type, item_id)
     _bell_items = []
+    _bell_state = {}
+    try:
+        if DASHBOARD_BELL_STATE_FILE.exists():
+            _raw_bell_state = json.loads(DASHBOARD_BELL_STATE_FILE.read_text(encoding="utf-8"))
+            if isinstance(_raw_bell_state, dict):
+                _bell_state = _raw_bell_state
+    except Exception:
+        _bell_state = {}
+
+    def _bell_akiflow_added(item_type, item_id):
+        key = f"{str(item_type or '').strip()}::{str(item_id or '').strip()}"
+        row = _bell_state.get(key, {}) if isinstance(_bell_state.get(key), dict) else {}
+        return bool(row.get("akiflow_added", False))
+
     try:
         _fs_path = Path.home() / ".claude" / "cache" / "forward-signals.json"
         if _fs_path.exists():
@@ -7020,7 +7040,8 @@ def generate_html(data):
                 for sig in _fs_weeks[_latest_wk]:
                     if isinstance(sig, dict) and not sig.get("resolved"):
                         _pri = "🔴" if sig.get("priority") == "high" else "🟡"
-                        _bell_items.append((_pri, str(sig.get("question", "?")), str(sig.get("context", "")), "forward_signal", str(sig.get("id", ""))))
+                        _sig_id = str(sig.get("id", ""))
+                        _bell_items.append((_pri, str(sig.get("question", "?")), str(sig.get("context", "")), "forward_signal", _sig_id, _bell_akiflow_added("forward_signal", _sig_id)))
     except Exception:
         pass
     try:
@@ -7037,7 +7058,8 @@ def generate_html(data):
                 if _in_tbl and _line.strip().startswith("|"):
                     _cols = [c.strip() for c in _line.strip().strip("|").split("|")]
                     if len(_cols) >= 3 and "done" not in _cols[2].lower():
-                        _bell_items.append(("📋", _cols[0], f"Deadline: {_cols[1]}", "now_action", _cols[0]))
+                        _action_id = _cols[0]
+                        _bell_items.append(("📋", _action_id, f"Deadline: {_cols[1]}", "now_action", _action_id, _bell_akiflow_added("now_action", _action_id)))
                 elif _in_tbl:
                     break
     except Exception:
@@ -7046,20 +7068,32 @@ def generate_html(data):
     notifications_bell_html = ""
     if _bell_items:
         _bell_rows = []
-        for _idx, (_icon, _text, _ctx, _itype, _iid) in enumerate(_bell_items):
+        _bell_akiflow_count = 0
+        for _idx, (_icon, _text, _ctx, _itype, _iid, _akiflow_added) in enumerate(_bell_items):
             _ctx_html = f'<p style="font-size:0.75rem;margin:0.2rem 0 0;color:rgba(174,174,178,0.75);line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
             _esc_type = html.escape(_itype)
             _esc_id = html.escape(_iid)
+            _esc_task_text_attr = html.escape(str(_text), quote=True)
+            _akiflow_active = bool(_akiflow_added)
+            if _akiflow_active:
+                _bell_akiflow_count += 1
+            _akiflow_btn_text = "📥 In Akiflow" if _akiflow_active else "📥 Akiflow"
+            _akiflow_bg = "rgba(120,53,15,0.24)" if _akiflow_active else "rgba(15,23,42,0.45)"
+            _akiflow_color = "#fde68a" if _akiflow_active else "#cbd5e1"
+            _akiflow_border = "rgba(251,191,36,0.25)" if _akiflow_active else "rgba(148,163,184,0.18)"
+            _akiflow_note_style = "" if _akiflow_active else "display:none;"
             _bell_rows.append(
                 f'<div id="bell-item-{_idx}" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;">'
                 f'<div style="display:flex;align-items:flex-start;gap:0.5rem;">'
                 f'<div style="flex:1;min-width:0;">'
                 f'<p style="font-size:0.875rem;color:#e5e7eb;margin:0">{_icon} {html.escape(_text)}</p>{_ctx_html}'
                 f'</div>'
-                f'<div style="display:flex;gap:0.35rem;flex-shrink:0;padding-top:0.1rem;">'
+                f'<div style="display:flex;gap:0.35rem;flex-shrink:0;padding-top:0.1rem;flex-wrap:wrap;justify-content:flex-end;">'
+                f'<button id="bell-akiflow-btn-{_idx}" onclick="qaBellAkiflowToggle({_idx},\'{_esc_type}\',\'{_esc_id}\')" data-task-text="{_esc_task_text_attr}" data-akiflow-active="{str(_akiflow_active).lower()}" style="background:{_akiflow_bg};color:{_akiflow_color};border:1px solid {_akiflow_border};border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">{_akiflow_btn_text}</button>'
                 f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\')" style="background:rgba(6,95,70,0.25);color:#6ee7b7;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✓ Done</button>'
                 f'<button onclick="qaBellToggleReply({_idx})" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(147,197,253,0.15);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">💬</button>'
                 f'</div></div>'
+                f'<p id="bell-akiflow-note-{_idx}" style="font-size:0.72rem;margin:0.35rem 0 0;color:#fbbf24;{_akiflow_note_style}">📥 Added to Akiflow — still stays here until done.</p>'
                 f'<div id="bell-reply-{_idx}" style="display:none;margin-top:0.4rem;">'
                 f'<div style="display:flex;gap:0.35rem;">'
                 f'<input id="bell-reply-text-{_idx}" type="text" placeholder="Quick response..." style="flex:1;background:rgba(15,23,42,0.55);border:1px solid var(--panel-border);border-radius:0.4rem;padding:0.3rem 0.5rem;font-size:0.75rem;color:#e5e7eb;font-family:inherit;">'
@@ -7068,15 +7102,17 @@ def generate_html(data):
                 f'</div>'
             )
         _bell_count = len(_bell_items)
+        _bell_summary_suffix = f' • {_bell_akiflow_count} in Akiflow' if _bell_akiflow_count else ''
         notifications_bell_html = f'''
-    <div class="card" style="padding:1rem 1.1rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.65rem;">
+    <details class="card" style="padding:0.72rem 0.9rem;" open>
+        <summary style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;">
             <span style="font-size:1.15rem">🔔</span>
             <span style="font-size:0.9rem;font-weight:600;color:#e5e7eb">Check In</span>
             <span style="background:rgba(59,130,246,0.25);color:#93c5fd;font-size:0.7rem;font-weight:600;padding:0.1rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
-        </div>
-        {"".join(_bell_rows)}
-    </div>'''
+            <span style="font-size:0.72rem;color:{'#fbbf24' if _bell_akiflow_count else '#94a3b8'};">{html.escape(_bell_summary_suffix.lstrip(' •')) if _bell_summary_suffix else ''}</span>
+        </summary>
+        <div style="margin-top:0.55rem;">{"".join(_bell_rows)}</div>
+    </details>'''
 
     action_items_html = rf'''
     {notifications_bell_html}
@@ -7497,6 +7533,7 @@ def generate_html(data):
     const QA_MINDFULNESS_TARGET = {qa_mindfulness_target};
     const QA_MINDFULNESS_INITIAL = {json.dumps(qa_mindfulness_state)};
     const QA_MOOD_INITIAL = {json.dumps(qa_mood_state)};
+    const QA_CHECKIN_FOLLOWUP_INITIAL = {json.dumps(qa_dashboard_checkins_state)};
     const QA_WORKOUT_CHECKLIST_INITIAL = {json.dumps(qa_workout_checklist_state)};
     const QA_WORKOUT_TYPE_INITIAL = "{html.escape(qa_quick_workout_type)}";
     const QA_WORKOUT_DONE_INITIAL = {str(bool(qa_quick_workout_done)).lower()};
@@ -7507,6 +7544,7 @@ def generate_html(data):
     const QA_END_DAY_INITIAL = {json.dumps(qa_end_day_state)};
     const QA_SYSTEM_STATUS_INITIAL = {json.dumps(runtime)};
     const QA_SYNC_PAUSE_KEY = "dashboard.live.sync.pause.until.v1";
+    const QA_CHECKINS_DISCLOSURE_KEY = "dashboard.checkins.disclosure.v1";
     let qaMindfulnessSaving = false;
     let qaMindfulnessDesiredDone = null;
     let qaMoodSaving = false;
@@ -7532,6 +7570,8 @@ def generate_html(data):
     let qaLastSystemStatus = (QA_SYSTEM_STATUS_INITIAL && typeof QA_SYSTEM_STATUS_INITIAL === "object") ? QA_SYSTEM_STATUS_INITIAL : null;
     let qaTodaySyncInFlight = false;
     let qaServerEffectiveDate = String(QA_MINDFULNESS_DATE || "").trim();
+    let qaCheckinFollowupState = (QA_CHECKIN_FOLLOWUP_INITIAL && typeof QA_CHECKIN_FOLLOWUP_INITIAL === "object") ? QA_CHECKIN_FOLLOWUP_INITIAL : {{}};
+    let qaCheckinAkiflowSaving = {{}};
     let qaFreshnessState = {{
         diarium: "info",
         diarium_pickup: "info",
@@ -8130,6 +8170,9 @@ def generate_html(data):
         if (!qaMoodSaving && snapshot.mood_checkin && typeof snapshot.mood_checkin === "object") {{
             qaApplyMoodState(snapshot.mood_checkin);
             qaSetMoodSaveState("synced");
+        }}
+        if (snapshot.dashboard_checkins && typeof snapshot.dashboard_checkins === "object") {{
+            qaApplyCheckinFollowupState(snapshot.dashboard_checkins);
         }}
         if (Array.isArray(snapshot.calendar)) {{
             qaApplyCalendarState(snapshot.calendar);
@@ -9451,6 +9494,65 @@ def generate_html(data):
         }}
     }}
 
+    async function qaBellAkiflowToggle(idx, itemType, itemId) {{
+        const row = document.getElementById("bell-item-" + idx);
+        const button = document.getElementById("bell-akiflow-btn-" + idx);
+        const note = document.getElementById("bell-akiflow-note-" + idx);
+        if (!button) return;
+        const taskText = String(button.dataset.taskText || "").trim();
+        const nextValue = String(button.dataset.akiflowActive || "false") !== "true";
+        button.disabled = true;
+        try {{
+            const result = await qaPostWithRetry("/v1/ui/bell/akiflow", {{
+                item_type: itemType,
+                item_id: itemId,
+                akiflow_added: nextValue,
+            }}, {{ retries: 1, label: "bell akiflow" }});
+            if (result && result.status === "ok") {{
+                button.dataset.akiflowActive = nextValue ? "true" : "false";
+                button.textContent = nextValue ? "📥 In Akiflow" : "📥 Akiflow";
+                button.style.background = nextValue ? "rgba(120,53,15,0.24)" : "rgba(15,23,42,0.45)";
+                button.style.color = nextValue ? "#fde68a" : "#cbd5e1";
+                button.style.borderColor = nextValue ? "rgba(251,191,36,0.25)" : "rgba(148,163,184,0.18)";
+                if (note) {{
+                    note.style.display = nextValue ? "block" : "none";
+                }}
+                let clipboardCopied = false;
+                if (nextValue && taskText) {{
+                    try {{
+                        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {{
+                            await navigator.clipboard.writeText(taskText);
+                            clipboardCopied = true;
+                        }} else {{
+                            const temp = document.createElement("textarea");
+                            temp.value = taskText;
+                            temp.setAttribute("readonly", "");
+                            temp.style.position = "absolute";
+                            temp.style.left = "-9999px";
+                            document.body.appendChild(temp);
+                            temp.select();
+                            clipboardCopied = document.execCommand("copy");
+                            document.body.removeChild(temp);
+                        }}
+                    }} catch (_copyErr) {{}}
+                }}
+                const status = document.getElementById("qa-status");
+                if (status) {{
+                    status.textContent = nextValue
+                        ? (clipboardCopied
+                            ? "📋 Copied to clipboard and parked in Akiflow — I’ll keep it visible here."
+                            : "📥 Check-in parked in Akiflow — clipboard copy failed, but I’ll keep it visible here.")
+                        : "↩️ Removed Akiflow marker from check-in.";
+                    status.style.color = nextValue ? "#fbbf24" : "#94a3b8";
+                }}
+            }} else if (row) {{
+                row.insertAdjacentHTML("beforeend", '<p style="font-size:0.7rem;color:#fbbf24;margin:0.35rem 0 0">⚠ Could not update Akiflow state — try again</p>');
+            }}
+        }} finally {{
+            button.disabled = false;
+        }}
+    }}
+
     async function qaBellResolve(idx, itemType, itemId, withReply) {{
         const row = document.getElementById("bell-item-" + idx);
         let response = "";
@@ -10001,6 +10103,154 @@ def generate_html(data):
         }};
     }}
 
+    function qaNormalizeCheckinFollowupState(state) {{
+        const safe = (state && typeof state === "object") ? state : {{}};
+        const normalised = {{}};
+        ["mindfulness", "workout", "mood"].forEach((key) => {{
+            const item = (safe[key] && typeof safe[key] === "object") ? safe[key] : {{}};
+            normalised[key] = {{
+                akiflow_added: Boolean(item.akiflow_added),
+                source: String(item.source || "").trim(),
+                updated_at: String(item.updated_at || "").trim(),
+            }};
+        }});
+        return normalised;
+    }}
+
+    function qaCheckinLabel(item) {{
+        if (item === "mindfulness") return "Mindfulness";
+        if (item === "workout") {{
+            const button = document.getElementById("qa-workout-check");
+            const workoutLabel = String((button && button.dataset && button.dataset.workout) || "").trim();
+            return workoutLabel || "Workout";
+        }}
+        if (item === "mood") return "Mood check-in";
+        return "Check-in";
+    }}
+
+    function qaCheckinVisible(item) {{
+        if (item === "mindfulness") return Boolean(document.getElementById("qa-quick-mindfulness-check"));
+        if (item === "workout") return Boolean(document.getElementById("qa-quick-workout-check"));
+        if (item === "mood") return Boolean(document.getElementById("qa-quick-mood-check"));
+        return false;
+    }}
+
+    function qaCheckinDone(item) {{
+        const idMap = {{
+            mindfulness: "qa-quick-mindfulness-check",
+            workout: "qa-quick-workout-check",
+            mood: "qa-quick-mood-check",
+        }};
+        const el = document.getElementById(idMap[item] || "");
+        return Boolean(el && el.checked);
+    }}
+
+    function qaSetCheckinAkiflowButtonState(item) {{
+        const button = document.getElementById(`qa-quick-${{item}}-akiflow`);
+        if (!button) return;
+        const state = qaNormalizeCheckinFollowupState(qaCheckinFollowupState);
+        const added = Boolean(state[item] && state[item].akiflow_added);
+        const done = qaCheckinDone(item);
+        const saving = Boolean(qaCheckinAkiflowSaving[item]);
+        button.disabled = done || saving;
+        button.dataset.active = added ? "true" : "false";
+        button.style.opacity = saving ? "0.72" : "1";
+        if (done) {{
+            button.textContent = "✅ Done";
+            button.style.background = "rgba(6,95,70,0.2)";
+            button.style.color = "#a7f3d0";
+            button.style.borderColor = "rgba(110,231,183,0.26)";
+            return;
+        }}
+        if (added) {{
+            button.textContent = "📥 In Akiflow";
+            button.style.background = "rgba(120,53,15,0.35)";
+            button.style.color = "#fde68a";
+            button.style.borderColor = "rgba(251,191,36,0.35)";
+            return;
+        }}
+        button.textContent = "📥 Akiflow";
+        button.style.background = "rgba(15,23,42,0.45)";
+        button.style.color = "#cbd5e1";
+        button.style.borderColor = "rgba(148,163,184,0.24)";
+    }}
+
+    function qaPendingAkiflowCheckins() {{
+        const state = qaNormalizeCheckinFollowupState(qaCheckinFollowupState);
+        return ["mindfulness", "workout", "mood"].filter((item) => (
+            qaCheckinVisible(item)
+            && !qaCheckinDone(item)
+            && Boolean(state[item] && state[item].akiflow_added)
+        ));
+    }}
+
+    function qaApplyCheckinFollowupState(state) {{
+        qaCheckinFollowupState = qaNormalizeCheckinFollowupState(state);
+        ["mindfulness", "workout", "mood"].forEach((item) => qaSetCheckinAkiflowButtonState(item));
+        qaUpdateQuickDoneMeta();
+    }}
+
+    function qaInitCheckinsDisclosure() {{
+        const details = document.getElementById("qa-checkins-section");
+        if (!details) return;
+        try {{
+            const saved = localStorage.getItem(QA_CHECKINS_DISCLOSURE_KEY);
+            if (saved === "open") details.open = true;
+            else if (saved === "closed") details.open = false;
+        }} catch (_err) {{}}
+        details.addEventListener("toggle", () => {{
+            try {{
+                localStorage.setItem(QA_CHECKINS_DISCLOSURE_KEY, details.open ? "open" : "closed");
+            }} catch (_err) {{}}
+        }});
+    }}
+
+    async function qaToggleCheckinAkiflow(item) {{
+        if (!["mindfulness", "workout", "mood"].includes(String(item || ""))) return;
+        if (qaCheckinDone(item)) {{
+            const status = document.getElementById("qa-status");
+            if (status) {{
+                status.textContent = `✅ ${{qaCheckinLabel(item)}} already done here.`;
+                status.style.color = "#6ee7b7";
+            }}
+            return;
+        }}
+        const current = qaNormalizeCheckinFollowupState(qaCheckinFollowupState);
+        const nextValue = !Boolean(current[item] && current[item].akiflow_added);
+        qaCheckinAkiflowSaving[item] = true;
+        qaSetCheckinAkiflowButtonState(item);
+        try {{
+            const result = await qaPostWithRetry("/v1/ui/checkins/akiflow", {{
+                item,
+                akiflow_added: nextValue,
+                date: qaEffectiveDateKey(),
+                source: "dashboard_ui",
+            }}, {{ retries: 1, label: "Akiflow check-in" }});
+            if (result && result.dashboard_checkins && typeof result.dashboard_checkins === "object") {{
+                qaApplyCheckinFollowupState(result.dashboard_checkins);
+            }} else {{
+                current[item] = Object.assign({{}}, current[item] || {{}}, {{ akiflow_added: nextValue }});
+                qaApplyCheckinFollowupState(current);
+            }}
+            const status = document.getElementById("qa-status");
+            if (status) {{
+                status.textContent = nextValue
+                    ? `📥 ${{qaCheckinLabel(item)}} marked as added to Akiflow. I’ll keep nudging you here.`
+                    : `↩️ ${{qaCheckinLabel(item)}} removed from Akiflow tracking.`;
+                status.style.color = nextValue ? "#fbbf24" : "#94a3b8";
+            }}
+        }} catch (_err) {{
+            const status = document.getElementById("qa-status");
+            if (status) {{
+                status.textContent = `❌ Couldn't update Akiflow tracking for ${{qaCheckinLabel(item)}}.`;
+                status.style.color = "#fca5a5";
+            }}
+        }} finally {{
+            delete qaCheckinAkiflowSaving[item];
+            qaSetCheckinAkiflowButtonState(item);
+        }}
+    }}
+
     function qaMindfulnessSummary(state) {{
         const safeState = (state && typeof state === "object") ? state : {{}};
         const done = Boolean(safeState.done);
@@ -10051,6 +10301,7 @@ def generate_html(data):
             meta.textContent = qaMindfulnessSummary(safeState);
             meta.style.color = safeState.done ? "#6ee7b7" : "#9ca3af";
         }}
+        qaSetCheckinAkiflowButtonState("mindfulness");
         qaUpdateQuickDoneMeta();
     }}
 
@@ -10217,6 +10468,7 @@ def generate_html(data):
             moodMeta.textContent = qaMoodSummary(safe);
             moodMeta.style.color = done ? "#6ee7b7" : "#9ca3af";
         }}
+        qaSetCheckinAkiflowButtonState("mood");
         qaUpdateQuickDoneMeta();
     }}
 
@@ -10392,8 +10644,31 @@ def generate_html(data):
             total += 1;
             if (mood.checked) done += 1;
         }}
-        meta.textContent = `${{done}}/${{total || 0}} check-ins done.`;
-        meta.style.color = done >= Math.max(1, total) ? "#6ee7b7" : "#93c5fd";
+        const pendingAkiflow = qaPendingAkiflowCheckins();
+        const akiflowCount = pendingAkiflow.length;
+        meta.textContent = akiflowCount
+            ? `${{done}}/${{total || 0}} check-ins done • ${{akiflowCount}} in Akiflow.`
+            : `${{done}}/${{total || 0}} check-ins done.`;
+        meta.style.color = akiflowCount ? "#fbbf24" : (done >= Math.max(1, total) ? "#6ee7b7" : "#93c5fd");
+
+        const summary = document.getElementById("qa-checkins-summary");
+        if (summary) {{
+            summary.textContent = akiflowCount
+                ? `${{done}}/${{total || 0}} done • ${{akiflowCount}} in Akiflow`
+                : `${{done}}/${{total || 0}} done`;
+            summary.style.color = akiflowCount ? "#fbbf24" : "#93c5fd";
+        }}
+
+        const nudge = document.getElementById("qa-quick-akiflow-nudge");
+        if (nudge) {{
+            if (pendingAkiflow.length) {{
+                nudge.hidden = false;
+                nudge.textContent = `⏰ Parked in Akiflow — still finish here: ${{pendingAkiflow.map((item) => qaCheckinLabel(item)).join(", ")}}.`;
+            }} else {{
+                nudge.hidden = true;
+                nudge.textContent = "";
+            }}
+        }}
     }}
 
     function qaApplyWorkoutState(done, workoutLabel) {{
@@ -10420,6 +10695,7 @@ def generate_html(data):
         if (labelLower.includes("yoga")) qaCurrentWorkoutType = "yoga";
         else if (labelLower.includes("workout")) qaCurrentWorkoutType = "weights";
         qaCurrentWorkoutDone = Boolean(done);
+        qaSetCheckinAkiflowButtonState("workout");
         qaUpdateQuickDoneMeta();
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
     }}
@@ -11000,6 +11276,8 @@ def generate_html(data):
     }}
     qaApplyMindfulnessState(QA_MINDFULNESS_INITIAL);
     qaApplyMoodState(QA_MOOD_INITIAL);
+    qaApplyCheckinFollowupState(QA_CHECKIN_FOLLOWUP_INITIAL);
+    qaInitCheckinsDisclosure();
     qaSetMoodSaveState("synced");
     qaSetAnxietySaveState("synced");
     qaApplyWorkoutChecklistState(QA_WORKOUT_CHECKLIST_INITIAL);
@@ -12980,6 +13258,13 @@ def main():
     # Generate HTML
     html = generate_html(data)
     OUTPUT_FILE.write_text(html)
+    for sync_target in SYNC_DASHBOARD_TARGETS:
+        try:
+            sync_target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(OUTPUT_FILE, sync_target)
+            print(f"🔄 Synced dashboard: {sync_target}")
+        except Exception as e:
+            print(f"⚠️ Dashboard sync failed for {sync_target}: {e}")
     print(f"✅ Dashboard generated: {OUTPUT_FILE}")
     print(f"📊 Data from cache: {cache.get('timestamp', 'unknown')}")
 
