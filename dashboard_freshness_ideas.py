@@ -1288,6 +1288,16 @@ def build_ideas_status_html(ideas_payload: dict, clock_hhmm: Callable[[str], str
         fail_reason = str(first_fail.get("reason", "")).strip() if isinstance(first_fail, dict) else ""
         if fail_reason:
             ideas_fail_summary = f'<p class="text-xs mt-1" style="color: #fecaca">Latest failure: {html.escape(fail_reason[:140])}</p>'
+    # Prominent retry alert when items are stuck
+    ideas_retry_alert = ""
+    if ideas_retry_queue > 0 or ideas_failed > 0:
+        _alert_count = ideas_retry_queue or ideas_failed
+        ideas_retry_alert = (
+            f'<div style="background:rgba(153,27,27,0.18);border:1px solid rgba(248,113,113,0.22);border-radius:0.5rem;padding:0.5rem 0.7rem;margin-top:0.4rem;">'
+            f'<p class="text-xs" style="color:#fca5a5;font-weight:600;">⚠️ {_alert_count} item{"s" if _alert_count != 1 else ""} stuck in retry queue</p>'
+            f'{ideas_fail_summary}</div>'
+        )
+        ideas_fail_summary = ""  # already included in alert
 
     ideas_preview_html = ""
     if ideas_preview:
@@ -1324,13 +1334,24 @@ def build_ideas_status_html(ideas_payload: dict, clock_hhmm: Callable[[str], str
     ideas_meta = _ideas_compact_status(ideas_payload, clock_hhmm)
     details_open = " open" if ideas_status not in {"success", "ok"} or ideas_new > 0 or ideas_failed > 0 or ideas_retry_queue > 0 else ""
 
+    # Last processed timestamp (when items were actually triaged, not just scanned)
+    ideas_last_processed = str(ideas_payload.get("last_processed_at", "") or "").strip()
+    ideas_last_processed_clock = clock_hhmm(ideas_last_processed) if ideas_last_processed else ""
+    ideas_last_processed_html = ""
+    if ideas_last_processed_clock:
+        ideas_last_processed_html = f'<p class="text-xs mt-1" style="color: #86efac">Last processed: {html.escape(ideas_last_processed_clock)}</p>'
+    elif ideas_last_run:
+        # Fall back to last_run if no separate processed timestamp
+        ideas_last_processed_html = f'<p class="text-xs mt-1" style="color: #94a3b8">Last checked: {html.escape(clock_hhmm(ideas_last_run) if ideas_last_run else ideas_last_run)}</p>'
+
     return f'''
     <div id="qa-ideas-status" class="card mt-2" style="border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.58);">
         <details{details_open}>
             <summary class="text-sm font-semibold cursor-pointer" style="color: #a7f3d0">{html.escape(str(ideas_meta.get("label", "💡 Ideas pickup")))}</summary>
             <div class="mt-2">
                 <p class="text-xs mt-1" style="color: {status_colour};">Status: {html.escape(ideas_status)} • new {ideas_new} • beads {ideas_created} • failed {ideas_failed} • retried {ideas_retried} • queue {ideas_retry_queue}</p>
-                {f'<p class="text-xs mt-1" style="color: #94a3b8">Last run: {html.escape(ideas_last_run)}</p>' if ideas_last_run else ''}
+                {ideas_last_processed_html}
+                {ideas_retry_alert}
                 {ideas_clean_meta_html}
                 {ideas_fail_summary}
                 {ideas_cleanup_html}

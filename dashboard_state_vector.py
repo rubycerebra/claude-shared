@@ -33,6 +33,10 @@ _NEGATIVE_MOOD_SCORES = {
 }
 
 DASHBOARD_HISTORY_FILE = Path.home() / ".claude" / "cache" / "dashboard-history.json"
+KNOWLEDGE_STATE_FILE = Path.home() / ".claude" / "cache" / "knowledge-state.json"
+
+# Minimum sample size before we trust personalised baselines over fixed thresholds
+_BASELINE_MIN_N = 7
 
 _DOMAIN_KEYWORDS = {
     "health": ("walk", "weights", "yoga", "stretch", "exercise", "workout", "sleep", "bath", "therapy", "health", "mindfulness"),
@@ -57,6 +61,64 @@ _UNLOCK_KEYWORDS = (
 
 def _clamp(value: float, lower: float = 0.0, upper: float = 100.0) -> float:
     return max(lower, min(upper, value))
+
+
+def _load_baselines() -> Dict[str, Any]:
+    """Load personalised baselines from knowledge-state.json, or empty dict on failure."""
+    try:
+        if KNOWLEDGE_STATE_FILE.exists():
+            raw = json.loads(KNOWLEDGE_STATE_FILE.read_text(encoding="utf-8"))
+            return raw.get("baselines", {}) if isinstance(raw, dict) else {}
+    except Exception:
+        pass
+    return {}
+
+
+def _personalised_score(
+    value: float,
+    baselines: Dict[str, Any],
+    mean_key: str,
+    std_key: str,
+    n_key: str,
+    fixed_thresholds: List[tuple],
+    higher_is_better: bool = True,
+) -> float:
+    """Score a metric using personal baselines when available, fixed thresholds otherwise.
+
+    fixed_thresholds: [(threshold, score_delta), ...] ordered from highest to lowest threshold.
+    Returns the score delta to add to base score.
+    """
+    mean = baselines.get(mean_key)
+    std = baselines.get(std_key)
+    n = baselines.get(n_key, 0) or 0
+    if isinstance(mean, (int, float)) and isinstance(std, (int, float)) and std > 0 and n >= _BASELINE_MIN_N:
+        z = (value - mean) / std
+        if higher_is_better:
+            if z >= 0.5:
+                return 12
+            elif z >= -0.5:
+                return 6
+            elif z < -1.0:
+                return -12
+            else:
+                return -6
+        else:
+            if z <= -0.5:
+                return 12
+            elif z <= 0.5:
+                return 6
+            elif z > 1.0:
+                return -12
+            else:
+                return -6
+    # Fallback to fixed thresholds
+    for threshold, delta in fixed_thresholds:
+        if higher_is_better and value >= threshold:
+            return delta
+        if not higher_is_better and value <= threshold:
+            return delta
+    # Last entry in fixed_thresholds is the "else" case — return its delta
+    return fixed_thresholds[-1][1] if fixed_thresholds else 0
 
 
 def _avg(values: Iterable[float]) -> float | None:
@@ -750,28 +812,24 @@ def build_daily_state_vector(
         if isinstance(value, list):
             ta_dah_total += len(value)
     anxiety_scores = _recent_anxiety_scores(ai_days)
+    baselines = _load_baselines()
+    mental_health = cache.get("mental_health", {}) if isinstance(cache.get("mental_health", {}), dict) else {}
+    homework_items = mental_health.get("homework_items", []) if isinstance(mental_health.get("homework_items", []), list) else []
+    homework_count = len(homework_items)
 
     recovery_score = 52.0
     recovery_evidence: List[str] = []
     if isinstance(latest_sleep_hours, (int, float)):
-        if latest_sleep_hours >= 7.5:
-            recovery_score += 18
-        elif latest_sleep_hours >= 6.5:
-            recovery_score += 10
-        elif latest_sleep_hours >= 6.0:
-            recovery_score += 2
-        else:
-            recovery_score -= 12
+        recovery_score += _personalised_score(
+            latest_sleep_hours, baselines, "sleep_mean_hours", "sleep_std", "sleep_n",
+            [(7.5, 18), (6.5, 10), (6.0, 2), (0, -12)],
+        )
         recovery_evidence.append(f"Sleep {latest_sleep_hours:.1f}h")
     if isinstance(latest_hrv, (int, float)):
-        if latest_hrv >= 40:
-            recovery_score += 12
-        elif latest_hrv >= 35:
-            recovery_score += 6
-        elif latest_hrv < 30:
-            recovery_score -= 12
-        elif latest_hrv < 33:
-            recovery_score -= 6
+        recovery_score += _personalised_score(
+            latest_hrv, baselines, "hrv_mean", "hrv_std", "hrv_n",
+            [(40, 12), (35, 6), (33, 0), (30, -6), (0, -12)],
+        )
         recovery_evidence.append(f"HRV {int(latest_hrv)}")
     if bool(progression.get("mindfulness_done")) or bool(mindfulness.get("done")):
         recovery_score += 8
@@ -781,25 +839,17 @@ def build_daily_state_vector(
         row_score = 50.0
         asleep_hours = sleep_row.get("asleep_hours")
         if isinstance(asleep_hours, (int, float)):
-            if asleep_hours >= 7.5:
-                row_score += 18
-            elif asleep_hours >= 6.5:
-                row_score += 10
-            elif asleep_hours >= 6.0:
-                row_score += 2
-            else:
-                row_score -= 12
+            row_score += _personalised_score(
+                asleep_hours, baselines, "sleep_mean_hours", "sleep_std", "sleep_n",
+                [(7.5, 18), (6.5, 10), (6.0, 2), (0, -12)],
+            )
         if idx < len(steps_history):
             row_hrv = steps_history[idx].get("hrv")
             if isinstance(row_hrv, (int, float)):
-                if row_hrv >= 40:
-                    row_score += 12
-                elif row_hrv >= 35:
-                    row_score += 6
-                elif row_hrv < 30:
-                    row_score -= 12
-                elif row_hrv < 33:
-                    row_score -= 6
+                row_score += _personalised_score(
+                    row_hrv, baselines, "hrv_mean", "hrv_std", "hrv_n",
+                    [(40, 12), (35, 6), (33, 0), (30, -6), (0, -12)],
+                )
         recent_recovery_history.append(row_score)
     recovery_summary_bits = []
     if isinstance(latest_sleep_hours, (int, float)):
@@ -811,12 +861,10 @@ def build_daily_state_vector(
     physical_score = 55.0
     physical_evidence: List[str] = []
     if isinstance(latest_steps_count, (int, float)):
-        if latest_steps_count >= 12000:
-            physical_score += 10
-        elif latest_steps_count >= 8000:
-            physical_score += 5
-        elif latest_steps_count < 5000:
-            physical_score -= 8
+        physical_score += _personalised_score(
+            latest_steps_count, baselines, "steps_mean", "steps_std", "steps_n",
+            [(12000, 10), (8000, 5), (5000, 0), (0, -8)],
+        )
         physical_evidence.append(f"{int(latest_steps_count):,} steps")
     if isinstance(latest_exercise, (int, float)):
         if latest_exercise >= 90:
@@ -836,12 +884,10 @@ def build_daily_state_vector(
         steps = row.get("steps")
         exercise = row.get("exercise_minutes")
         if isinstance(steps, (int, float)):
-            if steps >= 12000:
-                row_score += 10
-            elif steps >= 8000:
-                row_score += 5
-            elif steps < 5000:
-                row_score -= 8
+            row_score += _personalised_score(
+                steps, baselines, "steps_mean", "steps_std", "steps_n",
+                [(12000, 10), (8000, 5), (5000, 0), (0, -8)],
+            )
         if isinstance(exercise, (int, float)):
             if exercise >= 90:
                 row_score += 12
@@ -895,6 +941,18 @@ def build_daily_state_vector(
         emotional_score = max(emotional_score - 5, 20.0)
     elif diarium_emotional_tone in {"calm", "content", "positive", "energised"}:
         emotional_score = min(emotional_score + 4, 95.0)
+    # Therapy homework engagement — active homework signals self-regulation investment
+    engagement_hints = cache.get("engagement_hints", []) if isinstance(cache.get("engagement_hints", []), list) else []
+    homework_surfaced_today = any(
+        isinstance(h, dict) and h.get("type") == "therapy_homework_context"
+        for h in engagement_hints
+    )
+    if homework_surfaced_today:
+        emotional_score += 4
+        emotional_evidence.append("Therapy homework active today")
+    elif homework_count >= 3 and not homework_surfaced_today:
+        emotional_score += 2
+        emotional_evidence.append(f"{homework_count} homework items tracked")
     emotional_summary = ", ".join(emotional_evidence[:2]) if emotional_evidence else "Mood + anxiety signal still building"
     emotional_history = []
     for row in ai_days[:6]:
@@ -1030,6 +1088,9 @@ def build_daily_state_vector(
     if bool(mood_tracking.get("done")):
         momentum_score += 4
         momentum_evidence.append("Mood tracked")
+    if homework_surfaced_today:
+        momentum_score += 3
+        momentum_evidence.append("Therapy homework engaged")
     selector = day.get("intervention_selector", {}) if isinstance(day.get("intervention_selector", {}), dict) else {}
     weekly_rank = selector.get("weekly_rank", []) if isinstance(selector.get("weekly_rank", []), list) else []
     if weekly_rank and isinstance(weekly_rank[0], dict):
