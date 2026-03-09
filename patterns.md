@@ -177,3 +177,33 @@ python3 job_scrapers.py
 ---
 
 *Last updated: 2026-02-17*
+
+---
+
+<!-- weekly-update: 2026-W10 -->
+## 2026-W10 — Pattern Verdicts
+
+## 2. Pattern Verification
+
+**Application Anxiety → Breakthrough Pattern:** **Confirmed.** The Chris email — carrying real weight as a concrete step toward income — was deferred on Wednesday evening (reasonably, given masking fatigue) and then sent on Friday. The deferral looked like avoidance in real time, and the demand frame was clearly active, but Jim pushed through it within 48 hours and received a positive response: £27/hr freelance, starting April. This is the pattern working as theorised — anxiety and avoidance precede the action, the action happens anyway, and the outcome is concretely positive. Notably, this breakthrough didn't emerge from a structured job-search process; it emerged from relational groundwork (Wednesday's meetings) followed by a single weighted email. The breakthrough was real, but it was also organic — worth tracking whether Jim can replicate this when the path is less relational and more cold-application.
+
+**Hyperfocus Distractions:** **Confirmed.** The 3D printer Dyson trigger on Saturday is textbook: "I've spent quite a lot of time trying to fix the Dyson trigger… I've made a bit of a mess of the house because of it." Dashboard/system work consumed significant portions of Monday, Tuesday, Wednesday, and Sunday evenings. Jim himself names the mess and the pull: "stop finding new things to do and start tackling the things I need to do."
+
+**Pacing Works:** **Not evidenced.** No applications were attempted, so pacing couldn't be tested. The week's structure was reactive (meetings, sick child, hospital visit) rather than paced. The Chris email success came from a single push, not a paced sequence.
+
+**Open Loops = Anxiety:** **Confirmed.** Thursday's Diarium: "Open loops really play on my mind — it's hard to stop them." The scam became a new open loop. The Chris email was another — and critically, closing that loop on Friday (sending the email) likely contributed to the slight anxiety reduction over the weekend (7→6→6). The bathroom project carried across multiple days. The ta-dah lists on Friday and Saturday are notably long — externalisation working overtime to manage the accumulation.
+
+**Recognition Deficit in Relationship:** **Partially confirmed.** Friday's entry: "Instead of helping her, I took it personally… what can I do to help her? I'm trying, so why are you miserable?" The recognition hunger is visible — Jim is doing things and feeling unseen — though this instance resolved faster than previous ones.
+
+**"Should" Language Awareness:** **Partially confirmed.** Friday: "that's not the right way to look at things. That's being a child, and I should be an adult about it." Ironic: the self-correction itself uses "should." The awareness is genuine but the language hasn't fully shifted.
+
+**Motion-as-Safety Pattern:** **Confirmed.** Thursday: "I'm in the woods now… I'm using movement to get through it." Saturday: jumped straight into doing things upon waking. Movement as regulation is consistently deployed, but the line between regulation and avoidance remains blurred.
+
+**Task Gravity vs Presence:** **Partially confirmed.** Saturday morning spent on Dyson trigger rather than family time. No explicit guilt logged this time, but the pattern is present. Sunday's ta-dah list is entirely task-oriented — no mention of family presence.
+
+**Social Micro-Bravery Builds Confidence:** **Confirmed.** Wednesday's meetings represent significant social bravery, and the initial feeling was positive: "I actually think this might work out for me." The confidence was real, even if masking fatigue followed. The Friday email is a second act of social bravery in the same week — sending a rate-setting message to someone with power over a work opportunity. That Jim did this on the same day he caught his child ego state with Janna suggests Friday was a day of unusually high Adult-state functioning.
+
+**System Work as Regulation:** **Confirmed.** Dashboard work on Monday, Tuesday, Wednesday, Sunday evenings. This is the week's dominant pattern — evening after evening consumed by system refinement. The stop condition is absent.
+
+**PDA Demand Spiral:** **Confirmed — formally named this week (8 March) — and meaningfully overcome in one critical instance.** The spiral was visibly active: the Chris email was deferred on Wednesday, and all the conditions for indefinite avoidance were present (masking fatigue, Thursday's crisis stack, weekend hyperfocus objects). But Jim sent it on Friday — mid-week, under load, without a structured plan forcing his hand. This is important: the PDA spiral was not absent, it was *overridden*. The avoidance of job applications more broadly, and the weekend's absorption into practical tasks and system work, confirm the spiral continued operating on other fronts. The pattern is real and named; what's new is evidence that Jim can move through it on a high-stakes, real-world task when the relational context supports action.
+---

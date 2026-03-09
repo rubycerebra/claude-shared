@@ -140,18 +140,26 @@ def task_matches_completed_text(raw_text: str, completed_text_keys: list[str]) -
         return False
     candidate_tokens = {t for t in candidate_key.split() if t}
     candidate_object_tokens = task_object_tokens(candidate_key)
+    candidate_is_multipart = (
+        len(candidate_object_tokens) >= 3
+        and any(token in str(raw_text or "").lower() for token in (" and ", ",", "kind of thing"))
+    )
     for done_raw in completed_text_keys:
         done_key = task_match_key(done_raw)
         if not done_key:
             continue
         if candidate_key == done_key:
             return True
+        done_object_tokens = task_object_tokens(done_key)
+        if candidate_is_multipart and candidate_object_tokens and done_object_tokens:
+            overlap_ratio = len(candidate_object_tokens & done_object_tokens) / max(len(candidate_object_tokens), 1)
+        else:
+            overlap_ratio = 1.0
         if len(candidate_key) >= 10 and candidate_key in done_key:
             return True
-        if len(done_key) >= 10 and done_key in candidate_key:
+        if len(done_key) >= 10 and done_key in candidate_key and overlap_ratio >= 0.75:
             return True
         done_tokens = {t for t in done_key.split() if t}
-        done_object_tokens = task_object_tokens(done_key)
         if done_object_tokens and candidate_object_tokens:
             obj_overlap = done_object_tokens & candidate_object_tokens
             meaningful_overlap = {
@@ -159,9 +167,15 @@ def task_matches_completed_text(raw_text: str, completed_text_keys: list[str]) -
                 if tok not in TASK_EQUIVALENCE_GENERIC_OBJECT_TOKENS
             }
             min_obj = min(len(done_object_tokens), len(candidate_object_tokens))
+            if candidate_is_multipart and len(meaningful_overlap) / max(len(candidate_object_tokens), 1) < 0.75:
+                continue
             if len(obj_overlap) >= 2 and meaningful_overlap:
                 return True
             if min_obj >= 3 and len(meaningful_overlap) / max(min_obj, 1) >= 0.5:
+                return True
+            # Short-task rule: 1 specific shared noun (≥5 chars) on short tasks
+            specific_overlap = {tok for tok in meaningful_overlap if len(tok) >= 5}
+            if specific_overlap and min_obj <= 4:
                 return True
         overlap = len(candidate_tokens & done_tokens)
         union = len(candidate_tokens | done_tokens)
@@ -193,6 +207,11 @@ def tasks_equivalent(left_text: str, right_text: str) -> bool:
         if len(obj_overlap) >= 2 and meaningful_overlap:
             return True
         if min_obj >= 3 and len(meaningful_overlap) / max(min_obj, 1) >= 0.5:
+            return True
+        # Short-task rule: if both tasks are brief and share 1 specific physical noun
+        # (e.g. "Fix the bathroom shelf" ≡ "Finish the bathroom"), treat as same work.
+        specific_overlap = {tok for tok in meaningful_overlap if len(tok) >= 5}
+        if specific_overlap and min_obj <= 4:
             return True
     left_tokens = set(left_key.split())
     right_tokens = set(right_key.split())

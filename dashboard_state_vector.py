@@ -1357,48 +1357,53 @@ def build_state_vector_html(vector: Dict[str, Any]) -> str:
         <div class="card rounded-xl p-5 mb-4" style="background:rgba(15,23,42,0.72);border:1px solid rgba(125,211,252,0.16);">
             <div class="flex items-start justify-between gap-3 mb-2">
                 <div>
-                    <h3 class="text-lg font-semibold" style="color:#bae6fd">🧭 Daily State Vector</h3>
-                    <p class="text-sm mt-1" style="color:#e2e8f0;line-height:1.5;">{html.escape(str(vector.get("headline", "")))}</p>
+                    <p class="text-sm" style="color:#e2e8f0;line-height:1.55;">{html.escape(str(vector.get("headline", "")))}</p>
                 </div>
-                <span class="text-xs rounded px-2 py-1" style="border:1px solid {overall_palette["border"]};background:{overall_palette["bg"]};color:{overall_palette["text"]};">
+                <span class="text-xs rounded px-2 py-1 flex-shrink-0" style="border:1px solid {overall_palette["border"]};background:{overall_palette["bg"]};color:{overall_palette["text"]};">
                     {html.escape(str(vector.get("overall_score", 0)))} · {html.escape(overall_state)}
                 </span>
             </div>
             <div class="flex flex-wrap gap-2 mb-3">{pills_html}</div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                    <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Compounding signals</p>
-                    <ul style="margin:0;padding-left:1rem;">{compounding_html}</ul>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Progressive support</p>
-                    <div class="grid grid-cols-1 gap-2">{support_steps_html}</div>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                <div class="rounded-lg p-3" style="background:rgba(15,23,42,0.46);border:1px solid rgba(148,163,184,0.14);">
-                    <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Throughput &amp; Momentum</p>
-                    <div class="grid grid-cols-3 gap-2 text-xs mb-3">
-                        <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">Today<br><span style="color:#bae6fd">{html.escape(str(day_window.get("throughput_total", 0)))}</span></div>
-                        <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">7d avg<br><span style="color:#bae6fd">{html.escape(str(week_window.get("throughput_avg", 0)))}</span></div>
-                        <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">30d avg<br><span style="color:#bae6fd">{html.escape(str(month_window.get("throughput_avg", 0)))}</span></div>
+            <details>
+                <summary class="text-xs cursor-pointer" style="color:#93c5fd;user-select:none;">Signals &amp; support</summary>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <div>
+                        <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Compounding signals</p>
+                        <ul style="margin:0;padding-left:1rem;">{compounding_html}</ul>
                     </div>
-                    <p class="text-xs mb-2" style="color:#cbd5e1">Momentum vs 7d: <span style="color:#a7f3d0">{_delta_text(delta_7)}</span> · vs 30d: <span style="color:#bfdbfe">{_delta_text(delta_30)}</span></p>
-                    <div class="flex flex-wrap gap-2 mb-2">{domain_mix_html}</div>
-                    <div class="flex flex-wrap gap-2">{report_status_html}</div>
+                    <div>
+                        <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Progressive support</p>
+                        <div class="grid grid-cols-1 gap-2">{support_steps_html}</div>
+                    </div>
                 </div>
-                <div class="rounded-lg p-3" style="background:rgba(15,23,42,0.46);border:1px solid rgba(148,163,184,0.14);">
-                    <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Built from prior data</p>
-                    <p class="text-xs mb-1" style="color:#6ee7b7">Increasing</p>
-                    <ul style="margin:0;padding-left:1rem;">{increasing_html}</ul>
-                    <p class="text-xs mt-2 mb-1" style="color:#fbbf24">Stalling</p>
-                    <ul style="margin:0;padding-left:1rem;">{stalling_html}</ul>
-                    <p class="text-xs mt-2 mb-1" style="color:#93c5fd">Prioritise next</p>
-                    <ul style="margin:0;padding-left:1rem;">{priority_html or candidate_html}</ul>
+            </details>
+            <details class="mt-2">
+                <summary class="text-xs cursor-pointer" style="color:#93c5fd;user-select:none;">Throughput &amp; trends</summary>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <div class="rounded-lg p-3" style="background:rgba(15,23,42,0.46);border:1px solid rgba(148,163,184,0.14);">
+                        <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Throughput &amp; Momentum</p>
+                        <div class="grid grid-cols-3 gap-2 text-xs mb-3">
+                            <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">Today<br><span style="color:#bae6fd">{html.escape(str(day_window.get("throughput_total", 0)))}</span></div>
+                            <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">7d avg<br><span style="color:#bae6fd">{html.escape(str(week_window.get("throughput_avg", 0)))}</span></div>
+                            <div class="rounded px-2 py-2" style="background:rgba(2,6,23,0.24);color:#e5e7eb;">30d avg<br><span style="color:#bae6fd">{html.escape(str(month_window.get("throughput_avg", 0)))}</span></div>
+                        </div>
+                        <p class="text-xs mb-2" style="color:#cbd5e1">Momentum vs 7d: <span style="color:#a7f3d0">{_delta_text(delta_7)}</span> · vs 30d: <span style="color:#bfdbfe">{_delta_text(delta_30)}</span></p>
+                        <div class="flex flex-wrap gap-2 mb-2">{domain_mix_html}</div>
+                        <div class="flex flex-wrap gap-2">{report_status_html}</div>
+                    </div>
+                    <div class="rounded-lg p-3" style="background:rgba(15,23,42,0.46);border:1px solid rgba(148,163,184,0.14);">
+                        <p class="text-xs font-semibold mb-2" style="color:#93c5fd">Built from prior data</p>
+                        <p class="text-xs mb-1" style="color:#6ee7b7">Increasing</p>
+                        <ul style="margin:0;padding-left:1rem;">{increasing_html}</ul>
+                        <p class="text-xs mt-2 mb-1" style="color:#fbbf24">Stalling</p>
+                        <ul style="margin:0;padding-left:1rem;">{stalling_html}</ul>
+                        <p class="text-xs mt-2 mb-1" style="color:#93c5fd">Prioritise next</p>
+                        <ul style="margin:0;padding-left:1rem;">{priority_html or candidate_html}</ul>
+                    </div>
                 </div>
-            </div>
-            <details class="mt-3">
-                <summary class="text-xs cursor-pointer" style="color:#94a3b8">Why this state</summary>
+            </details>
+            <details class="mt-2">
+                <summary class="text-xs cursor-pointer" style="color:#94a3b8;user-select:none;">Dimension detail</summary>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">{detail_rows_html}</div>
             </details>
         </div>

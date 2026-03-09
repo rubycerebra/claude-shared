@@ -146,25 +146,29 @@ def _build_recommendation_reason(item: dict, profile: dict, recent_rank: int | N
     tokens = _tokenise(title)
     year = _safe_year(item.get("year"))
     notes: list[str] = []
-    if recent_rank is not None:
-        notes.append("recent watchlist add")
+    # Lead with the WHY (energy/year match), not the source
     if profile.get("energy") == "low":
         if year and year <= 2005:
-            notes.append("older/steadier fit")
+            notes.append(f"older steadier pick · {year}" if year else "older/steadier fit")
         elif tokens & GENTLE_TITLE_TOKENS:
-            notes.append("title reads gentler")
+            notes.append("gentle title for low-energy evening")
         else:
-            notes.append("easy-decision pick")
+            notes.append("low-energy match")
     elif profile.get("energy") == "high":
         if tokens & INTENSE_TITLE_TOKENS:
-            notes.append("title reads more propulsive")
+            notes.append("propulsive pick for high energy")
         else:
-            notes.append("good for a fuller-energy evening")
+            notes.append(f"high-energy evening · {year}" if year else "good for high energy")
     else:
         if tokens & CURIOUS_TITLE_TOKENS:
-            notes.append("title reads curious")
+            notes.append("title reads curious · good for neutral energy")
+        elif year:
+            notes.append(f"{year} · balanced pick")
         else:
             notes.append("balanced tonight pick")
+    # Append recency as secondary context, not the lead
+    if recent_rank is not None and len(notes) < 2:
+        notes.append("recent watchlist add")
     return " · ".join(notes[:2])
 
 
@@ -181,7 +185,7 @@ def _score_candidate(
     score = 0.0
 
     if recent_rank is not None:
-        score += max(0, 6 - recent_rank)
+        score += max(0, 2.5 - (recent_rank * 0.5))  # capped at 2.5 so mood/energy signals compete
     if recent_watched_tokens & tokens:
         score -= 2.5
 

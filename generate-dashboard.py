@@ -1326,7 +1326,23 @@ def _count_open_issues_from_jsonl(project_path):
 
 
 def _read_open_issues_from_jsonl(project_path, limit=160):
-    """Fast local open-issue reader used by optional backlog card (no bd call needed)."""
+    """Read open beads from SQLite (source of truth), with JSONL fallback."""
+    import sqlite3
+    db_file = project_path / ".beads" / "beads.db"
+    if db_file.exists():
+        try:
+            conn = sqlite3.connect(str(db_file), timeout=2)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT id, title, status, priority, issue_type, updated_at, created_at "
+                "FROM issues WHERE status = 'open' ORDER BY priority ASC, updated_at DESC LIMIT ?",
+                (int(limit),),
+            ).fetchall()
+            conn.close()
+            return [dict(row) for row in rows]
+        except Exception:
+            pass  # Fall through to JSONL fallback
+
     issues_file = project_path / ".beads" / "issues.jsonl"
     if not issues_file.exists():
         return []
@@ -2591,7 +2607,7 @@ def generate_html(data):
         primary_pick_summary_html = ""
         primary_pick_html = ""
         primary_title = str(film_primary.get("title", "")).strip()
-        if primary_title:
+        if primary_title and _film_pick_source == "ai":
             primary_year = str(film_primary.get("year", "")).strip()
             primary_url = str(film_primary.get("url", "")).strip()
             primary_reason = str(film_primary.get("reason", "")).strip()
@@ -2714,7 +2730,7 @@ def generate_html(data):
 
     # Collect action items from multiple sources (only if data is from today)
     diarium_data = data.get("diariumTodos", []) if data.get("diariumDataDate") == _effective_today else []
-    notes_todos = data.get("appleNotesTodos", []) if isinstance(data.get("appleNotesTodos", []), list) else []
+    notes_todos = []  # Apple Notes is read-only archive — not an action item source
     diarium_tadah = data.get("diariumTaDah", []) if data.get("diariumDataDate") == _effective_today else []
     ai_todos = ai_today.get("genuine_todos", []) if _ai_is_today else []
 
@@ -6759,13 +6775,10 @@ def generate_html(data):
         parse_daily_report_journal(effective_today),
         effective_today,
     )
-    _daily_report_ready = bool(is_evening or qa_end_day_done_today)
-    if _daily_report_ready and report_is_evening_ready(
-        _daily_report_saved,
-        expected_date=effective_today,
-        cache_timestamp=str(data.get("cacheTimestamp", "") or ""),
-        max_lag_minutes=480,
-    ):
+    _daily_report_ready = True  # Show report all day with whatever content is available
+    # Use saved Opus report if it's for today (no hour gate — report generates 3x/day now)
+    if (str(_daily_report_saved.get("date", "")).strip() == effective_today
+            and str(_daily_report_saved.get("today_story", "")).strip()):
         daily_report_story_text = str(_daily_report_saved.get("today_story", "") or "").strip()
         daily_report_tomorrow_text = str(_daily_report_saved.get("tomorrow_text", "") or "").strip()
     if not daily_report_story_text:
@@ -7546,14 +7559,7 @@ def generate_html(data):
         if (endDayWrap) {{
             endDayWrap.hidden = !unlocked;
         }}
-        const reportSection = document.getElementById("daily-report");
-        if (reportSection) {{
-            reportSection.hidden = !unlocked;
-        }}
-        const reportChip = document.getElementById("focus-report-chip");
-        if (reportChip) {{
-            reportChip.hidden = !unlocked;
-        }}
+        // Daily report visible all day (no evening gate)
         const reportButtonWrap = document.getElementById("qa-daily-report-focus-wrap");
         if (reportButtonWrap) {{
             reportButtonWrap.hidden = !unlocked;
@@ -10839,49 +10845,44 @@ def generate_html(data):
     <style>
         {utility_css}
         :root {{
-            --bg: #0b1020;
-            --panel: rgba(15,23,42,0.74);
-            --panel-border: rgba(148,163,184,0.25);
-            --text: #e5e7eb;
+            --bg: #0b0f19;
+            --panel: rgba(17,24,39,0.72);
+            --panel-border: rgba(148,163,184,0.08);
+            --text: #e2e8f0;
             --muted: #94a3b8;
             --focus: #6ee7b7;
             --focus-soft: #cbefdf;
+            --section-gap: 0.6rem;
         }}
         * {{ box-sizing: border-box; }}
-        html {{ font-size: 17px; }}
+        html {{ font-size: 17px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }}
         body {{
             margin: 0;
-            background:
-                radial-gradient(circle at 85% -10%, rgba(14,116,144,0.24), transparent 34%),
-                radial-gradient(circle at -10% 0%, rgba(131,24,67,0.2), transparent 30%),
-                var(--bg);
+            background: var(--bg);
             color: var(--text);
-            font-family: "Aptos", "Segoe UI", "Trebuchet MS", "Verdana", sans-serif;
-            line-height: 1.55;
-            letter-spacing: 0.01em;
+            font-family: -apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+            line-height: 1.6;
+            letter-spacing: -0.011em;
         }}
         a {{ color: inherit; text-decoration: none; }}
         a:hover {{ color: var(--focus); }}
         .dashboard-shell {{
-            max-width: 1120px;
+            max-width: 820px;
             margin: 0 auto;
-            padding: 1rem 0.95rem 2.25rem;
+            padding: 1.25rem 1rem 3rem;
         }}
         @media (min-width: 768px) {{
-            .dashboard-shell {{ padding: 1.5rem 1.2rem 2.75rem; }}
+            .dashboard-shell {{ padding: 1.75rem 1.5rem 3.5rem; }}
         }}
         .card {{
             background: var(--panel);
             border: 1px solid var(--panel-border);
-            border-radius: 0.9rem;
-            padding: 1.1rem 1rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 10px 22px rgba(2,6,23,0.24);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            border-radius: 0.875rem;
+            padding: 1.35rem 1.3rem;
+            margin-bottom: 0.75rem;
         }}
         .card:hover {{
-            border-color: rgba(167,243,208,0.26);
-            box-shadow: 0 12px 26px rgba(2,6,23,0.28);
+            border-color: rgba(148,163,184,0.16);
         }}
         .top-status-row {{
             display: flex;
@@ -10917,7 +10918,7 @@ def generate_html(data):
         body[data-optional-pills="off"] #status-legend-wrap {{ display: none !important; }}
 
         .card h3 {{ line-height: 1.35; letter-spacing: 0.01em; }}
-        .dashboard-section {{ margin-bottom: 0.9rem; }}
+        .dashboard-section {{ margin-bottom: 1.1rem; }}
         .dashboard-section:empty {{ display: none; }}
         .dashboard-section[id] {{ scroll-margin-top: 4.6rem; }}
         .settings-stack {{
@@ -11218,9 +11219,17 @@ def generate_html(data):
             min-width: 2rem;
         }}
         .focus-hidden {{ display: none !important; }}
-        .phase-morning .card {{ border-left: 3px solid rgba(110,231,183,0.32); }}
-        .phase-day .card {{ border-left: 3px solid rgba(147,197,253,0.3); }}
-        .phase-evening .card {{ border-left: 3px solid rgba(196,181,253,0.36); }}
+        .section-label {{
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin: 0 0 0.4rem 0.15rem;
+        }}
+        .section-label-morning {{ color: #6ee7b7; }}
+        .section-label-day {{ color: #93c5fd; }}
+        .section-label-evening {{ color: #c4b5fd; }}
         body[data-compact=\"on\"] .dashboard-shell {{
             padding-top: 0.75rem;
             padding-bottom: 1.45rem;
@@ -11232,36 +11241,15 @@ def generate_html(data):
             padding: 0.8rem 0.72rem;
             margin-bottom: 0.58rem;
         }}
-        body[data-compact=\"on\"] .settings-stack {{
-            gap: 0.24rem;
-            margin-bottom: 0.5rem;
-        }}
-        body[data-compact=\"on\"] .settings-toolbar {{
-            gap: 0.24rem;
-        }}
-        body[data-compact=\"on\"] .settings-rail {{
-            padding: 0.18rem 0.24rem;
-            min-height: 1.7rem;
-        }}
-        body[data-compact=\"on\"] .toolbar-controls-panel {{
-            gap: 0.24rem;
-            padding-top: 0.24rem;
-            margin-top: 0.24rem;
-        }}
-        body[data-compact=\"on\"] .quick-nav a,
         body[data-compact=\"on\"] .focus-chip,
-        body[data-compact=\"on\"] .system-inline,
-        body[data-compact=\"on\"] .system-chip,
         body[data-compact=\"on\"] .backend-pill {{
             padding: 0.14rem 0.28rem;
             font-size: 0.69rem;
             min-height: 1.42rem;
         }}
-        body[data-compact=\"on\"] .settings-inline-label,
-        body[data-compact=\"on\"] .focus-label,
-        body[data-compact=\"on\"] .status-legend-summary {{
-            padding: 0.11rem 0.24rem;
-            font-size: 0.67rem;
+        body[data-compact=\"on\"] .section-label {{
+            font-size: 0.62rem;
+            margin-bottom: 0.25rem;
         }}
         body[data-compact=\"on\"] .status-chip {{
             padding: 0.14rem 0.28rem;
@@ -11330,10 +11318,13 @@ def generate_html(data):
             border-color: rgba(147,197,253,0.3);
             background: rgba(30,64,175,0.14);
         }}
-        body[data-low-stim=\"on\"] .phase-morning .card,
-        body[data-low-stim=\"on\"] .phase-day .card,
-        body[data-low-stim=\"on\"] .phase-evening .card {{
-            border-left-color: rgba(148,163,184,0.38);
+        body[data-low-stim=\"on\"] .section-label {{
+            color: var(--muted);
+        }}
+        body[data-low-stim=\"on\"] .section-label-morning,
+        body[data-low-stim=\"on\"] .section-label-day,
+        body[data-low-stim=\"on\"] .section-label-evening {{
+            color: var(--muted);
         }}
         body[data-low-stim=\"on\"] * {{
             transition: none !important;
@@ -11353,10 +11344,11 @@ def generate_html(data):
             outline-offset: 2px;
             border-color: rgba(203,239,223,0.58) !important;
         }}
-        .text-xs {{ font-size: 0.84rem !important; line-height: 1.28rem !important; }}
-        .text-sm {{ font-size: 0.98rem !important; line-height: 1.5rem !important; }}
-        .text-lg {{ font-size: 1.14rem !important; line-height: 1.45rem !important; }}
-        button, input[type="text"], select {{ font-size: 0.95rem; }}
+        .text-xs {{ font-size: 0.88rem !important; line-height: 1.35rem !important; }}
+        .text-sm {{ font-size: 1.02rem !important; line-height: 1.58rem !important; }}
+        .text-lg {{ font-size: 1.2rem !important; line-height: 1.52rem !important; }}
+        .text-2xl {{ font-size: 1.55rem !important; }}
+        button, input[type="text"], select {{ font-size: 1rem; }}
         button {{ min-height: 2rem; }}
         input[type="range"] {{ min-height: 1.8rem; }}
         p {{ margin: 0; }}
@@ -11384,86 +11376,112 @@ def generate_html(data):
 <body data-optional-pills="{optional_pills_attr}">
     <main class="dashboard-shell">
     <!-- Header -->
-    <div class="flex flex-wrap items-start gap-4 mb-5">
+    <header style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem;">
         {diarium_image_tag}
-        <div class="flex-1">
-            <h1 class="text-3xl font-bold" style="color: var(--focus-soft)">🌟 Daily Overview</h1>
-            <p style="color: #9ca3af">{data.get("date", "")} • {data.get("time", "")}</p>
+        <div style="flex: 1; min-width: 0;">
+            <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--focus-soft); letter-spacing: -0.025em; margin: 0; line-height: 1.2;">{data.get("date", "")}</h1>
+            <p style="color: var(--muted); font-size: 0.78rem; margin: 0.2rem 0 0;">{data.get("time", "")}</p>
             {context_bar_html}
-            {top_status_pills_html}
         </div>
-        <div class="rounded-xl px-4 py-2 text-center flex-shrink-0" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.15);">
-            <p class="font-bold text-2xl" style="color: #6ee7b7">{data.get("sleepCalm", 0)}</p>
-            <p class="text-sm" style="color: rgba(110,231,183,0.5)">calm days</p>
+        <div style="text-align: center; flex-shrink: 0; padding: 0.35rem 0;">
+            <p style="font-size: 1.6rem; font-weight: 700; color: #6ee7b7; margin: 0; line-height: 1;">{data.get("sleepCalm", 0)}</p>
+            <p style="font-size: 0.65rem; color: rgba(110,231,183,0.4); margin: 0.15rem 0 0; text-transform: uppercase; letter-spacing: 0.05em;">calm</p>
         </div>
-    </div>
+    </header>
 
-    <section class="settings-stack settings-toolbar-stack" aria-label="Dashboard settings">
-        <div class="settings-rail settings-toolbar">
-            <div class="toolbar-row toolbar-row-nav">
-                <span class="settings-inline-label">Jump</span>
-                <nav class="quick-nav" aria-label="Dashboard sections">
-                    <a href="#actions">✅ Actions</a>
-                    <a href="#morning">🌅 Morning</a>
-                    <a href="#guidance">💡 Guidance</a>
-                    <a href="#updates">📝 Updates</a>
-                    <a href="#evening">🌙 Evening</a>
-                    <a href="#review">💭 Review</a>
-                    {weekly_nav_link_html}
-                    <a href="#health">🏥 Health</a>
-                    <a href="#film">🎬</a>
-                    <a href="#jobs">💼 Jobs</a>
-                    <a href="#system">🧰 System</a>
-                </nav>
-            </div>
-            <details id="dashboard-controls-wrap" class="dashboard-toolbar-controls"{controls_open_attr}>
-                <summary class="toolbar-summary">
-                    <span class="status-legend-summary toolbar-summary-pill"><span class="status-caret">▸</span>⚙️ Controls</span>
-                    <span class="toolbar-summary-spacer"></span>
-                    <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
-                </summary>
-                <div class="toolbar-controls-panel">
-                    <div class="focus-controls" role="group" aria-label="Focus mode controls">
-                        <span class="focus-label">⏳ Focus</span>
-                        <div class="focus-chips">
-                            <button type="button" class="focus-chip is-active" data-focus-btn="all">🌐 All</button>
-                            <button type="button" class="focus-chip" data-focus-btn="morning">🌅 Morning</button>
-                            <button type="button" class="focus-chip" data-focus-btn="day">📝 Day</button>
-                            <button type="button" class="focus-chip" data-focus-btn="evening">🌙 Evening</button>
-                            <button type="button" class="focus-chip" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>📖 Report</button>
-                        </div>
-                        <div class="focus-meta">
-                            <button type="button" class="focus-chip" id="low-stim-toggle">🧘 Low: Off</button>
-                            <button type="button" class="focus-chip" id="compact-toggle">📚 Compact: Off</button>
-                        </div>
-                        <p id="focus-mode-note" class="focus-note">All sections visible.</p>
-                        <p id="focus-meta-note" class="focus-note">Style: Standard • Density: Standard.</p>
-                    </div>
-                    <details id="status-legend-wrap" class="status-legend-wrap">
-                        <summary class="status-legend-summary"><span class="status-caret">▸</span>🧭 Status markers (optional)</summary>
-                        <div class="status-legend-items" role="note" aria-label="Status marker legend">
-                            <span class="status-chip done">✅ done</span>
-                            <span class="status-chip progress">🔄 in progress</span>
-                            <span class="status-chip action">⚠️ needs action</span>
-                            <span class="status-chip parked">⏭️ parked</span>
-                        </div>
-                    </details>
-                    {system_status_html}
-                </div>
-            </details>
+    <!-- Jump links -->
+    <nav style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; font-size: 0.75rem;">
+        <a href="#actions" style="color: var(--muted);">Actions</a>
+        <a href="#daily-report" style="color: var(--muted);">Report</a>
+        <a href="#guidance" style="color: var(--muted);">Guidance</a>
+        <a href="#morning" style="color: var(--muted);">Morning</a>
+        <a href="#evening" style="color: var(--muted);">Evening</a>
+        <a href="#review" style="color: var(--muted);">Review</a>
+        <a href="#health" style="color: var(--muted);">Health</a>
+    </nav>
+
+    <!-- Focus mode pills (inline) -->
+    <div style="display: flex; align-items: center; gap: 0.3rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <div class="focus-chips" style="display: flex; gap: 0.25rem;">
+            <button type="button" class="focus-chip is-active" data-focus-btn="all">All</button>
+            <button type="button" class="focus-chip" data-focus-btn="morning">Morning</button>
+            <button type="button" class="focus-chip" data-focus-btn="day">Day</button>
+            <button type="button" class="focus-chip" data-focus-btn="evening">Evening</button>
+            <button type="button" class="focus-chip" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>Report</button>
         </div>
+        <span style="flex: 1;"></span>
+        <button type="button" class="focus-chip" id="low-stim-toggle" style="font-size: 0.68rem; opacity: 0.6;">Low stim</button>
+        <button type="button" class="focus-chip" id="compact-toggle" style="font-size: 0.68rem; opacity: 0.6;">Compact</button>
+        <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
+    </div>
+    <p id="focus-mode-note" class="focus-note">All sections visible.</p>
+    <p id="focus-meta-note" class="focus-note">Style: Standard • Density: Standard.</p>
+
+    <!-- 1. TRIAGE: Actions + Daily Report -->
+    <section id="actions" class="dashboard-section" data-focus="always morning day evening">{action_items_html}</section>
+
+    {(f'<section id="daily-report" class="dashboard-section" data-focus="always morning day evening report"{daily_report_section_hidden_attr}><p class="section-label">Daily Report</p>{daily_report_html}</section>') if daily_report_html else ''}
+
+    <!-- 2. COACHING: Guidance + State Vector -->
+    {(f'<section id="guidance" class="dashboard-section" data-focus="morning day evening"><p class="section-label">Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
+
+    {(f'<section class="dashboard-section" data-focus="morning day evening">{support_section_html}</section>') if support_section_html else ''}
+
+    <!-- 3. JOURNAL: chronological (morning → updates → evening) -->
+    <section id="morning" class="dashboard-section" data-focus="morning">
+    <p class="section-label section-label-morning">Morning</p>
+    <div class="card mb-4">
+        {morning_mood_pill_html}
+        {morning_card_html}
+    </div>
+    {morning_insights_html}
+    {_scratch_pad_html("morning", "Morning", effective_today)}
     </section>
 
-    <!-- Ta-Dah scratch pad — quick drop zone at the top -->
+    <section id="updates" class="dashboard-section" data-focus="day">
+    <p class="section-label section-label-day">Updates</p>
+        {updates_card_html}
+        {updates_insights_html}
+        {completed_updates_html}
+        {_scratch_pad_html("updates", "Updates", effective_today)}
+    </section>
+
+    <section id="evening" class="dashboard-section" data-focus="evening">
+    <p class="section-label section-label-evening">Evening</p>
+    <div class="card mb-4">
+        {evening_mood_pill_html}
+        {evening_card_html}
+    </div>
+    {evening_insights_html}
+    {_scratch_pad_html("evening", "Evening", effective_today)}
+    </section>
+
+    <!-- 4. INTERACTIVE: Mood + Ta-Dah scratch -->
+    <section class="dashboard-section" data-focus="always morning day evening">{mood_tracking_html}</section>
     {tadah_scratch_html}
 
-    <!-- Action Items (TOP — the first thing to see) -->
-    <section id="actions" class="dashboard-section phase-day" data-focus="always morning day evening">{action_items_html}</section>
+    <!-- 5. REVIEW: Calendar + Ta-Dah + Weekly -->
+    <section id="review" class="dashboard-section" data-focus="day evening">
+    <p class="section-label">Review</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="card">
+            <h3 class="text-sm font-semibold mb-3" style="color: #f9a8d4">Today</h3>
+            <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
+        </div>
+        <div class="card">
+            <h3 class="text-sm font-semibold mb-3"><a href="{journal_today}" style="color: #6ee7b7">Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
+            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
+            {yesterday_tadah_html}
+            {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
+        </div>
+    </div>
+    </section>
 
-    <!-- Mood selector — always visible, quick tap at any point in the day -->
-    <section class="dashboard-section phase-day" data-focus="always morning day evening">{mood_tracking_html}</section>
+    {(f'<section id="day-narrative" class="dashboard-section" data-focus="day evening">{_pieces_day_html}</section>') if _pieces_day_html else ''}
 
-    <!-- Freshness + journal warnings (moved below triage on mobile/desktop to reduce top-load) -->
+    <section id="weekly" class="dashboard-section" data-focus="day evening">{weekly_digest_html}</section>
+
+    <!-- 6. SYSTEM: Freshness warnings (collapsed) -->
     <section id="qa-status-cards-section" class="dashboard-section" data-focus="always" data-static-cards="{status_static_card_count}"{status_cards_section_hidden_attr}>
         {important_thing_warning_html}
         <div id="qa-freshness-watch-wrap"{freshness_watch_hidden_attr}>{freshness_watch_html}</div>
@@ -11472,132 +11490,68 @@ def generate_html(data):
         <div id="qa-section-freshness-wrap"{section_freshness_hidden_attr}>{section_freshness_html}</div>
     </section>
 
-    <!-- Morning block: entries + AI analysis -->
-    <section id="morning" class="dashboard-section phase-morning" data-focus="morning">
-    <div class="card mb-4">
-        <h3 class="text-lg font-semibold mb-3" style="color: #a7f3d0">🌅 Morning</h3>
-        {morning_mood_pill_html}
-        {morning_card_html}
-    </div>
-    {morning_insights_html}
-    {_scratch_pad_html("morning", "Morning", effective_today)}
-    </section>
-
-
-
-    <!-- Updates (throughout-day notes) — still morning/day context -->
-    <section id="updates" class="dashboard-section phase-day" data-focus="day">
-        {updates_card_html}
-        {updates_insights_html}
-        {completed_updates_html}
-        {_scratch_pad_html("updates", "Updates", effective_today)}
-    </section>
-
-    {(f'<section id="guidance" class="dashboard-section phase-day" data-focus="morning day evening">{guidance_section_html}</section>') if guidance_section_html else ''}
-
-    {(f'<section class="dashboard-section phase-day" data-focus="morning day evening">{support_section_html}</section>') if support_section_html else ''}
-
-    <!-- Evening block: entries + AI analysis + emotional synthesis + tomorrow -->
-    <section id="evening" class="dashboard-section phase-evening" data-focus="evening">
-    <div class="card mb-4">
-        <h3 class="text-lg font-semibold mb-3" style="color: #c4b5fd">🌙 Evening</h3>
-        {evening_mood_pill_html}
-        {evening_card_html}
-    </div>
-    {evening_insights_html}
-    {_scratch_pad_html("evening", "Evening", effective_today)}
-    </section>
-
-    {(f'<section id="daily-report" class="dashboard-section phase-day" data-focus="report day evening"{daily_report_section_hidden_attr}>{daily_report_html}</section>') if daily_report_html else ''}
-
-    <!-- Calendar + Ta-Dah (with wins merged) -->
-    <section id="review" class="dashboard-section phase-day" data-focus="day evening">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div class="card">
-            <h3 class="text-lg font-semibold mb-4" style="color: #f9a8d4">📅 Today</h3>
-            <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
-        </div>
-        <div class="card">
-            <h3 class="text-lg font-semibold mb-4"><a href="{journal_today}" style="color: #6ee7b7">✅ Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
-            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
-            {yesterday_tadah_html}
-            {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
-        </div>
-    </div>
-    </section>
-
-    {(f'<section id="day-narrative" class="dashboard-section phase-day" data-focus="day evening">{_pieces_day_html}</section>') if _pieces_day_html else ''}
-
-    <section id="weekly" class="dashboard-section phase-day" data-focus="day evening">{weekly_digest_html}</section>
-
-    <!-- Fitness (HealthFit workouts + yoga goals) -->
-    <section id="health" class="dashboard-section phase-day" data-focus="day evening">{workout_html}{fitness_html}</section>
-
-    <!-- Mindfulness (Streaks auto + manual check) -->
-    <section class="dashboard-section phase-day" data-focus="day evening">{mindfulness_html}</section>
-
-    <!-- Finch Self-Care (collapsed — static aggregate, low daily signal) -->
-    <section class="dashboard-section phase-day" data-focus="day evening">
-        {('<details><summary class="text-sm cursor-pointer mb-2" style="color: #6b7280">🐦 Finch Self-Care</summary>' + finch_html + '</details>') if finch_html else ''}
-    </section>
-
-    <!-- Health (compact) + Habits -->
-    <section class="dashboard-section phase-day" data-focus="day evening">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div class="card">
-            <h3 class="text-lg font-semibold mb-4" style="color: #c4b5fd">🏥 Health</h3>
-            {health_html if health_html else '<p class="text-sm" style="color: #6b7280">No health data</p>'}
-        </div>
-        <div class="card">
-            <h3 class="text-lg font-semibold mb-4"><a href="{streaks_dir}" style="color: #fbbf24">🔥 Habits</a></h3>
-            {habits_html if habits_html else '<p class="text-sm" style="color: #6b7280">No habit data</p>'}
-        </div>
+    <!-- Health & Wellbeing (consolidated) -->
+    <section id="health" class="dashboard-section" data-focus="day evening">
+    <p class="section-label">Health &amp; Wellbeing</p>
+    <div class="card">
+        {workout_html}{fitness_html}
+        {('<div style="border-top: 1px solid var(--panel-border); margin: 0.75rem 0; padding-top: 0.75rem;">' + mindfulness_html + '</div>') if mindfulness_html else ''}
+        {('<div style="border-top: 1px solid var(--panel-border); margin: 0.75rem 0; padding-top: 0.75rem;"><div class="grid grid-cols-1 md:grid-cols-2 gap-4">' + '<div>' + (health_html if health_html else '') + '</div>' + '<div>' + (habits_html if habits_html else '') + '</div>' + '</div></div>') if (health_html or habits_html) else ''}
+        {('<details style="border-top: 1px solid var(--panel-border); margin-top: 0.75rem; padding-top: 0.75rem;"><summary class="text-sm cursor-pointer" style="color: var(--muted)">Self-care details</summary><div style="margin-top: 0.5rem;">' + finch_html + '</div></details>') if finch_html else ''}
     </div>
     </section>
 
     <!-- Film -->
     <section id="film" class="dashboard-section" data-focus="day evening">{film_html}</section>
 
-    <section class="dashboard-section phase-day" data-focus="day evening">{correlation_html}</section>
+    <!-- Patterns & Correlations (collapsed) -->
+    <section class="dashboard-section" data-focus="day evening">
+    {('<details class="card"><summary class="cursor-pointer text-sm font-semibold" style="color: var(--muted)">Patterns &amp; correlations</summary><div style="margin-top: 0.75rem;">' + correlation_html + mood_correlation_html + '</div></details>') if (correlation_html or mood_correlation_html) else ''}
+    </section>
 
-    <section class="dashboard-section phase-day" data-focus="day evening">{mood_correlation_html}</section>
-
-    <!-- Digital Activity (Screen Time + ActivityWatch) -->
-    <section class="dashboard-section phase-day" data-focus="day evening">
-        {('<details class="card mb-4"><summary class="cursor-pointer text-lg font-semibold" style="color: #c4b5fd">' + html.escape(screentime_summary_label) + '</summary><div class="mt-3">' + screentime_html + '</div></details>') if screentime_html else ''}
-        {('<details class="card"><summary class="cursor-pointer text-lg font-semibold" style="color: #fbbf24">' + html.escape(activitywatch_summary_label) + '</summary><div class="mt-3">' + activitywatch_html + '</div></details>') if activitywatch_html else ''}
+    <!-- Digital Activity (collapsed) -->
+    <section class="dashboard-section" data-focus="day evening">
+        {('<details class="card"><summary class="cursor-pointer text-sm" style="color: var(--muted)">' + html.escape(screentime_summary_label) + '</summary><div class="mt-3">' + screentime_html + '</div></details>') if screentime_html else ''}
+        {('<details class="card"><summary class="cursor-pointer text-sm" style="color: var(--muted)">' + html.escape(activitywatch_summary_label) + '</summary><div class="mt-3">' + activitywatch_html + '</div></details>') if activitywatch_html else ''}
     </section>
 
     <!-- Pieces Workstream -->
-    <section id="pieces" class="dashboard-section phase-day" data-focus="day evening">{pieces_card_html if pieces_card_html else ''}</section>
+    <section id="pieces" class="dashboard-section" data-focus="day evening">{pieces_card_html if pieces_card_html else ''}</section>
 
-    <!-- Therapy Notes (HEALTH only) -->
-    <section class="dashboard-section phase-evening" data-focus="all">{therapy_notes_html}</section>
+    <!-- Therapy Notes -->
+    <section class="dashboard-section" data-focus="all">{therapy_notes_html}</section>
 
-    <!-- Jobs {'(collapsed — WT day)' if is_wt_day else ''} -->
-    <section id="jobs" class="dashboard-section phase-day" data-focus="all">
-    {'<details class="card"><summary class="cursor-pointer"><span class="text-lg font-semibold" style="color: #f9a8d4">💼 ' + str(data.get("actualApps", 0)) + ' submitted · ' + str(data.get("jobAlerts", 0)) + ' alerts</span></summary><div class="mt-3">' if is_wt_day else '<div class="card">'}
-        {'<h3 class="text-lg font-semibold mb-4"><a href="' + wins_file + '" style="color: #f9a8d4">💼 Job Search</a></h3>' if not is_wt_day else ''}
+    <!-- Jobs (always collapsed) -->
+    <section id="jobs" class="dashboard-section" data-focus="all">
+    <details class="card">
+        <summary class="cursor-pointer"><span class="text-sm font-semibold" style="color: var(--muted)">Jobs — {data.get("actualApps", 0)} submitted · {data.get("jobAlerts", 0)} alerts</span></summary>
+        <div style="margin-top: 0.75rem;">
         <div class="flex gap-4 mb-4">
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(6,95,70,0.15)">
-                <p class="text-3xl font-bold" style="color: #6ee7b7">{data.get("actualApps", 0)}</p>
+                <p class="text-2xl font-bold" style="color: #6ee7b7">{data.get("actualApps", 0)}</p>
                 <p class="text-xs" style="color: #9ca3af">submitted</p>
             </div>
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(88,28,135,0.1)">
-                <p class="text-xl font-semibold" style="color: #c4b5fd">{data.get("focus_label", "Remote £35k+ / local £40k+")}</p>
+                <p class="text-sm font-semibold" style="color: #c4b5fd">{data.get("focus_label", "Remote £35k+ / local £40k+")}</p>
                 <p class="text-xs" style="color: #9ca3af">focus</p>
             </div>
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(131,24,67,0.1)">
-                <p class="text-xl font-semibold" style="color: #f9a8d4">{data.get("jobAlerts", 0)}</p>
+                <p class="text-lg font-semibold" style="color: #f9a8d4">{data.get("jobAlerts", 0)}</p>
                 <p class="text-xs" style="color: #9ca3af">alerts</p>
             </div>
         </div>
         <div class="space-y-2">{jobs_html if jobs_html else '<p class="text-sm" style="color: #6b7280">No job alerts</p>'}</div>
-    {'</div></details>' if is_wt_day else '</div>'}
+        </div>
+    </details>
     </section>
 
-    <!-- Maintenance Tasks (beads) -->
-    <section id="system" class="dashboard-section phase-day" data-focus="all">{backlog_html}</section>
+    <!-- System -->
+    <section id="system" class="dashboard-section" data-focus="all">
+    <details class="card">
+        <summary class="cursor-pointer text-sm" style="color: var(--muted)">System &amp; maintenance</summary>
+        <div style="margin-top: 0.75rem;">{backlog_html}</div>
+    </details>
+    </section>
 
     <div id="cmd-palette" class="focus-hidden" style="position: fixed; inset: 0; z-index: 1000; background: rgba(2,6,23,0.72);">
         <div style="max-width: 680px; margin: 8vh auto 0; padding: 0 1rem;">
@@ -12141,6 +12095,7 @@ def generate_html(data):
             }}
         }});
     }})();
+
     </script>
     </main>
 </body>
@@ -12770,6 +12725,16 @@ def main():
     OUTPUT_FILE.write_text(html)
     print(f"✅ Dashboard generated: {OUTPUT_FILE}")
     print(f"📊 Data from cache: {cache.get('timestamp', 'unknown')}")
+
+    # Auto-send to Readwise Reader (if token is configured)
+    if "--no-readwise" not in sys.argv:
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude" / "scripts"))
+            from shared.readwise import send_dashboard_snapshot
+            if send_dashboard_snapshot(OUTPUT_FILE):
+                print("📖 Sent to Readwise Reader")
+        except Exception as exc:
+            print(f"📖 Readwise skip: {exc}")
 
     # Open browser UNLESS --no-open flag is passed
     if "--no-open" not in sys.argv:
