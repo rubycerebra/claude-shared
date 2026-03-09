@@ -32,7 +32,6 @@ sys.path.insert(0, str(Path.home() / ".claude" / "scripts"))
 from shared.insights import synthesise_top_insights
 from shared.cache_dates import get_effective_date, get_ai_day, normalize_ai_cache_for_date
 from shared.workout_logic import (
-    is_streaks_export_today,
     is_healthfit_export_today,
     extract_healthfit_sleep_hours,
     derive_workout_progression,
@@ -1727,8 +1726,50 @@ def _tadah_score_key(text):
     return re.sub(r'[^a-z0-9\s]', '', raw).strip()
 
 
+def _is_future_intent(text):
+    """Detect items that aren't genuine accomplishments.
+
+    Catches: future tasks ('do X', 'get Y'), vague filler ('relaxed a little'),
+    routine items that pad the list, and debug artifacts.
+    """
+    lower = text.strip().lower()
+    # Imperative verb starters — "get the bath panel sorted", "do a brief look"
+    future_starters = (
+        "get ", "do ", "sort ", "check ", "make sure ", "try to ", "need to ",
+        "set a ", "write a ", "plan ", "look at ", "start ", "stop ",
+        "figure out ", "decide ", "think about ", "remember to ",
+    )
+    if any(lower.startswith(s) for s in future_starters):
+        return True
+    # Very short + no past-tense signal = probably a label, not a win
+    if len(lower.split()) <= 2 and not any(w in lower for w in ("fixed", "done", "finished", "sent", "built", "walked")):
+        return True
+    # Vague filler — pads the list without real substance
+    vague_items = (
+        "relaxed a little", "utilised claude max", "relaxed",
+        "morning todos", "morning to-dos", "list",
+    )
+    if lower in vague_items:
+        return True
+    # Routine daily items that aren't wins
+    routine_items = (
+        "breakfast", "lunch", "dinner", "coffee", "get ready",
+        "walk dog", "tidy", "relax",
+    )
+    if lower in routine_items:
+        return True
+    # Debug/test artifacts
+    if "_debug" in lower or lower.startswith("test_"):
+        return True
+    return False
+
+
 def _score_tadah_items(items):
-    """Score ta-dah items deterministically (no model calls, no token usage)."""
+    """Score ta-dah items deterministically (no model calls, no token usage).
+
+    Items detected as future intents are flagged with is_intent=True rather
+    than removed — they render with a 📌 icon to distinguish them from wins.
+    """
     if not items:
         return items
 
@@ -1763,8 +1804,12 @@ def _score_tadah_items(items):
             score = max(score, 3)
         return max(1, min(5, score))
 
-    scored = [{**item, "score": _score_item(item)} for item in items]
-    scored.sort(key=lambda x: (-x.get("score", 3), x["text"]))
+    scored = []
+    for item in items:
+        text = str(item.get("text", "")).strip()
+        is_intent = _is_future_intent(text)
+        scored.append({**item, "score": _score_item(item), "is_intent": is_intent})
+    scored.sort(key=lambda x: (x.get("is_intent", False), -x.get("score", 3), x["text"]))
 
     return scored
 
@@ -1837,7 +1882,7 @@ def get_tadah():
     today_items = deduped_today_items
 
     # Reserve up to 5 slots for Pieces items so diary count never crowds them out
-    diary_items = [i for i in today_items if i["source"] == "diary"][:17]
+    diary_items = [i for i in today_items if i["source"] == "diary"][:35]
     pieces_items = [i for i in today_items if i["source"] == "pieces"][:5]
     today_items = diary_items + pieces_items
     # Score by significance via Claude Haiku (subscription, cached per day)
@@ -2285,14 +2330,20 @@ def generate_html(data):
             # The daemon doesn't default unknowns to self_care, so neither should the dashboard
             return "✅"
 
-        # Build source/score lookup: cleaned item text → source and score
+        # Build source/score/intent lookup: cleaned item text → source, score, intent flag
         _items_with_source = tadah_data.get("items_with_source", []) if isinstance(tadah_data, dict) else []
         _source_lookup = {}
         _score_lookup = {}
+        _intent_lookup = {}
         for _itm in _items_with_source:
             _cleaned_key = _BULLET_STRIP.sub("", str(_itm.get("text", ""))).strip()
             _source_lookup[_cleaned_key] = _itm.get("source", "diary")
             _score_lookup[_cleaned_key] = _itm.get("score")
+            _intent_lookup[_cleaned_key] = _itm.get("is_intent", False)
+        # Also check items not in items_with_source (e.g. from flat list)
+        for _item_text in tadah_flat:
+            if _item_text not in _intent_lookup:
+                _intent_lookup[_item_text] = _is_future_intent(_item_text)
         _has_scores = any(v is not None for v in _score_lookup.values())
 
         # Category helpers (used for inline emoji on each item)
@@ -2330,8 +2381,9 @@ def generate_html(data):
             score = _score_lookup.get(item_text) or 0
             return (cat_order, -score, item_text.lower())
 
-        tadah_sorted = sorted(tadah_flat, key=_get_sort_key_with_score)
-        _VISIBLE_TADAH = 15  # show up to 15 before collapsing
+        # All ta-dahs in one list — if Jim logged it, it's a ta-dah
+        all_sorted = sorted(tadah_flat, key=_get_sort_key_with_score)
+        _VISIBLE_TADAH = 15
 
         def _render_tadah_list(items):
             out = ""
@@ -2348,12 +2400,12 @@ def generate_html(data):
                 out += _render_tadah_item(item, current_category, _source_lookup.get(item, "diary"), item_score)
             return out
 
-        tadah_html += _render_tadah_list(tadah_sorted[:_VISIBLE_TADAH])
+        tadah_html += _render_tadah_list(all_sorted[:_VISIBLE_TADAH])
 
-        if len(tadah_sorted) > _VISIBLE_TADAH:
-            extra_html = _render_tadah_list(tadah_sorted[_VISIBLE_TADAH:])
+        if len(all_sorted) > _VISIBLE_TADAH:
+            extra_html = _render_tadah_list(all_sorted[_VISIBLE_TADAH:])
             tadah_html += (f'<details class="mt-2"><summary style="color: #a7d8c4; font-size: 0.75rem; cursor: pointer;">'
-                           f'+{len(tadah_sorted) - _VISIBLE_TADAH} more</summary>'
+                           f'+{len(all_sorted) - _VISIBLE_TADAH} more</summary>'
                            f'<div class="mt-1 space-y-1">{extra_html}</div></details>')
 
     # Append recent wins as mint badges
@@ -2421,12 +2473,10 @@ def generate_html(data):
     for h in data.get("habits", [])[:6]:
         rate = h.get("rate", 0)
         color = "#a7d8c4" if rate >= 80 else "#d4b896" if rate >= 50 else "#d4a8b8"
-        # Add warning flag for habits < 60% (at risk)
-        warning_flag = '<span style="color: #d4b896; font-size: 0.9rem; margin-right: 4px;">⚠️</span>' if rate < 60 else ''
         habit_emoji = _pick_content_emoji(h.get("name", ""))
         habits_html += f'''
         <div class="flex items-center gap-2 mb-2">
-            {warning_flag}<span class="w-28 text-sm" style="color: #d1d5db">{habit_emoji} {h.get("name", "")}</span>
+            <span class="w-28 text-sm" style="color: #d1d5db">{habit_emoji} {h.get("name", "")}</span>
             <div class="flex-1 h-2 rounded-full overflow-hidden" style="background: #1f2937">
                 <div class="h-full rounded-full" style="width:{rate}%;background:{color}"></div>
             </div>
@@ -4211,23 +4261,18 @@ def generate_html(data):
     recovery_signal_detail = str(workout_checklist_signals.get("recovery_signal_detail", "No HRV/sleep gate signal yet.")).strip()
 
     hf_fresh_checked = "checked" if bool(workout_checklist_signals.get("healthfit_export_today")) else ""
-    streaks_fresh_checked = "checked" if bool(workout_checklist_signals.get("streaks_export_today")) else ""
     anxiety_saved_checked = "checked" if bool(workout_checklist_signals.get("anxiety_saved_today")) else ""
     reflection_saved_checked = "checked" if bool(workout_checklist_signals.get("reflection_saved_today")) else ""
     is_evening_close_window = datetime.now().hour >= 18
-    streaks_close_check_html = ""
     evening_close_checks_html = ""
     if is_evening_close_window:
-        streaks_close_check_html = f'''
-                        <label class="flex items-center gap-2 text-xs mb-1" style="color: #cbd5e1"><input id="qa-wc-sig-streaks" type="checkbox" disabled {streaks_fresh_checked} class="h-3 w-3">Streaks export done today</label>
-        '''
         evening_close_checks_html = f'''
                         <label class="flex items-center gap-2 text-xs mb-1" style="color: #cbd5e1"><input id="qa-wc-sig-anxiety" type="checkbox" disabled {anxiety_saved_checked} class="h-3 w-3">Anxiety score saved</label>
                         <label class="flex items-center gap-2 text-xs mb-1" style="color: #cbd5e1"><input id="qa-wc-sig-reflection" type="checkbox" disabled {reflection_saved_checked} class="h-3 w-3">Evening reflection saved</label>
         '''
     else:
-        streaks_close_check_html = '''
-                        <p class="text-xs" style="color: #94a3b8">⏳ Streaks + evening close checks unlock after 18:00.</p>
+        evening_close_checks_html = '''
+                        <p class="text-xs" style="color: #94a3b8">⏳ Evening close checks unlock after 18:00.</p>
         '''
     wc_progression = data.get("workoutProgression", {}) if isinstance(data.get("workoutProgression"), dict) else {}
     wc_progression_view = workout_progression_view(wc_progression)
@@ -4328,7 +4373,6 @@ def generate_html(data):
                     <div class="rounded px-3 py-2 mb-2" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.18);">
                         <p class="text-xs font-semibold mb-1" style="color: #94a3b8">Close checks</p>
                         <label class="flex items-center gap-2 text-xs mb-1" style="color: #cbd5e1"><input id="qa-wc-sig-healthfit" type="checkbox" disabled {hf_fresh_checked} class="h-3 w-3">HealthFit export done today</label>
-                        {streaks_close_check_html}
                         {evening_close_checks_html}
                     </div>
 
@@ -4600,7 +4644,7 @@ def generate_html(data):
                 {mood_timeline_html}
             </div>'''
 
-    # === Mindfulness tracking (Streaks auto + manual dashboard log) ===
+    # === Mindfulness tracking (auto + manual dashboard log) ===
     mindfulness_html = ""
     mindfulness = data.get("mindfulness", {}) if isinstance(data.get("mindfulness"), dict) else {}
     if mindfulness:
@@ -4609,9 +4653,6 @@ def generate_html(data):
         mindfulness_manual_done = mindfulness.get("manual_done")
         mindfulness_auto_source = str(mindfulness.get("auto_source", "")).strip().lower()
         mindfulness_has_manual_override = isinstance(mindfulness_manual_done, bool)
-        mindfulness_auto_from_streaks = (
-            mindfulness_auto and not mindfulness_has_manual_override and "streaks" in mindfulness_auto_source
-        )
         mindfulness_auto_from_healthfit = (
             mindfulness_auto and not mindfulness_has_manual_override and "healthfit" in mindfulness_auto_source
         )
@@ -4633,9 +4674,7 @@ def generate_html(data):
             minutes_done = minutes_target if mindfulness_done else 0
 
         if mindfulness_done:
-            if mindfulness_auto_from_streaks:
-                source_label = "auto from Streaks"
-            elif mindfulness_auto_from_healthfit:
+            if mindfulness_auto_from_healthfit:
                 source_label = "auto from HealthFit"
             elif mindfulness_auto_from_finch:
                 source_label = "auto from Finch"
@@ -4667,13 +4706,13 @@ def generate_html(data):
             <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.08); border: 1px solid rgba(147,197,253,0.15);">
                 <details>
                     <summary class="cursor-pointer flex items-center gap-2">
-                        <span class="text-sm font-medium" style="color: #a7d8c4">✅ Mindfulness done — {minutes_done}m</span>
+                        <span class="text-sm font-medium" style="color: #a7d8c4">✅ Mindfulness done</span>
                         <span class="text-xs" style="color: #6b7280">({progression_line})</span>
                     </summary>
                     <div class="mt-3">
                         <label class="flex items-center gap-3 cursor-pointer">
                             <input id="qa-mindfulness-check" type="checkbox" {checked_attr} onchange="qaToggleMindfulness(this)" class="h-4 w-4">
-                            <span class="text-sm" style="color: #e5e7eb">Log {minutes_target}m mindfulness</span>
+                            <span class="text-sm" style="color: #e5e7eb">Log mindfulness</span>
                         </label>
                         <p id="qa-mindfulness-meta" class="text-xs mt-2" style="color: {status_color}">{html.escape(status_text)}</p>
                     </div>
@@ -4685,7 +4724,7 @@ def generate_html(data):
                 <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">🧠 Mindfulness</h3>
                 <label class="flex items-center gap-3 cursor-pointer">
                     <input id="qa-mindfulness-check" type="checkbox" {checked_attr} onchange="qaToggleMindfulness(this)" class="h-4 w-4">
-                    <span class="text-sm" style="color: #e5e7eb">Log {minutes_target}m mindfulness</span>
+                    <span class="text-sm" style="color: #e5e7eb">Log mindfulness</span>
                 </label>
                 <p id="qa-mindfulness-meta" class="text-xs mt-2" style="color: {status_color}">{html.escape(status_text)}</p>
                 <p class="text-xs mt-1" style="color: #6b7280">{progression_line}</p>
@@ -5044,6 +5083,7 @@ def generate_html(data):
         aw_data = {}
 
     aw_status = aw_data.get("status", "unknown")
+    focus_state = "normal"
     if aw_status == "success":
         focus_patterns = aw_data.get("focus_patterns", {})
         focus_state = focus_patterns.get("focus_state", "normal")
@@ -5548,7 +5588,7 @@ def generate_html(data):
     if mindfulness_done:
         def _is_mindfulness_item(text):
             ll = str(text or "").strip().lower()
-            return any(token in ll for token in ("mindfulness", "mindful", "streaks"))
+            return any(token in ll for token in ("mindfulness", "mindful"))
 
         updates_completed_items = [item for item in updates_completed_items if not _is_mindfulness_item(item)]
 
@@ -5571,6 +5611,7 @@ def generate_html(data):
         if "tomorrow" not in str(item).lower()
         and "next week" not in str(item).lower()
         and _looks_like_real_item(item)
+        and not _is_future_intent(str(item).strip())
     ]
 
     # Deduplicate completed items robustly:
@@ -6304,7 +6345,6 @@ def generate_html(data):
     home = str(Path.home())
     journal_today = f"file://{home}/Documents/Claude Projects/claude-shared/journal/{get_effective_date()}.md"
     wins_file = f"file://{home}/Documents/Claude Projects/claude-shared/wins.md"
-    streaks_dir = f"file://{home}/Library/CloudStorage/GoogleDrive-james.cherry01@gmail.com/My Drive/Streaks Backup"
 
     # Diarium image — used in header
     diarium_image_tag = ""
@@ -6458,7 +6498,6 @@ def generate_html(data):
                 "linkedin_jobs": data.get("linkedinJobs", {}),
                 "applications": data.get("applications", {}),
                 "healthfit": data.get("healthfit", {}),
-                "streaks": data.get("streaks", {}),
                 "apple_health": data.get("appleHealth", {}),
                 "autosleep": data.get("autosleep", {}),
             },
@@ -6594,7 +6633,6 @@ def generate_html(data):
     qa_mood = data.get("moodTracking", {}) if isinstance(data.get("moodTracking"), dict) else {}
     qa_mood_state = {
         "done": bool(qa_mood.get("done_today")),
-        "streaks_done_today": bool(qa_mood.get("streaks_done_today")),
         "manual_done_today": bool(qa_mood.get("manual_done_today")),
         "source": str(qa_mood.get("source", "")).strip(),
         "manual_source": str(qa_mood.get("manual_source", "")).strip(),
@@ -6628,7 +6666,6 @@ def generate_html(data):
     qa_workout_signals_raw = data.get("workoutChecklistSignals", {}) if isinstance(data.get("workoutChecklistSignals"), dict) else {}
     qa_workout_signals_state = {
         "healthfit_export_today": bool(qa_workout_signals_raw.get("healthfit_export_today")),
-        "streaks_export_today": bool(qa_workout_signals_raw.get("streaks_export_today")),
         "anxiety_saved_today": bool(qa_workout_signals_raw.get("anxiety_saved_today")),
         "reflection_saved_today": bool(qa_workout_signals_raw.get("reflection_saved_today")),
         "recovery_signal": str(qa_workout_signals_raw.get("recovery_signal", "unknown")).strip().lower(),
@@ -7194,7 +7231,7 @@ def generate_html(data):
         if _bell_akiflow_count:
             _bell_summary_parts.append(f'{_bell_akiflow_count} in Akiflow')
         if _bell_stale_count:
-            _bell_summary_parts.append(f'{_bell_stale_count} overdue')
+            _bell_summary_parts.append(f'{_bell_stale_count} stale')
         _bell_summary_text = ' · '.join(_bell_summary_parts)
         _bell_summary_color = '#d4a0a0' if _bell_stale_count else ('#d4b896' if _bell_akiflow_count else '#94a3b8')
         notifications_bell_html = f'''
@@ -7208,21 +7245,21 @@ def generate_html(data):
         <div style="margin-top:0.55rem;">{"".join(_bell_rows)}</div>
     </details>'''
 
-    # --- "Where Was I?" recall line from ActivityWatch ---
     _recall_html = ""
-    _recall_apps = aw_data.get("top_apps", []) if isinstance(aw_data.get("top_apps"), list) else []
-    if _recall_apps and aw_data.get("status") == "success":
-        _recall_names = [str(a.get("app", "")).strip() for a in _recall_apps[:5] if str(a.get("app", "")).strip()]
-        if _recall_names:
-            _recall_chain = " → ".join(_recall_names)
-            _recall_html = f'''
-    <div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(55,65,81,0.2); border: 1px solid rgba(148,163,184,0.1);">
-        <p class="text-xs" style="color: #6b7280">📍 Where was I: <span style="color: #94a3b8">{html.escape(_recall_chain)}</span></p>
+
+    # --- Scattered focus → suggest Focus density mode ---
+    _focus_nudge_html = ""
+    if focus_state == "scattered" and not _nudge_should_mute("focus_suggest_density", cooldown_hours=6):
+        _nudge_record("focus_suggest_density")
+        _focus_nudge_html = '''
+    <div id="focus-nudge" class="rounded-lg px-3 py-2 mb-3" style="background: rgba(120,53,15,0.12); border: 1px solid rgba(212,184,150,0.2);">
+        <p class="text-xs" style="color: #d4b896">💫 Focus is scattered today — <a href="#" onclick="setDensity('focus'); document.getElementById('focus-nudge').style.display='none'; return false;" style="color: #fbbf24; text-decoration: underline;">switch to Focus mode</a>? <span style="color: #6b7280; margin-left: 4px; cursor: pointer;" onclick="this.parentElement.parentElement.style.display=\'none\'">dismiss</span></p>
     </div>'''
 
     action_items_html = rf'''
     {notifications_bell_html}
     {_recall_html}
+    {_focus_nudge_html}
     <div class="card rounded-xl p-5 mb-4" style="background: rgba(131,24,67,0.15); border: 1px solid rgba(249,168,212,0.2);">
         <h3 class="text-lg font-semibold mb-2" style="color: #fbcfe8">✅ Action Items</h3>
         {qa_quick_bar_html}
@@ -8287,9 +8324,9 @@ def generate_html(data):
         qaUpdateFreshnessFromToday(snapshot);
         qaApplyNarrativeFromToday(snapshot);
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
-        if (Array.isArray(snapshot.ta_dah)) {{
-            qaApplyLiveTaDah(snapshot.ta_dah);
-        }}
+        // ta_dah from snapshot intentionally not applied here —
+        // static HTML has categorised/scored items; snapshot backfill
+        // would add unstyled overflow items. Scratch pad still works.
     }}
 
     function qaApplyCalendarState(events) {{
@@ -10135,7 +10172,6 @@ def generate_html(data):
             if (el) el.checked = Boolean(safe[key]);
         }};
         applyCheck("qa-wc-sig-healthfit", "healthfit_export_today");
-        applyCheck("qa-wc-sig-streaks", "streaks_export_today");
         applyCheck("qa-wc-sig-anxiety", "anxiety_saved_today");
         applyCheck("qa-wc-sig-reflection", "reflection_saved_today");
 
@@ -10412,16 +10448,14 @@ def generate_html(data):
         }}
         if (done) {{
             let sourceText = "manual";
-            if (!hasManualOverride && autoDone && autoSourceRaw.includes("streaks")) {{
-                sourceText = "auto from Streaks";
-            }} else if (!hasManualOverride && autoDone && autoSourceRaw.includes("healthfit")) {{
+            if (!hasManualOverride && autoDone && autoSourceRaw.includes("healthfit")) {{
                 sourceText = "auto from HealthFit";
             }} else if (!hasManualOverride && autoDone && autoSourceRaw.includes("finch")) {{
                 sourceText = "auto from Finch";
             }}
-            return `✅ ${{minutesDone}}m logged (${{sourceText}})${{habit ? ` • ${{habit}}` : ""}}${{progressionText}}`;
+            return `✅ Done (${{sourceText}})${{habit ? ` • ${{habit}}` : ""}}${{progressionText}}`;
         }}
-        return `⬜ Target: ${{targetMinutes}}m today${{habit ? ` • ${{habit}}` : ""}}${{progressionText}}`;
+        return `⬜ Not yet${{habit ? ` • ${{habit}}` : ""}}${{progressionText}}`;
     }}
 
     function qaApplyMindfulnessState(state) {{
@@ -10555,7 +10589,7 @@ def generate_html(data):
         const source = String(safe.source || "").toLowerCase();
         const habit = String(safe.habit || "").trim() || "Mood check-in";
         if (done) {{
-            const sourceLabel = source.includes("streaks") ? "Streaks" : "manual";
+            const sourceLabel = "manual";
             return `✅ Mood check-in done today (${{sourceLabel}}) • ${{habit}}`;
         }}
         const latest = String(safe.latest_completed || "").trim();
@@ -12357,6 +12391,13 @@ def generate_html(data):
                 }}
                 note.textContent = modeText;
             }}
+            if (safeMode === "report") {{
+                const rpt = document.getElementById("daily-report");
+                if (rpt) {{
+                    const d = rpt.querySelector("details");
+                    if (d && !d.open) d.open = true;
+                }}
+            }}
             if (persist) {{
                 try {{
                     localStorage.setItem(STORAGE_KEY, safeMode);
@@ -12519,7 +12560,10 @@ def generate_html(data):
 
         function jumpToSection(id) {{
             const node = document.getElementById(id);
-            if (node && typeof node.scrollIntoView === "function") {{
+            if (!node) return;
+            const details = node.querySelector("details");
+            if (details && !details.open) details.open = true;
+            if (typeof node.scrollIntoView === "function") {{
                 node.scrollIntoView({{ behavior: "smooth", block: "start" }});
             }}
         }}
@@ -12827,6 +12871,57 @@ def generate_html(data):
         }});
     }})();
 
+    // --- Evening stop condition banners ---
+    (function() {{
+        const BEDTIME_DISMISS_KEY = "dashboard.bedtime.dismissed";
+        function getTodayStr() {{
+            const d = new Date();
+            return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+        }}
+        function isDismissedToday() {{
+            try {{ return localStorage.getItem(BEDTIME_DISMISS_KEY) === getTodayStr(); }} catch(_) {{ return false; }}
+        }}
+        function dismissToday() {{
+            try {{ localStorage.setItem(BEDTIME_DISMISS_KEY, getTodayStr()); }} catch(_) {{}}
+            const el = document.getElementById("bedtime-nudge");
+            if (el) el.style.display = "none";
+        }}
+        window._dismissBedtime = dismissToday;
+
+        function checkBedtime() {{
+            if (isDismissedToday()) return;
+            const h = new Date().getHours();
+            const m = new Date().getMinutes();
+            const mins = h * 60 + m;
+            let msg = "";
+            if (mins >= 23 * 60) {{
+                msg = "Past bedtime. Everything here will still be here tomorrow. 🌙";
+            }} else if (mins >= 22 * 60) {{
+                msg = "It's " + h + ":" + String(m).padStart(2,"0") + ". Your in-bed goal is 23:00 — back up Finch, then wind down.";
+            }}
+            if (!msg) {{
+                const el = document.getElementById("bedtime-nudge");
+                if (el) el.style.display = "none";
+                return;
+            }}
+            let el = document.getElementById("bedtime-nudge");
+            if (!el) {{
+                el = document.createElement("div");
+                el.id = "bedtime-nudge";
+                el.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:9999;padding:12px 20px;background:rgba(30,27,45,0.95);border-top:1px solid rgba(168,85,247,0.3);text-align:center;backdrop-filter:blur(8px);";
+                el.innerHTML = '<p id="bedtime-msg" style="color:#c4b5fd;font-size:14px;margin:0;"></p><span onclick="window._dismissBedtime()" style="color:#6b7280;font-size:12px;cursor:pointer;margin-top:4px;display:inline-block;">dismiss for tonight</span>';
+                document.body.appendChild(el);
+            }}
+            el.style.display = "";
+            const msgEl = el.querySelector("#bedtime-msg");
+            if (msgEl) msgEl.textContent = msg;
+        }}
+
+        // Check immediately, then every 5 minutes
+        checkBedtime();
+        setInterval(checkBedtime, 5 * 60 * 1000);
+    }})();
+
     </script>
     </main>
 </body>
@@ -12864,7 +12959,6 @@ def main():
     calendar_data = cache.get("calendar", {})
     akiflow_raw = cache.get("akiflow_tasks", {})
     open_loops = cache.get("open_loops", {})
-    streaks = cache.get("streaks", {})
     finch = cache.get("finch", {})
     linkedin = cache.get("linkedin_jobs", {})
     apple_health = cache.get("apple_health", {})
@@ -13065,7 +13159,6 @@ def main():
         "linkedinJobs": linkedin if isinstance(linkedin, dict) else {},
         "applications": cache.get("applications", {}) if isinstance(cache.get("applications", {}), dict) else {},
         "healthfit": cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {},
-        "streaks": streaks if isinstance(streaks, dict) else {},
         "appleHealth": apple_health if isinstance(apple_health, dict) else {},
         "autosleep": cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {},
         "taDahCategorised": cache.get("ta_dah_categorised", {}),
@@ -13090,7 +13183,6 @@ def main():
         "moodTracking": (lambda _m: {
             "done_today": bool(_m.get("done")),
             "manual_done_today": _m.get("source") == "dashboard_manual",
-            "streaks_done_today": bool(_m.get("done")) and _m.get("source") != "dashboard_manual",
             "source": _m.get("source", ""),
             "manual_source": _m.get("source", "") if _m.get("source") == "dashboard_manual" else "",
             "habit": _m.get("habit", ""),
@@ -13228,27 +13320,16 @@ def main():
         calm_count = sum(1 for c in correlations if c.get("severity") == "positive")
         data["sleepCalm"] = calm_count
 
-    # Parse habits from streaks (cumulative rates — not daily, so less prone to staleness)
-    if streaks.get("status") == "success":
-        for h in streaks.get("habits", []):
-            data["habits"].append({
-                "name": h.get("habit", ""),
-                "rate": h.get("rate", 0)
-            })
-        # Note: Streaks data is cumulative (completion rates over time), not daily.
-        # It's refreshed each daemon cycle from the Streaks backup file.
-
-    # Mindfulness state: manual override (ai_insights) + auto detection (Streaks/HealthFit).
+    # Mindfulness state: manual override (ai_insights) + auto detection (HealthFit/Finch).
     ai_mindfulness = ai_today.get("mindfulness_completion", {}) if isinstance(ai_today.get("mindfulness_completion"), dict) else {}
-    streaks_mindfulness = streaks.get("mindfulness_habit", {}) if isinstance(streaks.get("mindfulness_habit"), dict) else {}
 
     manual_done_raw = ai_mindfulness.get("manual_done")
     manual_done = manual_done_raw if isinstance(manual_done_raw, bool) else None
 
-    auto_done = bool(streaks_mindfulness.get("completed_today"))
-    auto_source = "streaks_auto" if auto_done else ""
-    habit_name = str(streaks_mindfulness.get("habit", "")).strip()
-    latest_completed = str(streaks_mindfulness.get("latest_completed", "")).strip()
+    auto_done = False
+    auto_source = ""
+    habit_name = ""
+    latest_completed = ""
 
     if not auto_done and healthfit.get("status") == "success":
         for entry in healthfit.get("mindfulness", []):
@@ -13300,18 +13381,14 @@ def main():
         "progression": ai_today.get("mental_health_progression", {}) if isinstance(ai_today.get("mental_health_progression"), dict) else {},
     }
 
-    # Mood tracking: Streaks mood check-in + Finch mood trend (if available).
-    streaks_mood = streaks.get("mood_habit", {}) if isinstance(streaks.get("mood_habit"), dict) else {}
-    mood_habit_name = str(streaks_mood.get("habit", "")).strip()
-    mood_done_streaks = bool(streaks_mood.get("completed_today"))
-    mood_latest_completed = str(streaks_mood.get("latest_completed", "")).strip()
+    # Mood tracking: Finch mood trend (if available).
     ai_mood = ai_today.get("mood_checkin", {}) if isinstance(ai_today.get("mood_checkin"), dict) else {}
+    mood_habit_name = str(ai_mood.get("habit", "")).strip()
     mood_done_manual = bool(ai_mood.get("done"))
     mood_manual_source = str(ai_mood.get("source", "")).strip()
-    mood_done_today = bool(mood_done_streaks or mood_done_manual)
-    mood_source = "streaks" if mood_done_streaks else ("manual" if mood_done_manual else "none")
-    if not mood_latest_completed:
-        mood_latest_completed = str(ai_mood.get("latest_completed", "")).strip()
+    mood_done_today = bool(mood_done_manual)
+    mood_source = "manual" if mood_done_manual else "none"
+    mood_latest_completed = str(ai_mood.get("latest_completed", "")).strip()
 
     finch_mood = finch.get("mood", {}) if isinstance(finch.get("mood"), dict) else {}
     finch_summary = finch.get("summary", {}) if isinstance(finch.get("summary"), dict) else {}
@@ -13321,7 +13398,6 @@ def main():
     data["moodTracking"] = {
         "habit": mood_habit_name,
         "done_today": mood_done_today,
-        "streaks_done_today": mood_done_streaks,
         "manual_done_today": mood_done_manual,
         "latest_completed": mood_latest_completed,
         "source": mood_source,
@@ -13374,7 +13450,6 @@ def main():
 
     # Data freshness checks
     healthfit_export_today = is_healthfit_export_today(healthfit, effective_today)
-    streaks_export_today = is_streaks_export_today(streaks, effective_today)
     anxiety_saved_today = isinstance(ai_today.get("anxiety_reduction_score"), (int, float))
     # Reflect as done if evening_reflections written OR meaningful day diary exists
     # (Diarium docx export may predate when the evening section is written)
@@ -13403,7 +13478,6 @@ def main():
 
     data["workoutChecklistSignals"] = {
         "healthfit_export_today": healthfit_export_today,
-        "streaks_export_today": streaks_export_today,
         "anxiety_saved_today": anxiety_saved_today,
         "reflection_saved_today": reflection_saved_today,
         "recovery_signal": recovery_signal,
