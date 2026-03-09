@@ -6724,6 +6724,19 @@ def generate_html(data):
             missing.append("energy")
         return missing
 
+    def _qa_normalise_dashboard_checkins(raw_state):
+        safe_state = raw_state if isinstance(raw_state, dict) else {}
+        normalised = {}
+        for key in ("mindfulness", "workout", "mood"):
+            item = safe_state.get(key, {}) if isinstance(safe_state.get(key), dict) else {}
+            normalised[key] = {
+                "akiflow_added": bool(item.get("akiflow_added", False)),
+                "source": str(item.get("source", "")).strip(),
+                "updated_at": str(item.get("updated_at", "")).strip(),
+            }
+        return normalised
+
+    qa_dashboard_checkins_state = _qa_normalise_dashboard_checkins(data.get("dashboardCheckins", {}))
     qa_quick_mood = mood_tracking if isinstance(mood_tracking, dict) else {}
     qa_quick_mood_done = bool(qa_quick_mood.get("done_today"))
     qa_quick_mood_habit = str(qa_quick_mood.get("habit", "")).strip() or "Mood check-in"
@@ -6772,10 +6785,13 @@ def generate_html(data):
     if qa_quick_workout_trackable:
         qa_quick_workout_checked = "checked" if qa_quick_workout_done else ""
         qa_quick_workout_html = f'''
-            <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #d1fae5;">
-                <input id="qa-quick-workout-check" type="checkbox" {qa_quick_workout_checked} onchange="qaQuickToggleWorkout(this)" class="h-3.5 w-3.5">
-                💪 {html.escape(qa_quick_workout_title)}
-            </label>
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #d1fae5;">
+                    <input id="qa-quick-workout-check" type="checkbox" {qa_quick_workout_checked} onchange="qaQuickToggleWorkout(this)" class="h-3.5 w-3.5">
+                    💪 {html.escape(qa_quick_workout_title)}
+                </label>
+                <button id="qa-quick-workout-akiflow" type="button" onclick="qaToggleCheckinAkiflow('workout')" data-item="workout" data-active="{'true' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else 'false'}" class="rounded px-2 py-1 text-xs font-semibold" style="background: {'rgba(120,53,15,0.35)' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else 'rgba(15,23,42,0.45)'}; color: {'#fde68a' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else '#cbd5e1'}; border: 1px solid {'rgba(251,191,36,0.35)' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else 'rgba(148,163,184,0.24)'};">{'📥 In Akiflow' if qa_dashboard_checkins_state.get('workout', {}).get('akiflow_added') else '📥 Akiflow'}</button>
+            </div>
         '''
 
     qa_quick_end_day_html = ""
@@ -6791,24 +6807,51 @@ def generate_html(data):
 
     qa_quick_mind_checked = "checked" if qa_mindfulness_done else ""
     qa_quick_mood_checked = "checked" if qa_quick_mood_done else ""
+    qa_akiflow_pending_items = []
+    if qa_dashboard_checkins_state.get("mindfulness", {}).get("akiflow_added") and not qa_mindfulness_done:
+        qa_akiflow_pending_items.append("Mindfulness")
+    if qa_dashboard_checkins_state.get("workout", {}).get("akiflow_added") and not qa_quick_workout_done and qa_quick_workout_trackable:
+        qa_akiflow_pending_items.append(qa_quick_workout_title)
+    if qa_dashboard_checkins_state.get("mood", {}).get("akiflow_added") and not qa_quick_mood_done:
+        qa_akiflow_pending_items.append(qa_quick_mood_habit)
+    qa_akiflow_pending_count = len(qa_akiflow_pending_items)
+    qa_checkins_summary = f"{qa_quick_done_count}/{qa_quick_done_total} done"
+    if qa_akiflow_pending_count:
+        qa_checkins_summary += f" • {qa_akiflow_pending_count} in Akiflow"
+    qa_checkins_nudge_hidden_attr = "" if qa_akiflow_pending_items else ' hidden="hidden"'
+    qa_checkins_nudge_text = ""
+    if qa_akiflow_pending_items:
+        qa_checkins_nudge_text = f"⏰ Parked in Akiflow — still finish here: {', '.join(qa_akiflow_pending_items)}."
     qa_quick_bar_html = f'''
-        <div class="rounded-lg px-3 py-3 mb-3" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);">
-            <p class="text-xs font-semibold mb-2" style="color: #bfdbfe">⚡ Done for today</p>
-            <div class="flex flex-wrap gap-2">
-                <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #d1fae5;">
-                    <input id="qa-quick-mindfulness-check" type="checkbox" {qa_quick_mind_checked} onchange="qaQuickToggleMindfulness(this)" class="h-3.5 w-3.5">
-                    🧠 Mindfulness
-                </label>
-                {qa_quick_workout_html}
-                <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(88,28,135,0.2); border: 1px solid rgba(196,181,253,0.26); color: #e9d5ff;">
-                    <input id="qa-quick-mood-check" type="checkbox" {qa_quick_mood_checked} onchange="qaToggleMoodQuick(this)" class="h-3.5 w-3.5">
-                    🙂 {html.escape(qa_quick_mood_habit)}
-                </label>
-                <span id="qa-mood-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
-                {qa_quick_end_day_html}
+        <details id="qa-checkins-section" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);" {'open' if (qa_quick_done_count < qa_quick_done_total or qa_akiflow_pending_count or qa_yoga_prompt_needed) else ''}>
+            <summary class="flex items-center justify-between gap-3 cursor-pointer" style="list-style: none;">
+                <span class="text-xs font-semibold" style="color: #bfdbfe">⚡ Check-ins &amp; follow-through</span>
+                <span id="qa-checkins-summary" class="text-xs" style="color: {'#fbbf24' if qa_akiflow_pending_count else '#93c5fd'}">{html.escape(qa_checkins_summary)}</span>
+            </summary>
+            <div class="mt-3">
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #d1fae5;">
+                            <input id="qa-quick-mindfulness-check" type="checkbox" {qa_quick_mind_checked} onchange="qaQuickToggleMindfulness(this)" class="h-3.5 w-3.5">
+                            🧠 Mindfulness
+                        </label>
+                        <button id="qa-quick-mindfulness-akiflow" type="button" onclick="qaToggleCheckinAkiflow('mindfulness')" data-item="mindfulness" data-active="{'true' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else 'false'}" class="rounded px-2 py-1 text-xs font-semibold" style="background: {'rgba(120,53,15,0.35)' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else 'rgba(15,23,42,0.45)'}; color: {'#fde68a' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else '#cbd5e1'}; border: 1px solid {'rgba(251,191,36,0.35)' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else 'rgba(148,163,184,0.24)'};">{'📥 In Akiflow' if qa_dashboard_checkins_state.get('mindfulness', {}).get('akiflow_added') else '📥 Akiflow'}</button>
+                    </div>
+                    {qa_quick_workout_html}
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(88,28,135,0.2); border: 1px solid rgba(196,181,253,0.26); color: #e9d5ff;">
+                            <input id="qa-quick-mood-check" type="checkbox" {qa_quick_mood_checked} onchange="qaToggleMoodQuick(this)" class="h-3.5 w-3.5">
+                            🙂 {html.escape(qa_quick_mood_habit)}
+                        </label>
+                        <button id="qa-quick-mood-akiflow" type="button" onclick="qaToggleCheckinAkiflow('mood')" data-item="mood" data-active="{'true' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else 'false'}" class="rounded px-2 py-1 text-xs font-semibold" style="background: {'rgba(120,53,15,0.35)' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else 'rgba(15,23,42,0.45)'}; color: {'#fde68a' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else '#cbd5e1'}; border: 1px solid {'rgba(251,191,36,0.35)' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else 'rgba(148,163,184,0.24)'};">{'📥 In Akiflow' if qa_dashboard_checkins_state.get('mood', {}).get('akiflow_added') else '📥 Akiflow'}</button>
+                    </div>
+                    <span id="qa-mood-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
+                    {qa_quick_end_day_html}
+                </div>
+                <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: {'#fbbf24' if qa_akiflow_pending_count else '#93c5fd'}">{html.escape(qa_quick_meta if not qa_akiflow_pending_count else f"{qa_quick_done_count}/{qa_quick_done_total} check-ins done • {qa_akiflow_pending_count} in Akiflow.")}</p>
+                <p id="qa-quick-akiflow-nudge" class="text-xs mt-2" style="color: #fbbf24"{qa_checkins_nudge_hidden_attr}>{html.escape(qa_checkins_nudge_text)}</p>
             </div>
-            <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: #93c5fd">{html.escape(qa_quick_meta)}</p>
-        </div>
+        </details>
     '''
 
     qa_yoga_evening_hint_html = ""
@@ -6856,12 +6899,20 @@ def generate_html(data):
         parse_daily_report_journal(effective_today),
         effective_today,
     )
+    _daily_report_structured_tomorrow = compose_daily_report_tomorrow_fallback(
+        _daily_report_ctx,
+        now_hour=current_hour,
+    )
     _daily_report_ready = True  # Show report all day with whatever content is available
     # Use saved Opus report if it's for today (no hour gate — report generates 3x/day now)
     if (str(_daily_report_saved.get("date", "")).strip() == effective_today
             and str(_daily_report_saved.get("today_story", "")).strip()):
         daily_report_story_text = str(_daily_report_saved.get("today_story", "") or "").strip()
         daily_report_tomorrow_text = str(_daily_report_saved.get("tomorrow_text", "") or "").strip()
+    if (str(_daily_report_ctx.get("tomorrow_plan", "")).strip()
+            and str(_daily_report_ctx.get("carrying", "")).strip()
+            and str(_daily_report_structured_tomorrow or "").strip()):
+        daily_report_tomorrow_text = str(_daily_report_structured_tomorrow).strip()
     if not daily_report_story_text:
         fallback_story_candidates = [
             str(_narrative or "").strip(),
@@ -6872,10 +6923,7 @@ def generate_html(data):
         daily_report_story_text = next((item for item in fallback_story_candidates if str(item).strip()), "")
         daily_report_meta_html = ""
     if not daily_report_tomorrow_text:
-        daily_report_tomorrow_text = compose_daily_report_tomorrow_fallback(
-            _daily_report_ctx,
-            now_hour=current_hour,
-        )
+        daily_report_tomorrow_text = _daily_report_structured_tomorrow
     if not daily_report_tomorrow_text:
         daily_report_tomorrow_text = "Tomorrow, keep the plan light and specific: one meaningful task first, then reassess your energy."
 
@@ -12801,6 +12849,15 @@ def main():
         "finch_latest_date": str(latest_finch_entry.get("date", "")).strip(),
         "finch_latest_value": latest_finch_entry.get("mood"),
         "finch_entries_count": len(finch_mood_entries),
+    }
+    data["dashboardCheckins"] = {
+        key: {
+            "akiflow_added": bool(value.get("akiflow_added", False)),
+            "source": str(value.get("source", "")).strip(),
+            "updated_at": str(value.get("updated_at", "")).strip(),
+        }
+        for key, value in (ai_today.get("dashboard_checkins", {}) if isinstance(ai_today.get("dashboard_checkins", {}), dict) else {}).items()
+        if isinstance(value, dict)
     }
 
     # Workout checklist state (manual dashboard checklist + auto readiness signals)
