@@ -7667,9 +7667,61 @@ def generate_html(data):
     }}
 
     function qaApplyNarrativeFromScratch(sectionId, scratchText) {{
+        if (sectionId === "ta_dah") {{
+            // Immediately append ta-dah items to the DOM list for instant feedback
+            qaApplyTaDahFromScratch(scratchText);
+            return;
+        }}
         const sentence = qaBuildScratchNarrativeSentence(sectionId, scratchText);
         if (!sentence) return;
         qaInjectNarrativeSentence(sentence, {{ replace: false }});
+    }}
+
+    function qaApplyTaDahFromScratch(scratchText) {{
+        const listEl = document.getElementById("qa-tadah-list");
+        if (!listEl) return;
+        const countEl = document.getElementById("qa-tadah-count");
+        const lines = String(scratchText || "").split(/\n/).map(l => l.replace(/^[\s\-\*\u2022]+/, "").trim()).filter(Boolean);
+        let added = 0;
+        lines.forEach(function(item) {{
+            // Dedup: don't add if already in DOM
+            const existing = listEl.innerText || listEl.textContent || "";
+            if (existing.toLowerCase().includes(item.toLowerCase())) return;
+            const div = document.createElement("div");
+            div.className = "flex items-start gap-2 text-sm";
+            div.innerHTML = '<span style="color:#6ee7b7">•</span><span style="color:#d1d5db">' + item.replace(/</g,"&lt;").replace(/>/g,"&gt;") + '</span>';
+            listEl.appendChild(div);
+            added++;
+        }});
+        if (added > 0 && countEl) {{
+            const prev = parseInt(countEl.textContent || "0", 10) || 0;
+            countEl.textContent = String(prev + added);
+        }}
+    }}
+
+    function qaApplyLiveTaDah(items) {{
+        const listEl = document.getElementById("qa-tadah-list");
+        const countEl = document.getElementById("qa-tadah-count");
+        if (!listEl || !Array.isArray(items)) return;
+        // Only update if count changed (avoid overwriting categorised HTML on minor updates)
+        const currentCount = parseInt((countEl && countEl.textContent) || "0", 10) || 0;
+        if (items.length <= currentCount) return;
+        // Add any items not already rendered
+        const existingText = (listEl.innerText || listEl.textContent || "").toLowerCase();
+        let added = 0;
+        items.forEach(function(item) {{
+            const s = String(item || "").trim();
+            if (!s) return;
+            if (existingText.includes(s.toLowerCase())) return;
+            const div = document.createElement("div");
+            div.className = "flex items-start gap-2 text-sm";
+            div.innerHTML = '<span style="color:#6ee7b7">•</span><span style="color:#d1d5db">' + s.replace(/</g,"&lt;").replace(/>/g,"&gt;") + '</span>';
+            listEl.appendChild(div);
+            added++;
+        }});
+        if (added > 0 && countEl) {{
+            countEl.textContent = String(items.length);
+        }}
     }}
 
     function qaApplyNarrativeFromToday(snapshot) {{
@@ -7878,6 +7930,9 @@ def generate_html(data):
         qaUpdateFreshnessFromToday(snapshot);
         qaApplyNarrativeFromToday(snapshot);
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
+        if (Array.isArray(snapshot.ta_dah)) {{
+            qaApplyLiveTaDah(snapshot.ta_dah);
+        }}
     }}
 
     function qaApplyCalendarState(events) {{
@@ -11463,8 +11518,8 @@ def generate_html(data):
             <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
         </div>
         <div class="card">
-            <h3 class="text-lg font-semibold mb-4"><a href="{journal_today}" style="color: #6ee7b7">✅ Ta-Dah ({len(tadah_flat)})</a></h3>
-            <div class="space-y-1">{tadah_html}</div>
+            <h3 class="text-lg font-semibold mb-4"><a href="{journal_today}" style="color: #6ee7b7">✅ Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
+            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
             {yesterday_tadah_html}
             {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
         </div>
