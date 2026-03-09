@@ -242,51 +242,28 @@ Key patterns and insights extracted from Diarium entries, therapy sessions, and 
 
 ---
 
-## Job Search Context (Recent)
-
-- **Goal**: Full-time, remote work, £35k+ (target: end of January 2026)
-- **Avoiding offices**: Past panic attack history makes office environments difficult
-- **Imposter syndrome active**: Feels frightening despite 20 years of experience
-- **Using wife for accountability**: "respond[s] well to that"
-- **Progress**: Week 1 complete - 4 applications (Rich Mix, BFI, Indigo, LSE), target 3-4 per week
+*Stale sections removed 2026-03-09: Job Search Context (superseded by freelance-first), Therapy Homework Tracker (Excel file missing), Pieces Persona Sync (truncated auto-sync artifact).*
 
 ---
 
-*Last updated: 2026-01-11 (from Diarium Jan 2-6, Apple Notes Dec-Jan, Alter therapy Dec 2025-Jan 2026, Spark AI summaries Dec 2025-Jan 2026)*
+<!-- weekly-update: 2026-W10 -->
+## 2026-W10 — Coaching Signals
 
+## 5. Coaching Signals
+
+**1. The Chris email succeeded — and the landscape has fundamentally shifted.**
+Jim sent the hourly-rate email to Chris on Friday, received a positive response (£27/hr freelance, starting April, hours TBC), and secured the first concrete income pathway in the current search. This is not a lead or a maybe — it's a confirmed arrangement with a start date. The significance is hard to overstate: financial survival pressure, which has been compressing every decision and amplifying every anxiety spike, now has a relief valve. The £160 scam, while still painful, no longer lands on a foundation of total income insecurity. The provider-pressure narrative ("I need to be earning, why aren't I earning") loses its emergency framing.
+
+**What changes:** The WORK project shifts from job-search mode to freelance preparation. The questions are no longer "how do I push through application anxiety?" but rather: How does Jim structure his working week around Chris's hours when they're confirmed? How does he manage the masking cost of client-facing freelance work? What boundaries does he set on scope, availability, and rate creep from day one — before the people-pleasing pattern can embed itself into the working relationship? April is close. The structure needs to be in place before the work starts, not improvised under pressure once it has.
+
+**New risk:** Jim's pattern with positive outcomes is to feel relief, then immediately redirect energy into system-building or practical tasks rather than consolidating the win. The freelance arrangement needs simple, concrete scaffolding — a weekly hour cap, an invoicing rhythm, a communication boundary with Chris — not an elaborate freelance management system that becomes the next hyperfocus object.
+
+**2. The scam reveals financial desperation that the journals aren't directly naming — though its weight shifts in context.**
+Jim tried to buy a discounted Claude subscription from a stranger on Reddit. This isn't impulsive spending on something frivolous — it's a cost-saving attempt on a tool he considers essential. The £160 loss on a tight budget is painful, but the decision itself signals how much financial pressure was compressing his choices. He reframed it quickly ("I just have that amount of money now"), but the reframe was cognitive, not felt. The shame is audible in "I should have known better." With the Chris arrangement now confirmed, the scam becomes a painful but bounded loss rather than a compounding catastrophe. Worth tracking whether Jim can let this close emotionally now that the financial picture has improved, or whether it lodges as a shame object independent of the practical damage.
+
+**3. Evening system work has no stop condition — and it's costing sleep, HRV, and next-day capacity.**
+Monday, Tuesday, Wednesday, and Sunday evenings were consumed by dashboard/system work. This is the pattern Jim himself named weeks ago: "I know it's a way of distracting me from fixing the bigger things in my life." The system work feels productive (and often is), but it's reliably pushing bedtime past midnight, suppressing HRV, and creating morning grogginess that shrinks the next day's usable window. The stop condition isn't willpower — it needs to be structural. A hard cutoff (screens off by 22:30, or system work capped at 90 minutes) would protect the sleep that protects everything else. With freelance work starting in April, this becomes operationally urgent — Jim will need morning capacity, and the current evening pattern is systematically destroying it.
+
+**4. The PDA naming is powerful — and now has its first evidence of practical traction.**
+The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine milestone. More importantly, the Chris email — sent on Friday despite the full demand frame being active — is the first clean evidence that naming the pattern can coexist with acting through it. Jim didn't need a system or a plan; he needed two days, a slightly better night's sleep, and enough Adult-state awareness to recognise that the email didn't require perfection — it required sending. That sequence (naming → rest → action) is worth tracking because it suggests the PDA frame doesn't just describe the stall; it may actively shorten it. One data point, not a trend. But a clean one.
 ---
-
-## Therapy Homework Tracker
-
-**See:** `~/Documents/Claude Projects/claude-shared/therapy-homework-tracker.xlsx`
-
-This file now redirects to the Excel tracker for structured homework tracking.
-
-The Excel tracker contains:
-- 16 homework items with status tracking
-- Priority levels (High/Medium/Low)
-- Completion dates
-- Therapist notes and context
-
-**Current Status (2026-01-24):**
-- Active: 6 items (daily affirmations, overthinking mantra, journaling, etc.)
-- In Progress: 2 items (boundaries, language change)
-- Pending: 8 items (Jan 23 session homework)
-
-**Location:** `~/Documents/Claude Projects/claude-shared/therapy-homework-tracker.xlsx`
-
-## Pieces Persona Sync
-
-*Auto-synced from Pieces persona summary on 2026-03-09 (hash: 7bdce371907e5b27)*
-
-### Job search anxiety patterns
-- What They Work On
-- **Project Commissioning and Freelance Opportunities:** This remains a primary and central area of interaction, now more clearly defined as Chris acting as a client or commissioner. James Cherry sent him a detailed email outlining freelance rates for a "Project Inquiry" directly t
-
-### Coping mechanisms Pieces has observed
-- Chris Milton's professional identity is now unequivocally linked to **AtomicFilm.Services**. He explicitly provided `Ops@AtomicFilm.Services` as his current professional email to James Cherry (observed in `WhatsApp` event on 2026-03-06 12:35 PM), and James subsequently directed a
-- What They Work On
-
-### Work habits Pieces has observed
-- Chris Milton's engagement, as observed through James Cherry's events, continues to consistently revolve around:
-- **Project Commissioning and Freelance Opportunities:** This remains a primary and central area of interaction, now more clearly defined as Chris acting as a client or commissioner. James Cherry sent him a detailed email outlining freelance rates for a "Project Inquiry" directly t
