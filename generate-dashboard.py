@@ -7065,35 +7065,72 @@ def generate_html(data):
     except Exception:
         pass
 
+    def _reword_signal_as_action(text):
+        """Reword forward signal questions as actionable tasks."""
+        t = str(text).strip()
+        # Strip leading question words + trailing ?
+        t = re.sub(r'^(Have you|Did you|Has a|Do you actually|If you haven\'t|Are you|Is the|Does|Can you|Will you|Would you|How many)\s+', '', t, flags=re.IGNORECASE)
+        t = t.rstrip('?').strip()
+        # Fix passive leftovers: "specific X been confirmed" → "Confirm specific X"
+        t = re.sub(r'^(specific\s+.+?)\s+been\s+confirmed\s+with\s+', r'Confirm \1 with ', t, flags=re.IGNORECASE)
+        # Capitalise first letter
+        if t:
+            t = t[0].upper() + t[1:]
+        return t
+
+    def _check_akiflow_stale(item_type, item_id):
+        """Check if item has been in Akiflow >7 days without resolution."""
+        key = f"{str(item_type or '').strip()}::{str(item_id or '').strip()}"
+        row = _bell_state.get(key, {}) if isinstance(_bell_state.get(key), dict) else {}
+        if not row.get("akiflow_added"):
+            return False
+        updated = str(row.get("updated_at", "")).strip()
+        if not updated:
+            return False
+        try:
+            from datetime import datetime as _dt
+            added_dt = _dt.fromisoformat(updated)
+            return (_dt.now() - added_dt).days >= 7
+        except Exception:
+            return False
+
     notifications_bell_html = ""
     if _bell_items:
         _bell_rows = []
         _bell_akiflow_count = 0
         for _idx, (_icon, _text, _ctx, _itype, _iid, _akiflow_added) in enumerate(_bell_items):
+            # Reword forward signals as actionable tasks
+            _display_text = _reword_signal_as_action(_text) if _itype == "forward_signal" else _text
             _ctx_html = f'<p style="font-size:0.75rem;margin:0.2rem 0 0;color:rgba(174,174,178,0.75);line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
             _esc_type = html.escape(_itype)
             _esc_id = html.escape(_iid)
-            _esc_task_text_attr = html.escape(str(_text), quote=True)
+            _esc_task_text_attr = html.escape(str(_display_text), quote=True)
             _akiflow_active = bool(_akiflow_added)
+            _akiflow_stale = _check_akiflow_stale(_itype, _iid)
             if _akiflow_active:
                 _bell_akiflow_count += 1
-            _akiflow_btn_text = "📥 In Akiflow" if _akiflow_active else "📥 Akiflow"
-            _akiflow_bg = "rgba(120,53,15,0.24)" if _akiflow_active else "rgba(15,23,42,0.45)"
-            _akiflow_color = "#fde68a" if _akiflow_active else "#cbd5e1"
-            _akiflow_border = "rgba(251,191,36,0.25)" if _akiflow_active else "rgba(148,163,184,0.18)"
+            # Re-escalate: if in Akiflow >7d, show warning
+            _akiflow_btn_text = "⚠️ 7d+ in Akiflow" if _akiflow_stale else ("📥 In Akiflow" if _akiflow_active else "📥 Akiflow")
+            _akiflow_bg = "rgba(153,27,27,0.2)" if _akiflow_stale else ("rgba(120,53,15,0.24)" if _akiflow_active else "rgba(15,23,42,0.45)")
+            _akiflow_color = "#fca5a5" if _akiflow_stale else ("#fde68a" if _akiflow_active else "#cbd5e1")
+            _akiflow_border = "rgba(248,113,113,0.25)" if _akiflow_stale else ("rgba(251,191,36,0.25)" if _akiflow_active else "rgba(148,163,184,0.18)")
             _akiflow_note_style = "" if _akiflow_active else "display:none;"
+            _akiflow_note_text = "⚠️ In Akiflow for 7+ days — needs attention or closing." if _akiflow_stale else "📥 Added to Akiflow — still stays here until done."
+            _akiflow_note_color = "#fca5a5" if _akiflow_stale else "#fbbf24"
+            # Escalated items get a red left border
+            _row_border_left = "border-left:3px solid rgba(248,113,113,0.5);" if _akiflow_stale else ""
             _bell_rows.append(
-                f'<div id="bell-item-{_idx}" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;">'
+                f'<div id="bell-item-{_idx}" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;{_row_border_left}">'
                 f'<div style="display:flex;align-items:flex-start;gap:0.5rem;">'
                 f'<div style="flex:1;min-width:0;">'
-                f'<p style="font-size:0.875rem;color:#e5e7eb;margin:0">{_icon} {html.escape(_text)}</p>{_ctx_html}'
+                f'<p style="font-size:0.875rem;color:#e5e7eb;margin:0">{_icon} {html.escape(_display_text)}</p>{_ctx_html}'
                 f'</div>'
                 f'<div style="display:flex;gap:0.35rem;flex-shrink:0;padding-top:0.1rem;flex-wrap:wrap;justify-content:flex-end;">'
                 f'<button id="bell-akiflow-btn-{_idx}" onclick="qaBellAkiflowToggle({_idx},\'{_esc_type}\',\'{_esc_id}\')" data-task-text="{_esc_task_text_attr}" data-akiflow-active="{str(_akiflow_active).lower()}" style="background:{_akiflow_bg};color:{_akiflow_color};border:1px solid {_akiflow_border};border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">{_akiflow_btn_text}</button>'
                 f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\')" style="background:rgba(6,95,70,0.25);color:#6ee7b7;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✓ Done</button>'
                 f'<button onclick="qaBellToggleReply({_idx})" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(147,197,253,0.15);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">💬</button>'
                 f'</div></div>'
-                f'<p id="bell-akiflow-note-{_idx}" style="font-size:0.72rem;margin:0.35rem 0 0;color:#fbbf24;{_akiflow_note_style}">📥 Added to Akiflow — still stays here until done.</p>'
+                f'<p id="bell-akiflow-note-{_idx}" style="font-size:0.72rem;margin:0.35rem 0 0;color:{_akiflow_note_color};{_akiflow_note_style}">{_akiflow_note_text}</p>'
                 f'<div id="bell-reply-{_idx}" style="display:none;margin-top:0.4rem;">'
                 f'<div style="display:flex;gap:0.35rem;">'
                 f'<input id="bell-reply-text-{_idx}" type="text" placeholder="Quick response..." style="flex:1;background:rgba(15,23,42,0.55);border:1px solid var(--panel-border);border-radius:0.4rem;padding:0.3rem 0.5rem;font-size:0.75rem;color:#e5e7eb;font-family:inherit;">'
@@ -7102,14 +7139,21 @@ def generate_html(data):
                 f'</div>'
             )
         _bell_count = len(_bell_items)
-        _bell_summary_suffix = f' • {_bell_akiflow_count} in Akiflow' if _bell_akiflow_count else ''
+        _bell_stale_count = sum(1 for _, _, _, _t, _i, _ in _bell_items if _check_akiflow_stale(_t, _i))
+        _bell_summary_parts = []
+        if _bell_akiflow_count:
+            _bell_summary_parts.append(f'{_bell_akiflow_count} in Akiflow')
+        if _bell_stale_count:
+            _bell_summary_parts.append(f'{_bell_stale_count} overdue')
+        _bell_summary_text = ' · '.join(_bell_summary_parts)
+        _bell_summary_color = '#fca5a5' if _bell_stale_count else ('#fbbf24' if _bell_akiflow_count else '#94a3b8')
         notifications_bell_html = f'''
     <details class="card" style="padding:0.72rem 0.9rem;" open>
         <summary style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;">
             <span style="font-size:1.15rem">🔔</span>
             <span style="font-size:0.9rem;font-weight:600;color:#e5e7eb">Check In</span>
             <span style="background:rgba(59,130,246,0.25);color:#93c5fd;font-size:0.7rem;font-weight:600;padding:0.1rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
-            <span style="font-size:0.72rem;color:{'#fbbf24' if _bell_akiflow_count else '#94a3b8'};">{html.escape(_bell_summary_suffix.lstrip(' •')) if _bell_summary_suffix else ''}</span>
+            {f'<span style="font-size:0.72rem;color:{_bell_summary_color};">{html.escape(_bell_summary_text)}</span>' if _bell_summary_text else ''}
         </summary>
         <div style="margin-top:0.55rem;">{"".join(_bell_rows)}</div>
     </details>'''
