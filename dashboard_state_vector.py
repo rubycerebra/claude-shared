@@ -699,9 +699,13 @@ def build_daily_state_vector(
     diarium = cache.get("diarium", {}) if isinstance(cache.get("diarium", {}), dict) else {}
     healthfit = cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {}
     activitywatch = cache.get("activitywatch", {}) if isinstance(cache.get("activitywatch", {}), dict) else {}
+    screentime = cache.get("screentime", {}) if isinstance(cache.get("screentime", {}), dict) else {}
+    screentime_today_hours = _parse_hours(screentime.get("today_total"))
     pieces = cache.get("pieces_activity", {}) if isinstance(cache.get("pieces_activity", {}), dict) else {}
     schedule = cache.get("schedule_analysis", {}) if isinstance(cache.get("schedule_analysis", {}), dict) else {}
     streaks = cache.get("streaks", {}) if isinstance(cache.get("streaks", {}), dict) else {}
+    streaks_summary = streaks.get("summary", {}) if isinstance(streaks.get("summary", {}), dict) else {}
+    strong_streak_count = _safe_int(streaks_summary.get("strong_count"))
     habit_list = streaks.get("habits", []) if isinstance(streaks.get("habits", []), list) else []
     at_risk_streak_count = sum(
         1 for h in habit_list
@@ -989,6 +993,19 @@ def build_daily_state_vector(
     elif context_switches >= 50 and scattered_ratio >= 0.8:
         load_score -= 3
         load_evidence.append(f"Scattered focus ({int(scattered_ratio * 100)}%)")
+    # Screen time → Load penalty (today's running total from screentime cache)
+    if isinstance(screentime_today_hours, (int, float)):
+        if screentime_today_hours > 8:
+            load_score -= 8
+            load_evidence.append(f"Screen time {screentime_today_hours:.1f}h (high)")
+        elif screentime_today_hours > 6:
+            load_score -= 4
+            load_evidence.append(f"Screen time {screentime_today_hours:.1f}h")
+    # Hyperfocus session penalty (sustained single-app focus outside productive context)
+    hyperfocus_sessions = int(focus_patterns.get("hyperfocus_sessions") or 0)
+    if hyperfocus_sessions >= 2:
+        load_score -= 5
+        load_evidence.append(f"{hyperfocus_sessions} hyperfocus sessions")
     load_summary = ", ".join(load_evidence[:3]) if load_evidence else "Task load still resolving"
 
     momentum_score = 50.0
@@ -1035,6 +1052,13 @@ def build_daily_state_vector(
     elif at_risk_streak_count >= 2:
         momentum_score -= 2
         momentum_evidence.append(f"{at_risk_streak_count} habits not yet done")
+    # Active strong streaks → Momentum bonus (habits with high completion rate actively maintained)
+    if strong_streak_count >= 8:
+        momentum_score += 5
+        momentum_evidence.append(f"{strong_streak_count} strong streaks active")
+    elif strong_streak_count >= 4:
+        momentum_score += 3
+        momentum_evidence.append(f"{strong_streak_count} habits holding")
     momentum_summary = ", ".join(momentum_evidence[:3]) if momentum_evidence else "Momentum is mostly being inferred from the live day"
     momentum_history = []
     for row in ai_days[:6]:
