@@ -1541,6 +1541,7 @@ def get_todays_workout():
 
     # Check if today is in the fitness schedule section
     workout_type = None  # "workout_a", "workout_b", "yoga", or None
+    also_yoga = False  # True when weights + yoga on same day
     in_schedule = False
     schedule_line = ""
     for line in content.split("\n"):
@@ -1550,11 +1551,17 @@ def get_todays_workout():
         # Only match schedule entries for the exact effective day (avoid "9 Feb" matching "19 Feb").
         if in_schedule and schedule_date_pattern.search(line):
             schedule_line = line_lower
-            if "workout a" in line_lower:
+            has_weights_a = "workout a" in line_lower
+            has_weights_b = "workout b" in line_lower
+            has_yoga = "yoga" in line_lower
+            # Multi-workout day: weights takes priority for display, yoga noted separately
+            if has_weights_a:
                 workout_type = "workout_a"
-            elif "workout b" in line_lower:
+                also_yoga = has_yoga
+            elif has_weights_b:
                 workout_type = "workout_b"
-            elif "yoga" in line_lower:
+                also_yoga = has_yoga
+            elif has_yoga:
                 workout_type = "yoga"
             break
 
@@ -1600,8 +1607,9 @@ def get_todays_workout():
             {"name": "Standing Calf Raises", "sets_reps": "3×12-15"},
             {"name": "Bent-Knee Calf Raises", "sets_reps": "3×12"},
         ]
-        return {"type": "weights", "emoji": "💪", "title": "Workout A", "detail": detail,
-                "exercises": exercises, "done": done}
+        title = "Yoga + Workout A" if also_yoga else "Workout A"
+        return {"type": "weights", "emoji": "💪", "title": title, "detail": detail,
+                "exercises": exercises, "done": done, "also_yoga": also_yoga}
     elif workout_type == "workout_b":
         detail = f"{weight_amt}, {sets_reps}" if weight_amt and sets_reps else ""
         exercises = [
@@ -1612,8 +1620,9 @@ def get_todays_workout():
             {"name": "Standing Calf Raises", "sets_reps": "3×12-15"},
             {"name": "Bent-Knee Calf Raises", "sets_reps": "3×12"},
         ]
-        return {"type": "weights", "emoji": "💪", "title": "Workout B", "detail": detail,
-                "exercises": exercises, "done": done}
+        title = "Yoga + Workout B" if also_yoga else "Workout B"
+        return {"type": "weights", "emoji": "💪", "title": title, "detail": detail,
+                "exercises": exercises, "done": done, "also_yoga": also_yoga}
     elif workout_type == "yoga":
         exercises = [
             {"name": "Downward Dog", "muscles": "heel-down focus"},
