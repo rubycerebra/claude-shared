@@ -54,6 +54,8 @@ def is_noise_day_narrative_line(line: str) -> bool:
         return True
     if re.search(r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s+[—-]\s*internalised", low):
         return True
+    if re.search(r"here is your full formatted entry|ready to paste into diarium|formatted entry ready to paste", low):
+        return True
     return False
 
 

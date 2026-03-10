@@ -9,7 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from dashboard_day_narrative import polish_day_narrative_text
+from dashboard_day_narrative import (
+    collect_day_narrative_lines,
+    polish_day_narrative_text,
+)
 
 DAEMON_CACHE = Path.home() / ".claude" / "cache" / "session-data.json"
 SHARED_ROOT = Path.home() / "Documents" / "Claude Projects" / "claude-shared"
@@ -203,51 +206,6 @@ def _sentence_safe_clip(raw_text: str, max_len: int = 340) -> str:
     return text[:max_len].rstrip(" ,;:-") + "…"
 
 
-def _clean_fallback_line(raw: str) -> str:
-    line = str(raw or "").strip()
-    if not line:
-        return ""
-    if re.match(r"^\*\[\d{1,2}:\d{2}\s+via dashboard\]\*$", line, re.IGNORECASE):
-        return ""
-    line = re.sub(r"^[\-\*\u2022]+\s*", "", line).strip()
-    line = re.sub(r"^\*\*Ta-?Dah list:\*\*$", "", line, flags=re.IGNORECASE).strip()
-    line = re.sub(r"^\*Auto-generated from Pieces.*$", "", line, flags=re.IGNORECASE).strip()
-    return line
-
-
-def _is_fallback_noise(line: str) -> bool:
-    low = str(line or "").strip().lower()
-    if not low:
-        return True
-    return bool(
-        re.search(r"test[-_ ]?(item|entry|stub|dummy|does)|doesnotexist|abc123|~{2,}", low)
-        or re.search(r"\[[a-f0-9]{6,}\]$", low)
-        or re.search(r"internalised\s+\d+\s+item\(s\)", low)
-        or re.search(r"here is your full formatted entry|ready to paste into diarium|formatted entry ready to paste", low)
-    )
-
-
-def _line_key(line: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(line or "").lower()).strip()
-
-
-def _collect_fallback_lines(values: list[Any], *, limit: int = 3, split_sentences: bool = False) -> list[str]:
-    seen: set[str] = set()
-    rows: list[str] = []
-    for value in values:
-        chunks = re.split(r"(?<=[.!?])\s+|\n+", str(value or "")) if split_sentences else str(value or "").splitlines()
-        for chunk in chunks:
-            line = _clean_fallback_line(chunk)
-            if not line or len(line) < 4 or _is_fallback_noise(line):
-                continue
-            key = _line_key(line)
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            rows.append(line.rstrip("."))
-            if len(rows) >= max(1, int(limit)):
-                return rows
-    return rows
 
 
 def _compose_sentence(prefix: str, lines: list[str], *, max_len: int = 420) -> str:
@@ -271,7 +229,7 @@ def compose_today_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hou
     hour = datetime.now().hour if now_hour is None else int(now_hour)
     midday_unlocked = hour >= unlock_hour
 
-    morning_bits = _collect_fallback_lines([morning], limit=3, split_sentences=True)
+    morning_bits = collect_day_narrative_lines([morning], max_items=3, split_sentences=True)
     if morning_bits:
         sentence = _compose_sentence("Morning focus", morning_bits, max_len=460)
         if sentence:
@@ -279,13 +237,13 @@ def compose_today_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hou
 
     if midday_unlocked:
         day_chunks: list[str] = []
-        updates_bits = _collect_fallback_lines([updates], limit=3, split_sentences=True)
+        updates_bits = collect_day_narrative_lines([updates], max_items=3, split_sentences=True)
         if updates_bits:
             sentence = _compose_sentence("Day updates", updates_bits, max_len=520)
             if sentence:
                 day_chunks.append(sentence)
 
-        done_bits = _collect_fallback_lines([str(item) for item in ta_dah], limit=4, split_sentences=False)
+        done_bits = collect_day_narrative_lines([str(item) for item in ta_dah], max_items=4, split_sentences=False)
         if done_bits:
             sentence = _compose_sentence("Completed", done_bits[:3], max_len=420)
             if sentence:
@@ -296,7 +254,7 @@ def compose_today_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hou
     evening_sources: list[Any] = [evening]
     if three_things:
         evening_sources.extend(three_things[:3])
-    evening_bits = _collect_fallback_lines(evening_sources, limit=3, split_sentences=True)
+    evening_bits = collect_day_narrative_lines(evening_sources, max_items=3, split_sentences=True)
     if evening_bits:
         sentence = _compose_sentence("Evening reflection", evening_bits, max_len=460)
         if sentence:

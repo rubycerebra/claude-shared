@@ -1,11 +1,11 @@
-# Compounding Memory Snapshot — 2026-03-09
+# Compounding Memory Snapshot — 2026-03-10
 
 This file is updated from the dashboard compounding layer so future sessions/QMD can recall cross-day context, not just same-day UI state.
 
-- Headline: Focus and Momentum can carry the day, but load needs pacing.
-- Today throughput: 12
-- 7d throughput avg: 18.0
-- 30d throughput avg: 18.0
+- Headline: Momentum and Recovery can carry the day, but load needs pacing.
+- Today throughput: 23
+- 7d throughput avg: 28.0
+- 30d throughput avg: 28.0
 
 ## Increasing
 - Admin is the strongest completed domain today.
