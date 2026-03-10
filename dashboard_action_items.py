@@ -607,6 +607,16 @@ def save_action_item_state(
         if is_done:
             next_rows[key]["completed_date"] = effective_date
 
+        # Auto-escalate stale open items: Medium → High after 7 days (once only)
+        row = next_rows[key]
+        if row["status"] == "open" and row.get("first_seen_date") and not row.get("auto_escalated"):
+            _first_dt = parse_ymd(row["first_seen_date"])
+            _days_open = (today_dt - _first_dt).days if _first_dt else 0
+            if _days_open >= 7 and row.get("priority", "Medium") in ("Medium", ""):
+                row["priority"] = "High"
+                row["auto_escalated"] = True
+                row["escalated_at"] = effective_date
+
     cutoff_dt = today_dt - timedelta(days=max(1, int(carry_days)))
     for key, prev in previous_rows.items():
         if key in next_rows:
@@ -828,7 +838,8 @@ def collect_akiflow_today_items(akiflow_payload) -> list[dict]:
             except Exception:
                 pass
             seen_summary.add(summary_key)
-            rows.append({"summary": summary, "time_est": time_est, "start": start_iso})
+            local_time = str(task.get("time", "")).strip()  # already local (e.g. "10:00")
+            rows.append({"summary": summary, "time_est": time_est, "start": start_iso, "local_time": local_time})
     rows.sort(
         key=lambda row: (
             str(row.get("start", "")).strip(),

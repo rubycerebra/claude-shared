@@ -703,6 +703,7 @@ def _build_snapshot(
             "hrv": _to_float(latest_steps.get("hrv")),
             "sleep_hours": _to_float(latest_sleep.get("asleep_hours")),
             "sleep_efficiency": _to_float((cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {}).get("last_night", {}).get("efficiency")),
+            "screen_time_hours": _to_float(_parse_hours((cache.get("screentime", {}) if isinstance(cache.get("screentime", {}), dict) else {}).get("today_total"))),
         },
         "regulation": {
             "mood_morning": str((day.get("mood_slots", {}) if isinstance(day.get("mood_slots", {}), dict) else {}).get("morning", "")).strip(),
@@ -765,14 +766,9 @@ def build_daily_state_vector(
     screentime_today_hours = _parse_hours(screentime.get("today_total"))
     pieces = cache.get("pieces_activity", {}) if isinstance(cache.get("pieces_activity", {}), dict) else {}
     schedule = cache.get("schedule_analysis", {}) if isinstance(cache.get("schedule_analysis", {}), dict) else {}
-    streaks = cache.get("streaks", {}) if isinstance(cache.get("streaks", {}), dict) else {}
-    streaks_summary = streaks.get("summary", {}) if isinstance(streaks.get("summary", {}), dict) else {}
-    strong_streak_count = _safe_int(streaks_summary.get("strong_count"))
-    habit_list = streaks.get("habits", []) if isinstance(streaks.get("habits", []), list) else []
-    at_risk_streak_count = sum(
-        1 for h in habit_list
-        if isinstance(h, dict) and not bool(h.get("completed_today")) and float(h.get("rate", 0) or 0) >= 80.0
-    )
+    finch_raw = cache.get("finch", {}) if isinstance(cache.get("finch", {}), dict) else {}
+    finch_activities = finch_raw.get("activities", {}).get("activities", {}) if isinstance(finch_raw.get("activities", {}), dict) else {}
+    finch_today_count = sum(1 for _ in finch_activities)
     mood_tracking = day.get("mood_checkin", {}) if isinstance(day.get("mood_checkin", {}), dict) else {}
     mindfulness = day.get("mindfulness_completion", {}) if isinstance(day.get("mindfulness_completion", {}), dict) else {}
     progression = day.get("mental_health_progression", {}) if isinstance(day.get("mental_health_progression", {}), dict) else {}
@@ -1051,13 +1047,18 @@ def build_daily_state_vector(
     elif context_switches >= 50 and scattered_ratio >= 0.8:
         load_score -= 3
         load_evidence.append(f"Scattered focus ({int(scattered_ratio * 100)}%)")
-    # Screen time → Load penalty (today's running total from screentime cache)
+    # Screen time → Load penalty (personalised baseline or fixed thresholds)
     if isinstance(screentime_today_hours, (int, float)):
-        if screentime_today_hours > 8:
-            load_score -= 8
+        _st_delta = _personalised_score(
+            screentime_today_hours, baselines,
+            "screen_time_mean", "screen_time_std", "screen_time_n",
+            [(8.0, -8), (6.0, -4), (4.0, 0), (0, 2)],
+            higher_is_better=False,
+        )
+        load_score += _st_delta
+        if _st_delta <= -4:
             load_evidence.append(f"Screen time {screentime_today_hours:.1f}h (high)")
-        elif screentime_today_hours > 6:
-            load_score -= 4
+        elif _st_delta < 0:
             load_evidence.append(f"Screen time {screentime_today_hours:.1f}h")
     # Hyperfocus session penalty (sustained single-app focus outside productive context)
     hyperfocus_sessions = int(focus_patterns.get("hyperfocus_sessions") or 0)
@@ -1103,23 +1104,12 @@ def build_daily_state_vector(
         momentum_score += 6
     if "depleted" in summary_text or "resigned" in summary_text:
         momentum_score -= 6
-    # Habit streak signal — at-risk streaks (high-rate habits not yet done today)
-    if at_risk_streak_count == 0 and habit_list:
+    # Finch self-care activity signal
+    if finch_today_count >= 5:
         momentum_score += 5
-        momentum_evidence.append("All tracked habits done today")
-    elif at_risk_streak_count >= 5:
-        momentum_score -= 5
-        momentum_evidence.append(f"{at_risk_streak_count} habit streaks at risk")
-    elif at_risk_streak_count >= 2:
-        momentum_score -= 2
-        momentum_evidence.append(f"{at_risk_streak_count} habits not yet done")
-    # Active strong streaks → Momentum bonus (habits with high completion rate actively maintained)
-    if strong_streak_count >= 8:
-        momentum_score += 5
-        momentum_evidence.append(f"{strong_streak_count} strong streaks active")
-    elif strong_streak_count >= 4:
-        momentum_score += 3
-        momentum_evidence.append(f"{strong_streak_count} habits holding")
+        momentum_evidence.append("Self-care routine done")
+    elif finch_today_count == 0:
+        momentum_evidence.append("No Finch activity recorded")
     momentum_summary = ", ".join(momentum_evidence[:3]) if momentum_evidence else "Momentum is mostly being inferred from the live day"
     momentum_history = []
     for row in ai_days[:6]:

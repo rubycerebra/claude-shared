@@ -23,7 +23,7 @@ import sys
 import webbrowser
 import subprocess
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote as url_quote
 from urllib.request import Request, urlopen
 
@@ -424,10 +424,14 @@ def _dedupe_insights_for_display(insights):
     return unique_non_todos + todos
 
 
-def _anxiety_week_points(ai_insights, effective_today, days=7):
-    """Return last-N daily anxiety scores and weekly average."""
+def _anxiety_week_points(ai_insights, effective_today, days=7, skip=0):
+    """Return last-N daily anxiety scores and weekly average.
+
+    Args:
+        skip: number of days to skip back before the window starts (for prior-week calc).
+    """
     try:
-        base = datetime.strptime(effective_today, "%Y-%m-%d")
+        base = datetime.strptime(effective_today, "%Y-%m-%d") - timedelta(days=skip)
     except Exception:
         return [], None
 
@@ -3105,9 +3109,21 @@ def generate_html(data):
         _append_action_item(done_text, priority="Medium", time_est="", source="completed", category="maintenance", force_done=True)
 
     # Akiflow time-blocked tasks (non-routine) -> action items (core source)
+    # Time-gate: items with a future start time (>15min from now) stay in calendar only.
+    _now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     for _ak in _akiflow_today_items:
+        _ak_start_str = str(_ak.get("start", "")).strip()
+        if _ak_start_str:
+            try:
+                _ak_start = datetime.fromisoformat(_ak_start_str.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
+                if (_ak_start - _now_utc).total_seconds() > 15 * 60:
+                    continue  # not yet — stays in calendar section only
+            except Exception:
+                pass
+        _time_label = str(_ak.get("local_time", "")).strip()
+        _display = f"{_ak['summary']} · {_time_label}" if _time_label else _ak["summary"]
         _append_action_item(
-            _ak["summary"],
+            _display,
             priority="High",
             time_est=_ak["time_est"],
             source="akiflow",
@@ -3470,11 +3486,19 @@ def generate_html(data):
                     <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
                     <button onclick="qaParkActionItem(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(15,23,42,0.45); color: #94a3b8; border: 1px solid rgba(148,163,184,0.18);">💤 Park</button>
                 </div>'''
+            # Stale badge for items open 7+ days
+            _days_open = _days_open_score(item)
+            stale_badge = ""
+            if _days_open >= 14:
+                stale_badge = f'<span style="margin-left:4px;padding:1px 6px;background:rgba(251,146,60,0.15);border:1px solid rgba(251,146,60,0.3);border-radius:9999px;color:#fb923c;font-size:0.65rem;">⏰ {_days_open}d</span>'
+            elif _days_open >= 7:
+                stale_badge = f'<span style="margin-left:4px;padding:1px 6px;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.3);border-radius:9999px;color:#94a3b8;font-size:0.65rem;">{_days_open}d</span>'
+
             return f'''
                 <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="todo" data-task-hash="{html.escape(task_hash, quote=True)}" style="{row_style}">
                     <span style="font-size: 1rem; line-height: 1.35;">{task_emoji}</span>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium" title="{html.escape(task, quote=True)}" style="{text_style}">{html.escape(compact_task)}</p>
+                        <p class="text-sm font-medium" title="{html.escape(task, quote=True)}" style="{text_style}">{html.escape(compact_task)}{stale_badge}</p>
                         {time_html}
                     </div>
                     {button_html}
@@ -5032,10 +5056,22 @@ def generate_html(data):
             for emoji, category_name, time_str in categories:
                 category_html += f'<div class="flex justify-between text-xs mb-1"><span style="color: #d1d5db">{emoji} {category_name}</span><span style="color: #9ca3af">{time_str}</span></div>'
 
-        # Warning color if avg > 6h (more strict threshold)
+        # Warning color — personalised threshold if baselines available
         try:
-            hours = int(avg_time.split('h')[0])
-            is_high = hours >= 6
+            _h_parts = re.match(r'(\d+)h\s*(\d+)?', avg_time)
+            _st_hours = (int(_h_parts.group(1)) + int(_h_parts.group(2) or 0) / 60.0) if _h_parts else 0.0
+            _st_threshold = 6.0  # fallback
+            try:
+                from dashboard_state_vector import _load_baselines
+                _bl = _load_baselines()
+                _st_mean = _bl.get("screen_time_mean")
+                _st_std = _bl.get("screen_time_std")
+                _st_n = _bl.get("screen_time_n", 0)
+                if isinstance(_st_mean, (int, float)) and isinstance(_st_std, (int, float)) and _st_n >= 7:
+                    _st_threshold = _st_mean + _st_std
+            except Exception:
+                pass
+            is_high = _st_hours >= _st_threshold
         except Exception:
             is_high = False
 
@@ -6701,6 +6737,7 @@ def generate_html(data):
     qa_today_score_raw = qa_today_day.get("anxiety_reduction_score") if isinstance(qa_today_day, dict) else None
     qa_slider_value = int(round(float(qa_today_score_raw))) if isinstance(qa_today_score_raw, (int, float)) else 5
     qa_points, qa_week_avg = _anxiety_week_points(qa_ai, qa_today, days=7)
+    _, qa_prior_week_avg = _anxiety_week_points(qa_ai, qa_today, days=7, skip=7)
     qa_spark = _anxiety_sparkline(qa_points)
     qa_history_items = []
     for day_key, score in qa_points:
@@ -6713,9 +6750,15 @@ def generate_html(data):
         qa_history_items.append(f"{day_label} {score:g}")
 
     if qa_week_avg is not None:
+        qa_target_line = ""
+        if qa_prior_week_avg is not None:
+            _qa_target = round(min(qa_prior_week_avg + 0.5, 10.0), 1)
+            _qa_delta = round(qa_week_avg - qa_prior_week_avg, 1)
+            _qa_arrow = "📉" if _qa_delta > 0 else "📈" if _qa_delta < 0 else "➡️"  # higher anxiety = worse
+            qa_target_line = f'<br><span style="color:#9ca3af">Last week: {qa_prior_week_avg:g} → Target: {_qa_target:g} {_qa_arrow}</span>'
         qa_week_summary_html = f'''
             <div class="mt-2 rounded px-2 py-2" style="background: rgba(30,41,59,0.45); border: 1px solid rgba(251,191,36,0.15);">
-                <p class="text-xs" style="color: #d4c090">📊 This week avg: <span class="font-semibold">{qa_week_avg:g} / 10</span></p>
+                <p class="text-xs" style="color: #d4c090">📊 This week avg: <span class="font-semibold">{qa_week_avg:g} / 10</span>{qa_target_line}</p>
                 <p class="text-xs mt-1" style="color: #9ca3af">Trend: <span style="letter-spacing: 1px">{qa_spark}</span></p>
                 <p class="text-xs mt-1" style="color: #6b7280">{' • '.join(qa_history_items) if qa_history_items else 'No scored days yet.'}</p>
             </div>
@@ -12129,8 +12172,15 @@ def generate_html(data):
 
     {'<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(127,29,29,0.12); border: 1px solid rgba(212,160,160,0.2);"><p class="text-xs" style="color: #d4a0a0">Low energy detected — showing essentials only. Tap sections to expand.</p></div>' if _energy_low else ''}
 
-    <!-- 1. TRIAGE: Actions + Daily Report -->
+    <!-- 1. TRIAGE: Actions + Calendar + Daily Report -->
     <section id="actions" class="dashboard-section" data-focus="always morning day evening" data-density-keep>{action_items_html}</section>
+
+    <section id="schedule" class="dashboard-section" data-focus="always morning day evening" data-density-keep>
+    <div class="card">
+        <span class="section-label" style="margin:0;padding:0;">🗓 Today's Schedule</span>
+        <div class="mt-3 space-y-2" id="qa-calendar-body">{calendar_html}</div>
+    </div>
+    </section>
 
     {(f'<section id="daily-report" class="dashboard-section" data-focus="always morning day evening report"{daily_report_section_hidden_attr}><details class="card"><summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Daily Report</span></summary><div class="mt-3">{daily_report_html}</div></details></section>') if daily_report_html else ''}
 
@@ -12180,23 +12230,15 @@ def generate_html(data):
     <section class="dashboard-section" data-focus="always morning day evening" data-density-keep>{mood_tracking_html}</section>
     {tadah_scratch_html}
 
-    <!-- 5. REVIEW: Calendar + Ta-Dah + Weekly -->
+    <!-- 5. REVIEW: Ta-Dah + Weekly -->
     <section id="review" class="dashboard-section" data-focus="day evening">
     <details class="card mb-4">
-        <summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Review</span> <span class="text-xs" style="color:#94a3b8">Ta-Dah: {len(tadah_flat)}</span></summary>
+        <summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Ta-Dah</span> <span class="text-xs" style="color:#94a3b8">{len(tadah_flat)}</span></summary>
         <div class="mt-3">
-        <div class="review-grid mb-4">
-            <div>
-                <h3 class="text-sm font-semibold mb-3" style="color: #d4a8b8">Today</h3>
-                <div class="space-y-2" id="qa-calendar-body">{calendar_html}</div>
-            </div>
-            <div>
-                <h3 class="text-sm font-semibold mb-3"><a href="{journal_today}" style="color: #a7d8c4">Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
-                <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
-                {yesterday_tadah_html}
-                {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
-            </div>
-        </div>
+            <h3 class="text-sm font-semibold mb-3"><a href="{journal_today}" style="color: #a7d8c4">Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
+            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
+            {yesterday_tadah_html}
+            {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
         </div>
     </details>
     </section>
