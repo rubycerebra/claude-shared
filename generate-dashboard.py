@@ -2006,6 +2006,16 @@ def generate_html(data):
     # Energy gating default — updated after state vector is built (~line 5970)
     _energy_low = False
 
+    # Auth failure banner
+    _auth_alert_html = ""
+    _auth_alert_path = Path.home() / ".claude" / "cache" / "google_auth_alert.json"
+    if _auth_alert_path.exists():
+        _auth_alert_html = '''<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(153,27,27,0.2); border: 1px solid rgba(248,113,113,0.3);">
+            <p class="text-sm font-semibold" style="color: #fca5a5">🔑 Google Auth Expired</p>
+            <p class="text-xs mt-1" style="color: #d4a0a0">Calendar, Gmail + Akiflow are offline. Run in terminal:<br>
+            <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">python3 ~/.claude/scripts/google-reauth.py</code></p>
+        </div>'''
+
     # --- Notification fatigue protection ---
     # Track which nudges were shown today; mute repeated ones on subsequent regens
     _nudge_log_path = Path.home() / ".claude" / "cache" / "dashboard-nudge-log.json"
@@ -2799,6 +2809,63 @@ def generate_html(data):
               <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">🍿 Tonight&apos;s watch {source_badge}</p>
               <p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(_ai_reason)}</p>
               {profile_reason_html}
+              {discovery_html}
+            </div>
+            '''
+
+        elif primary_title:
+            # Heuristic pick — no AI override available
+            source_badge = (
+                '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
+                'style="background:rgba(88,28,135,0.18);color:#c4b8e0;border:1px solid rgba(196,181,253,0.18)">heuristic</span>'
+            )
+            primary_year = str(film_primary.get("year", "")).strip()
+            primary_url = str(film_primary.get("url", "")).strip()
+            primary_reason = str(film_primary.get("reason", "")).strip()
+            primary_link = (
+                f'<a href="{_html.escape(primary_url)}" style="color:#d4a8b8;text-decoration:none">{_html.escape(primary_title)}</a>'
+                if primary_url else _html.escape(primary_title)
+            )
+            profile_headline = str(film_profile.get("headline", "")).strip()
+            primary_pick_summary_html = f" · Tonight: {_html.escape(primary_title)}"
+            alternate_rows_html = ""
+            for alt in film_alternates[:2]:
+                alt_title = str(alt.get("title", "")).strip()
+                if not alt_title:
+                    continue
+                alt_year = str(alt.get("year", "")).strip()
+                alt_url = str(alt.get("url", "")).strip()
+                alt_reason = str(alt.get("reason", "")).strip()
+                alt_link = (
+                    f'<a href="{_html.escape(alt_url)}" style="color:#cbd5e1;text-decoration:none">{_html.escape(alt_title)}</a>'
+                    if alt_url else _html.escape(alt_title)
+                )
+                alt_reason_html = (
+                    f'<span class="text-xs" style="color:#94a3b8">{_html.escape(alt_reason)}</span>'
+                    if alt_reason else ""
+                )
+                alternate_rows_html += (
+                    f'<div class="flex items-start gap-2 mb-1">'
+                    f'<span style="color:#cbd5e1">•</span>'
+                    f'<div class="min-w-0"><p class="text-sm" style="color:#cbd5e1">{alt_link} '
+                    f'<span style="color:#6b7280">({_html.escape(alt_year)})</span></p>{alt_reason_html}</div>'
+                    f'</div>'
+                )
+            alternates_html = ""
+            if alternate_rows_html:
+                alternates_html = (
+                    '<div class="mt-3">'
+                    '<p class="text-xs font-semibold mb-2" style="color:#cbd5e1">Back-up picks</p>'
+                    f'{alternate_rows_html}'
+                    '</div>'
+                )
+            primary_pick_html = f'''
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
+              <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">🍿 Tonight&apos;s watch {source_badge}</p>
+              <p class="text-sm font-semibold" style="color:#f3e8ff">{primary_link} <span style="color:#94a3b8">({_html.escape(primary_year)})</span></p>
+              {(f'<p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(profile_headline)}</p>') if profile_headline else ''}
+              {(f'<p class="text-xs mt-2" style="color:#cbd5e1">{_html.escape(primary_reason)}</p>') if primary_reason else ''}
+              {alternates_html}
               {discovery_html}
             </div>
             '''
@@ -12172,6 +12239,8 @@ def generate_html(data):
 
     {'<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(127,29,29,0.12); border: 1px solid rgba(212,160,160,0.2);"><p class="text-xs" style="color: #d4a0a0">Low energy detected — showing essentials only. Tap sections to expand.</p></div>' if _energy_low else ''}
 
+    {_auth_alert_html}
+
     <!-- 1. TRIAGE: Actions + Calendar + Daily Report -->
     <section id="actions" class="dashboard-section" data-focus="always morning day evening" data-density-keep>{action_items_html}</section>
 
@@ -12270,7 +12339,7 @@ def generate_html(data):
     </section>
 
     <!-- Film -->
-    <section id="film" class="dashboard-section" data-focus="day evening">{film_html}</section>
+    <section id="film" class="dashboard-section" data-focus="always">{film_html}</section>
 
     <!-- Patterns & Correlations (collapsed) -->
     <section class="dashboard-section" data-focus="day evening">
@@ -13009,6 +13078,37 @@ def main():
     diarium = cache.get("diarium", {})
     calendar_data = cache.get("calendar", {})
     akiflow_raw = cache.get("akiflow_tasks", {})
+    # Transform akiflow tasks into calendar display format
+    _akiflow_calendar = []
+    if isinstance(akiflow_raw, dict) and akiflow_raw.get("status") == "ok":
+        for _t in akiflow_raw.get("tasks", []):
+            if _t.get("days_from_now") != 0:
+                continue
+            _akiflow_calendar.append({
+                "time": str(_t.get("time", "")).strip(),
+                "event": str(_t.get("summary", "")).strip(),
+                "type": "task",
+            })
+    # Merge calendar events (Google Calendar) + akiflow tasks
+    _gcal_events = []
+    if isinstance(calendar_data, dict):
+        for _e in calendar_data.get("events", []):
+            _start = str(_e.get("start", "")).strip()
+            _time = ""
+            if "T" in _start:
+                try:
+                    _time = datetime.fromisoformat(_start.replace("Z", "+00:00")).strftime("%H:%M")
+                except Exception:
+                    pass
+            _gcal_events.append({
+                "time": _time,
+                "event": str(_e.get("summary", "")).strip(),
+                "type": "event",
+            })
+    _all_calendar_events = sorted(
+        _akiflow_calendar + _gcal_events,
+        key=lambda x: x.get("time", "99:99"),
+    )
     open_loops = cache.get("open_loops", {})
     finch = cache.get("finch", {})
     linkedin = cache.get("linkedin_jobs", {})
@@ -13176,7 +13276,7 @@ def main():
             "mood_tag": morning_mood_tag,
         },
         "evening": {**_get_evening_data(diarium_display, ai_today), "mood_tag": evening_mood_tag},
-        "calendar": [],
+        "calendar": _all_calendar_events,
         "tadah": get_tadah(),
         "healthData": [],
         "habits": [],
