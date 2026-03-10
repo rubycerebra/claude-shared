@@ -270,18 +270,3 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 ---
 
 *Pieces Persona Sync section removed 2026-03-10: auto-sync was pulling truncated third-party data (Paul Wilson, Meghan Rainsberry), not Jim's persona. Needs rebuild if Pieces persona is useful for therapy context.*
-
-## Pieces Persona Sync
-
-*Auto-synced from Pieces persona summary on 2026-03-10 (hash: 3749a2fe4d9780fe)*
-
-### Job search anxiety patterns
-- What They Work On
-
-### Coping mechanisms Pieces has observed
-- Paula is identified by her name, "Paula," and her consistent association with the phone number `+44 7488 246904` in multiple WhatsApp interactions (observed in 15+ events from March 7 to March 10). While her professional role is not evident from the data, her frequent participati
-- What They Work On
-
-### Work habits Pieces has observed
-- Paula's activities are largely centered around community support and local commerce within her residential area:
-- **Community Facilitation & Support**: She actively shares information about local services, such as "charity doorstep collections" providing links and details (observed in WhatsApp events on March 7 and March 9). She also offers practical advice, for instance, regarding local hos

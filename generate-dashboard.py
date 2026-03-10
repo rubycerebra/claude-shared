@@ -3610,7 +3610,7 @@ def generate_html(data):
             action_items_list_html = items_html
 
     # Inject therapy action items (day before = send to Samantha, day of = review your brief)
-    _therapy_brief_data = cache.get("therapy_brief", {})
+    _therapy_brief_data = data.get("therapy_brief", {})
     if isinstance(_therapy_brief_data, dict):
         _tb_status = _therapy_brief_data.get("status", "")
         _therapy_action = ""
@@ -7349,7 +7349,7 @@ def generate_html(data):
         _nudge_record("focus_suggest_density")
         _focus_nudge_html = '''
     <div id="focus-nudge" class="rounded-lg px-3 py-2 mb-3" style="background: rgba(120,53,15,0.12); border: 1px solid rgba(212,184,150,0.2);">
-        <p class="text-xs" style="color: #d4b896">💫 Focus is scattered today — <a href="#" onclick="setDensity('focus'); document.getElementById('focus-nudge').style.display='none'; return false;" style="color: #fbbf24; text-decoration: underline;">switch to Focus mode</a>? <span style="color: #6b7280; margin-left: 4px; cursor: pointer;" onclick="this.parentElement.parentElement.style.display=\'none\'">dismiss</span></p>
+        <p class="text-xs" style="color: #d4b896">💫 Focus is scattered today — <a href="#" id="focus-nudge-switch" style="color: #fbbf24; text-decoration: underline;">switch to Focus mode</a>? <button type="button" id="focus-nudge-dismiss" style="color: #6b7280; margin-left: 4px; cursor: pointer; background: transparent; border: 0; padding: 0;">dismiss</button></p>
     </div>'''
 
     action_items_html = rf'''
@@ -12542,7 +12542,14 @@ def generate_html(data):
         const DENSITY_KEY = "dashboard.density.mode.v1";
         const DENSITY_MODES = ["standard", "focus", "everything"];
         const densityButton = document.getElementById("density-toggle");
+        const focusNudge = document.getElementById("focus-nudge");
+        const focusNudgeSwitch = document.getElementById("focus-nudge-switch");
+        const focusNudgeDismiss = document.getElementById("focus-nudge-dismiss");
         const DENSITY_LABELS = {{ standard: "Standard", focus: "🎯 Focus", everything: "📖 Everything" }};
+        function syncFocusNudgeVisibility() {{
+            if (!focusNudge) return;
+            focusNudge.style.display = (document.body.dataset.density === "focus") ? "none" : "";
+        }}
         function setDensity(mode, persist = true) {{
             const m = DENSITY_MODES.includes(mode) ? mode : "standard";
             document.body.dataset.density = m;
@@ -12554,6 +12561,7 @@ def generate_html(data):
                 document.querySelectorAll("details.card").forEach((d) => {{ d.open = true; }});
             }}
             updateFocusMeta();
+            syncFocusNudgeVisibility();
             if (persist) {{
                 try {{
                     localStorage.setItem(DENSITY_KEY, m);
@@ -12568,6 +12576,19 @@ def generate_html(data):
         }}
         if (densityButton) {{
             densityButton.addEventListener("click", cycleDensity);
+        }}
+        if (focusNudgeSwitch) {{
+            focusNudgeSwitch.addEventListener("click", (event) => {{
+                event.preventDefault();
+                setDensity("focus");
+            }});
+        }}
+        if (focusNudgeDismiss) {{
+            focusNudgeDismiss.addEventListener("click", () => {{
+                if (focusNudge) {{
+                    focusNudge.style.display = "none";
+                }}
+            }});
         }}
 
         function setStatusLegendOpen(enabled, persist = true) {{
@@ -13303,6 +13324,7 @@ def main():
         "diariumFresh": diarium_fresh,
         "diariumFreshReason": diarium_fresh_reason,
         "diariumPickupStatus": cache.get("diarium_pickup_status", {}) if isinstance(cache.get("diarium_pickup_status", {}), dict) else {},
+        "therapy_brief": cache.get("therapy_brief", {}) if isinstance(cache.get("therapy_brief", {}), dict) else {},
         "importantThing": str(diarium_display.get("important_thing", "")).strip(),
         "importantThingMissing": bool(diarium_display.get("important_thing_missing", False)) if diarium_fresh else False,
         "healthfitWorkouts": cache.get("healthfit", {}).get("workouts", []) if cache.get("healthfit", {}).get("status") == "success" else [],
