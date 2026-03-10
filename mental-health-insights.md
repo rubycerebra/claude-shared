@@ -2,7 +2,7 @@
 
 Key patterns and insights extracted from Diarium entries, therapy sessions, and weekly analyses. Updated by weekly analysis pipeline.
 
-<!-- _last_updated: 2026-W10 | _auto_update: update-living-docs.py -->
+<!-- _last_updated: 2026-W11 | _auto_update: update-living-docs.py -->
 
 ---
 
@@ -227,18 +227,19 @@ Key patterns and insights extracted from Diarium entries, therapy sessions, and 
 - Avoiding office environments (panic attack history)
 - "Being okay with being uncomfortable" and exploring root causes
 
-### Current Therapy Homework (Dec 2025 - Jan 2026)
-1. **Review boundaries worksheets** - identify existing and improvable personal boundaries
-2. **Continue saying "overthinking" phrase** to self when catastrophizing
-3. **Limit phone use** - especially at night and when with family
-4. **Select and repeat daily affirmations** to build confidence
-5. **Practice language change**: "need/should" → "could/want to/would like to"
-6. **Use ADHD-focused planning** - write down tasks, break into steps, assign timeframes
-7. **Journal about events** for transaction analysis in therapy
-8. **Write down polite adult responses** to communicate needs to wife about her reactions to his anxiety
-9. **Create roster/written plan** for daily household duties with wife
-10. **Sort out debt** - make the phone call (immediate action item)
-11. **Job search**: Look for full-time remote positions, apply consistently
+### Therapy Homework (Updated Mar 2026)
+1. **Review boundaries worksheets** — explore existing and desired personal boundaries
+2. **"Overthinking" mantra** — use when catastrophising to pause the loop
+3. **Limit phone use** — especially at night and when with family
+4. **Daily affirmations** — select and repeat for confidence building
+5. **Language reframing**: "need/should" → "could/want to/would like to"
+6. **ADHD-focused planning** — write tasks down, break into steps, assign timeframes
+7. **Journal about events** — for transaction analysis in therapy
+8. **Adult-state communication** — write down polite responses for communicating needs to Janna
+9. **Household roster** — written plan for daily duties with Janna (reduce assumptions)
+10. **Debt call** — when ready, call to sort out debt (no rush framing)
+11. **Freelance boundary-setting** — before April: weekly hour cap, invoicing rhythm, communication boundaries with Chris. Set structure before work starts, not after.
+12. **PDA-aware scheduling** — frame weekly tasks as choices, not obligations. Notice when "should" language re-fires avoidance.
 
 ---
 
@@ -268,16 +269,19 @@ Monday, Tuesday, Wednesday, and Sunday evenings were consumed by dashboard/syste
 The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine milestone. More importantly, the Chris email — sent on Friday despite the full demand frame being active — is the first clean evidence that naming the pattern can coexist with acting through it. Jim didn't need a system or a plan; he needed two days, a slightly better night's sleep, and enough Adult-state awareness to recognise that the email didn't require perfection — it required sending. That sequence (naming → rest → action) is worth tracking because it suggests the PDA frame doesn't just describe the stall; it may actively shorten it. One data point, not a trend. But a clean one.
 ---
 
+*Pieces Persona Sync section removed 2026-03-10: auto-sync was pulling truncated third-party data (Paul Wilson, Meghan Rainsberry), not Jim's persona. Needs rebuild if Pieces persona is useful for therapy context.*
+
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-10 (hash: 6de8654a61af4416)*
+*Auto-synced from Pieces persona summary on 2026-03-10 (hash: 3749a2fe4d9780fe)*
 
 ### Job search anxiety patterns
-- Persona Report: James Cherry - The Adaptive Resilience Architect & System Alchemist
-- Persona Summary
+- What They Work On
 
 ### Coping mechanisms Pieces has observed
-- James Cherry is a London-based Adaptive Resilience Architect who has deepened his focus on building and refining his personal AI and cognitive systems. His professional identity is increasingly defined by his hands-on engineering of the stability, accuracy, and self-correction wi
+- Paula is identified by her name, "Paula," and her consistent association with the phone number `+44 7488 246904` in multiple WhatsApp interactions (observed in 15+ events from March 7 to March 10). While her professional role is not evident from the data, her frequent participati
+- What They Work On
 
 ### Work habits Pieces has observed
-- James Cherry is a London-based Adaptive Resilience Architect who has deepened his focus on building and refining his personal AI and cognitive systems. His professional identity is increasingly defined by his hands-on engineering of the stability, accuracy, and self-correction wi
+- Paula's activities are largely centered around community support and local commerce within her residential area:
+- **Community Facilitation & Support**: She actively shares information about local services, such as "charity doorstep collections" providing links and details (observed in WhatsApp events on March 7 and March 9). She also offers practical advice, for instance, regarding local hos

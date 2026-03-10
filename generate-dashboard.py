@@ -96,6 +96,9 @@ from dashboard_day_narrative import (
     split_day_narrative_paragraphs,
 )
 from dashboard_value_helpers import (
+    CLEANING_KEYWORDS,
+    TADAH_THEME_EMOJIS,
+    TADAH_THEME_KEYWORDS,
     coerce_choice,
     coerce_optional_int,
     end_day_status_text,
@@ -524,8 +527,9 @@ def _clean_evening_reflections_text(raw_text):
         "## ta dah",
         "## where was i brave",
         "## what's tomorrow",
-        "## what's tomorrow",
+        "## what feels important for tomorrow",
         "## what do i need to remember",
+        "## anything worth remembering for tomorrow",
         "## remember tomorrow",
     )
     if any(marker in text.lower() for marker in bleed_prefixes):
@@ -800,13 +804,13 @@ def _build_tomorrow_reframe_lines(jim_tomorrow, jim_remember, weekend_mode=False
         if weekend_mode:
             lines = [
                 {"emoji": "🌿", "text": "Weekend mode: prioritise recovery and connection over output."},
-                {"emoji": "🧠", "text": "Do one regulation anchor early (mindfulness, walk, or food) to steady the day."},
-                {"emoji": "🌙", "text": "Keep tomorrow simple: one must-do, then protected decompression time."},
+                {"emoji": "🧠", "text": "Try one regulation anchor early (mindfulness, walk, or food) to steady the day."},
+                {"emoji": "🌙", "text": "Keep tomorrow simple: one anchor, then protected decompression time."},
             ]
         else:
             lines = [
-                {"emoji": "🎯", "text": "Set one must-do and one nice-to-have to avoid overload tomorrow."},
-                {"emoji": "🧠", "text": "Do one regulation anchor early (mindfulness, walk, or food) before reactive tasks."},
+                {"emoji": "🎯", "text": "Choose one meaningful anchor and one optional extra for tomorrow."},
+                {"emoji": "🧠", "text": "Try one regulation anchor early (mindfulness, walk, or food) before reactive tasks."},
                 {"emoji": "🌙", "text": "Leave a short evening close note to reduce rumination at night."},
             ]
 
@@ -2290,58 +2294,12 @@ def generate_html(data):
     else:
         # Flat list with inline category emojis from ta_dah_categorised
         _ta_dah_cat_data = data.get("taDahCategorised", {}) if "data" in dir() else {}
-        _theme_emojis = {
-            "work": "💼", "self_care": "🧘", "household": "🏠",
-            "family": "👨‍👩‍👧", "creative": "🎬", "social": "💬",
-            "health": "💪", "admin": "📋", "learning": "📚",
-            "emotional_growth": "🌱",
-        }
-        # Simple keyword-to-theme mapping for inline categorisation
-        # Order matters: more specific themes checked first to avoid false matches
-        # Mental health/self-care/social keywords expanded for neurodivergent wins
-        from collections import OrderedDict
-        _kw_themes = OrderedDict([
-            ("emotional_growth", [
-                # Perseverance, accountability, vulnerability
-                "persever", "remorse", "guilt", "accountab", "apologi", "sorry",
-                "forgave", "bounced back", "pushed through", "kept going", "didn't give up",
-                "honest", "vulnerab", "brave", "proud", "overcame", "faced",
-                "admitted", "owned", "reflected", "grew", "growth",
-            ]),
-            ("family", [
-                "family", "wife", "daughter", "kids", "janna", "girls", "mum", "my dad",
-                "museum", "park", "outing", "day out", "trip", "nice time with",
-            ]),
-            ("admin", ["organis", "schedule", "email", "sort", "fix", "improv", "claude", "dashboard", "api", "parsing", "invest", "ensure"]),
-            ("social", [
-                "friend", "spoke", "adam", "call ", "chat", "message",
-                # Expanded social wins
-                "messaged", "replied", "reached out", "spoke to", "texted", "called",
-            ]),
-            ("creative", ["film", "cinema", "photo", "write", "creative", "music"]),
-            ("self_care", [
-                # Physical self-care
-                "yoga", "walk", "weight", "exercise", "meditat", "breakfast", "healthy", "ate ", "food", "steps", "coco", "diary", "journal", "look",
-                # Basic self-care wins (neurodivergent — these matter enormously)
-                "bed", "teeth", "shower", "dressed", "medication", "meds",
-                # Routine wins
-                "got up on time", "woke up", "early", "routine",
-                # Mental health / emotional regulation
-                "regulated", "calm", "breathed", "managed", "coped", "despite", "anxiety",
-                "didn't snap", "got through", "hard day", "difficult", "overwhelmed", "asked for help",
-            ]),
-            ("household", [
-                "clean", "tidy", "tidied", "laundry", "dishes", "hoover", "cook", "household",
-                "window", "extractor", "sweep", "mop", "iron", "vacuum", "dusting", "bins", "wash",
-                # Cooking specifics
-                "burrito", "dinner", "lunch", "meal", "made food",
-            ]),
-            ("work", ["went to work", "at work", "job", "apply", "application", "interview", "career", "sony", "bfi", "working title", "office"]),
-        ])
+        _theme_emojis = TADAH_THEME_EMOJIS
+        _kw_themes = TADAH_THEME_KEYWORDS
         def _categorise_item(item_text):
             lower = item_text.lower()
             # Detect cleaning tasks to prevent false self_care matches (e.g. "cleaned bathroom" matching "bath")
-            is_cleaning = any(kw in lower for kw in ['clean', 'tidy', 'wash', 'hoover', 'vacuum', 'sweep', 'mop', 'dust', 'iron'])
+            is_cleaning = any(kw in lower for kw in CLEANING_KEYWORDS)
             for theme, keywords in _kw_themes.items():
                 # Skip self_care for cleaning tasks — same guard as daemon
                 if theme == 'self_care' and is_cleaning:
@@ -2928,7 +2886,7 @@ def generate_html(data):
 
     # Collect action items from multiple sources (only if data is from today)
     diarium_data = data.get("diariumTodos", []) if data.get("diariumDataDate") == _effective_today else []
-    notes_todos = []  # Apple Notes is read-only archive — not an action item source
+    # Apple Notes todos removed — Notes is archive-only, not a todo source
     diarium_tadah = data.get("diariumTaDah", []) if data.get("diariumDataDate") == _effective_today else []
     ai_todos = ai_today.get("genuine_todos", []) if _ai_is_today else []
 
@@ -3136,12 +3094,7 @@ def generate_html(data):
         category = todo.get("category", "standard") if isinstance(todo, dict) else "standard"
         _append_action_item(task, priority=priority, time_est=time_est, source="daemon", category=category)
 
-    # Daily Apple Note ✅ To-Dos (manual edits should flow into dashboard action items)
-    for note_todo in (notes_todos or []):
-        text = str(note_todo or "").strip()
-        if not text:
-            continue
-        _append_action_item(text, priority="Medium", time_est="15m", source="apple_notes", category="standard")
+    # Apple Notes todos removed — Notes is archive-only, not a todo source
 
     # Completed tasks that were promoted into ta_dah should remain visible as done rows.
     for done_item in (diarium_tadah or []):
@@ -3655,6 +3608,30 @@ def generate_html(data):
 
         if items_html:
             action_items_list_html = items_html
+
+    # Inject therapy action items (day before = send to Samantha, day of = review your brief)
+    _therapy_brief_data = cache.get("therapy_brief", {})
+    if isinstance(_therapy_brief_data, dict):
+        _tb_status = _therapy_brief_data.get("status", "")
+        _therapy_action = ""
+
+        if _tb_status == "scheduled" and _therapy_brief_data.get("therapist_brief_status") == "generated":
+            # Day before therapy — Samantha's brief is ready
+            _therapy_action = '''
+            <div class="flex items-center gap-2 rounded-lg px-3 py-2 mb-2" style="background: rgba(69,204,144,0.12); border: 1px solid rgba(69,204,144,0.25);">
+                <span class="text-sm">🩺</span>
+                <span class="text-sm" style="color: #a7d8c4">Send therapist brief to Samantha on BetterHelp — therapy tomorrow</span>
+            </div>'''
+        elif _tb_status in ("generated", "existing"):
+            # Therapy day
+            _therapy_action = '''
+            <div class="flex items-center gap-2 rounded-lg px-3 py-2 mb-2" style="background: rgba(69,204,144,0.12); border: 1px solid rgba(69,204,144,0.25);">
+                <span class="text-sm">🩺</span>
+                <span class="text-sm" style="color: #a7d8c4">Therapy today — review your brief before session</span>
+            </div>'''
+
+        if _therapy_action:
+            action_items_list_html = _therapy_action + action_items_list_html
 
     _save_action_item_state(
         _effective_today,
@@ -7045,7 +7022,7 @@ def generate_html(data):
         <details id="qa-checkins-section" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);" {'open' if (qa_quick_done_count < qa_quick_done_total or qa_yoga_prompt_needed) else ''}>
             <summary class="flex items-center justify-between gap-3 cursor-pointer" style="list-style: none;">
                 <span class="text-xs font-semibold" style="color: #b0c8d8">⚡ Check-ins &amp; follow-through</span>
-                <span id="qa-checkins-summary" class="text-xs" style="color: #a8c4e0">{html.escape(qa_checkins_summary)}</span>
+                <span id="qa-checkins-summary" class="text-xs" style="color: #a8c4e0">{qa_quick_done_count}/{qa_quick_done_total}</span>
             </summary>
             <div class="mt-3">
                 <div class="flex flex-wrap gap-2">
@@ -7061,7 +7038,7 @@ def generate_html(data):
                     <span id="qa-mood-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
                     {qa_quick_end_day_html}
                 </div>
-                <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: #a8c4e0">{html.escape(qa_quick_meta)}</p>
+                <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: #a8c4e0" hidden="hidden">{html.escape(qa_quick_meta)}</p>
             </div>
         </details>
     '''
@@ -7137,7 +7114,7 @@ def generate_html(data):
     if not daily_report_tomorrow_text:
         daily_report_tomorrow_text = _daily_report_structured_tomorrow
     if not daily_report_tomorrow_text:
-        daily_report_tomorrow_text = "Tomorrow, keep the plan light and specific: one meaningful task first, then reassess your energy."
+        daily_report_tomorrow_text = "Tomorrow, keep the plan light and specific: pick one meaningful anchor, then reassess your energy."
 
     def _daily_report_prose_html(raw_text, palette):
         paras = [p.strip() for p in re.split(r"\n{2,}", str(raw_text or "")) if p.strip()]
@@ -10925,14 +10902,13 @@ def generate_html(data):
         if (mind && !mind.checked) remaining.push("Mindfulness");
         if (workout && !workout.checked) remaining.push(workout.closest("label")?.textContent?.trim()?.replace(/^[^\w]*/, "") || "Workout");
         if (mood && !mood.checked) remaining.push(mood.closest("label")?.textContent?.trim()?.replace(/^[^\w]*/, "") || "Mood");
-        const text = remaining.length ? remaining.join(" · ") : "All done";
+        const total = [mind, workout, mood].filter(el => el !== null).length;
+        const done = total - remaining.length;
         const allDone = remaining.length === 0;
-        meta.textContent = text;
-        meta.style.color = allDone ? "#a7d8c4" : "#a8c4e0";
 
         const summary = document.getElementById("qa-checkins-summary");
         if (summary) {{
-            summary.textContent = text;
+            summary.textContent = allDone ? "All done" : `${{done}}/${{total}}`;
             summary.style.color = allDone ? "#a7d8c4" : "#a8c4e0";
         }}
 
@@ -12369,7 +12345,7 @@ def generate_html(data):
                 <p class="text-xs" style="color: #9ca3af">submitted</p>
             </div>
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(88,28,135,0.1)">
-                <p class="text-sm font-semibold" style="color: #c4b8e0">{data.get("focus_label", "Remote £35k+ / local £40k+")}</p>
+                <p class="text-sm font-semibold" style="color: #c4b8e0">{data.get("focus_label", "Freelance-first (Chris £27/hr from April)")}</p>
                 <p class="text-xs" style="color: #9ca3af">focus</p>
             </div>
             <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(131,24,67,0.1)">
@@ -13258,7 +13234,7 @@ def main():
     if not evening_mood_tag:
         evening_mood_tag = "unknown"
     work_strategy = cache.get("work_strategy", {}) if isinstance(cache.get("work_strategy", {}), dict) else {}
-    work_focus_label = str(work_strategy.get("focus_label", "Remote £35k+ / local £40k+")).strip() or "Remote £35k+ / local £40k+"
+    work_focus_label = str(work_strategy.get("focus_label", "Freelance-first (Chris £27/hr from April)")).strip() or "Freelance-first (Chris £27/hr from April)"
 
     # Build dashboard data
     data = {
@@ -13701,7 +13677,7 @@ def main():
     # Auto-send to Readwise Reader (if token is configured)
     if "--no-readwise" not in sys.argv:
         try:
-            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude" / "scripts"))
+            sys.path.insert(0, str(Path.home() / ".claude" / "scripts"))
             from shared.readwise import send_dashboard_snapshot
             if send_dashboard_snapshot(OUTPUT_FILE):
                 print("📖 Sent to Readwise Reader")

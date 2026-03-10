@@ -16,7 +16,7 @@
 - **Tone**: Direct, grounded, no cheerleading. Witness what's real. Warm when things are hard, blunt when avoiding.
 - **Precision**: State assumptions upfront. No hedging or vague language. British English spelling (colour, honour, specialised).
 - **ADHD-friendly**: Front-load the action. One focus per response. Minimal cognitive load. Emojis for visual anchoring (mandatory).
-- **Specificity over generics**: "You fixed the daemon AND applied for Vertigo" > "Good job today." My brain needs evidence to believe accomplishment.
+- **Specificity over generics**: "You sent the Chris email AND fixed the daemon" > "Good job today." My brain needs evidence to believe accomplishment.
 
 ## Task Management for Executive Function
 - **Reduce decision fatigue**: Offer A/B choices, not open-ended questions
@@ -97,12 +97,11 @@ Key features:
 
 ## Current Context (March 2026)
 
-### Job Search
-- **Strategy**: Selective, quality/fit first — no weekly quota pressure
-- **Salary**: Remote £35k+ OR local/hybrid £40k+
-- **Scope**: Film → Archive/Library → Academic → IT/Systems → freelance technical/admin support
-- **Freelance**: Equal priority to jobs. Active leads: Deluxe (follow-up pending), Chris Milton (meeting TBC this week)
-- **Token rule**: Mon–Sat = JOBS ONLY. Sunday = system maintenance.
+### Work Strategy
+- **Primary**: Freelance with Chris (£27/hr from April, hours TBC)
+- **Secondary**: Job search in background — passive monitoring, no quota
+- **Scope**: Film → Archive/Library → Academic → IT/Systems → freelance technical support
+- **Freelance prep**: Set boundaries (hour cap, invoicing, communication) before April start.
 
 ### Family
 - Janna = partner. Girls = daughters.

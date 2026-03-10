@@ -107,9 +107,9 @@ def strip_completion_hash_artifacts(raw_text: str) -> str:
 def task_match_key(raw_text: str) -> str:
     text = strip_completion_hash_artifacts(raw_text)
     text = re.sub(r"\s+", " ", str(text or "").strip().lower())
+    # Strip possessive 's before removing non-alpha (avoids orphan "s" tokens)
+    text = re.sub(r"'s\b", "", text)
     text = re.sub(r"[^a-z0-9\s]", " ", text)
-    # Strip single-char tokens — artifacts of possessive stripping ("tomorrow's" → "tomorrow s")
-    text = re.sub(r"\b[a-z0-9]\b", " ", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -125,6 +125,13 @@ def task_completion_hash_legacy(raw_text: str) -> str:
     if not seed:
         return ""
     return hashlib.md5(seed.encode()).hexdigest()[:12]
+
+
+def _prefix_match(key_a: str, key_b: str, n: int = 3) -> bool:
+    """True if the first *n* tokens of both normalised keys are identical."""
+    a, b = key_a.split(), key_b.split()
+    pfx = min(n, len(a), len(b))
+    return pfx >= n and a[:pfx] == b[:pfx]
 
 
 def task_object_tokens(raw_text: str) -> set[str]:
@@ -146,17 +153,13 @@ def task_matches_completed_text(raw_text: str, completed_text_keys: list[str]) -
         len(candidate_object_tokens) >= 3
         and any(token in str(raw_text or "").lower() for token in (" and ", ",", "kind of thing"))
     )
-    candidate_words = candidate_key.split()
     for done_raw in completed_text_keys:
         done_key = task_match_key(done_raw)
         if not done_key:
             continue
         if candidate_key == done_key:
             return True
-        # Prefix match: same verb + first 2 object words = same task
-        done_words = done_key.split()
-        pfx = min(3, len(candidate_words), len(done_words))
-        if pfx >= 3 and candidate_words[:pfx] == done_words[:pfx]:
+        if _prefix_match(candidate_key, done_key):
             return True
         done_object_tokens = task_object_tokens(done_key)
         if candidate_is_multipart and candidate_object_tokens and done_object_tokens:
@@ -207,13 +210,9 @@ def tasks_equivalent(left_text: str, right_text: str) -> bool:
         return True
     if len(right_key) >= 10 and right_key in left_key:
         return True
-    # Prefix match: tasks sharing verb + first 2 object words are equivalent
-    # Catches voice transcription variants like "set tomorrow plan before sleep"
-    # vs "set tomorrow plan before closing the evening"
-    left_words = left_key.split()
-    right_words = right_key.split()
-    prefix_len = min(3, len(left_words), len(right_words))
-    if prefix_len >= 3 and left_words[:prefix_len] == right_words[:prefix_len]:
+    # Prefix match: catches voice transcription variants like "set tomorrow plan
+    # before sleep" vs "set tomorrow plan before closing the evening"
+    if _prefix_match(left_key, right_key):
         return True
     left_obj = task_object_tokens(left_text)
     right_obj = task_object_tokens(right_text)
@@ -672,10 +671,26 @@ def save_action_item_state(
             carried["queue_rank"] = 9999
         next_rows[key] = carried
 
+    # Deduplicate equivalent items — keep the one with the freshest live-seen date
+    deduped: dict[str, dict] = {}
+    for key, row in next_rows.items():
+        merged = False
+        for existing_key, existing_row in list(deduped.items()):
+            if tasks_equivalent(row.get("text", ""), existing_row.get("text", "")):
+                # Keep whichever was seen more recently
+                row_fresh = row.get("last_live_seen_date", "") or row.get("last_seen_date", "")
+                ex_fresh = existing_row.get("last_live_seen_date", "") or existing_row.get("last_seen_date", "")
+                if row_fresh >= ex_fresh:
+                    deduped[existing_key] = {**row, "task_key": existing_key}
+                merged = True
+                break
+        if not merged:
+            deduped[key] = row
+
     payload["updated_at"] = now_iso
     payload["schema_version"] = ACTION_ITEM_MODEL_VERSION
     payload["items"] = sorted(
-        next_rows.values(),
+        deduped.values(),
         key=lambda row: (
             {"today": 0, "future": 1, "done": 2}.get(str(row.get("queue_bucket", "today")).strip(), 3),
             int(row.get("queue_rank", 9999)),
