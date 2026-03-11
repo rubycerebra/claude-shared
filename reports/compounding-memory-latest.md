@@ -2,22 +2,20 @@
 
 This file is updated from the dashboard compounding layer so future sessions/QMD can recall cross-day context, not just same-day UI state.
 
-- Headline: Momentum and Recovery can carry the day, but focus needs pacing.
-- Today throughput: 22
-- 7d throughput avg: 27.8
-- 30d throughput avg: 27.8
+- Headline: Focus and Momentum can carry the day, but load needs pacing.
+- Today throughput: 2
+- 7d throughput avg: 22.8
+- 30d throughput avg: 22.8
 
 ## Increasing
 - Admin is the strongest completed domain today.
 
 ## Stalling
-- Do yoga for shoulder tension keeps resurfacing and needs a real close-loop move.
+- No major repeating stall surfaced beyond the live task load.
 
 ## Prioritise next
-- Do yoga for shoulder tension — seen 2 days, prevents decay.
-- Move forth with confidence — seen 2 days, admin is a domain with recent follow-through.
+- Do good things for my family — admin is a domain with recent follow-through.
 
 ## Conversation recall cues
-- Do yoga for shoulder tension — seen 2 days, prevents decay.
-- Move forth with confidence — seen 2 days, admin is a domain with recent follow-through.
-- Do yoga for shoulder tension keeps resurfacing and needs a real close-loop move.
+- Do good things for my family — admin is a domain with recent follow-through.
+- No major repeating stall surfaced beyond the live task load.

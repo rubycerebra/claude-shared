@@ -551,14 +551,34 @@ def _count_task_recurrence(task_key: str, history_rows: List[Dict[str, Any]]) ->
     return count
 
 
+_WORKOUT_KINDS = [
+    {"kind": "yoga", "task_keywords": ["yoga", "stretch", "mobility"], "schedule_keywords": ["yoga"]},
+    {"kind": "weights", "task_keywords": ["weights", "workout a", "workout b", "lifting", "gym"], "schedule_keywords": ["workout", "weight"]},
+]
+
+
+def _is_off_schedule_workout(task_lower: str, today_workout_type: str) -> bool:
+    """Return True if task is a workout-specific item for a workout NOT scheduled today."""
+    if not today_workout_type:
+        return False
+    twt = today_workout_type.lower()
+    for wk in _WORKOUT_KINDS:
+        if any(kw in task_lower for kw in wk["task_keywords"]):
+            if not any(sk in twt for sk in wk["schedule_keywords"]):
+                return True
+    return False
+
+
 def _build_priority_candidates(
     action_items: List[Dict[str, Any]],
     *,
     history_rows: List[Dict[str, Any]],
     now_hour: int,
     primary_constraint: str,
+    today_workout_type: str = "",
 ) -> List[Dict[str, Any]]:
     candidates: List[Dict[str, Any]] = []
+    constraint_lower = primary_constraint.lower()
     for item in action_items:
         if not isinstance(item, dict) or bool(item.get("done")):
             continue
@@ -566,18 +586,20 @@ def _build_priority_candidates(
         if not task:
             continue
         task_key = re.sub(r"\s+", " ", task.lower()).strip()
+        # Skip workout-specific items when that workout isn't scheduled today
+        if _is_off_schedule_workout(task_key, today_workout_type):
+            continue
         recurrence = _count_task_recurrence(task_key, history_rows)
         domain = _task_domain(task)
-        lowered = task.lower()
-        strategic_value = 3 if any(keyword in lowered for keyword in _STRATEGIC_KEYWORDS) else (2 if domain in {"system", "work"} else 0)
-        maintenance_risk = 3 if any(keyword in lowered for keyword in _MAINTENANCE_KEYWORDS) else (2 if str(item.get("category", "")).lower() == "maintenance" else 0)
+        strategic_value = 3 if any(keyword in task_key for keyword in _STRATEGIC_KEYWORDS) else (2 if domain in {"system", "work"} else 0)
+        maintenance_risk = 3 if any(keyword in task_key for keyword in _MAINTENANCE_KEYWORDS) else (2 if str(item.get("category", "")).lower() == "maintenance" else 0)
         if recurrence >= 3 and maintenance_risk:
             maintenance_risk += 1
-        dependency_unlock = 2 if any(keyword in lowered for keyword in _UNLOCK_KEYWORDS) else 0
+        dependency_unlock = 2 if any(keyword in task_key for keyword in _UNLOCK_KEYWORDS) else 0
         prior_completion = 1 if _window_domain_average(history_rows[:7], domain) >= 1 else 0
         if now_hour >= 20:
             energy_fit = 2 if domain in {"home", "admin", "health"} else 0
-        elif primary_constraint.lower() in {"recovery", "load"}:
+        elif constraint_lower in {"recovery", "load"}:
             energy_fit = 2 if domain in {"admin", "home"} else (1 if domain == "health" else 0)
         else:
             energy_fit = 2 if domain in {"system", "work"} else 1
@@ -1029,14 +1051,26 @@ def build_daily_state_vector(
         load_evidence.append(f"Burnout risk {burnout_risk}")
     open_loops = cache.get("open_loops", {}) if isinstance(cache.get("open_loops", {}), dict) else {}
     open_loop_count = int(open_loops.get("count") or 0) if str(open_loops.get("status", "")).strip().lower() == "found" else 0
+    dashboard_bell = cache.get("dashboard_bell", {}) if isinstance(cache.get("dashboard_bell", {}), dict) else {}
+    dashboard_bell_items = dashboard_bell.get("items", []) if isinstance(dashboard_bell.get("items", []), list) else []
+    dashboard_bell_count = sum(
+        1
+        for item in dashboard_bell_items
+        if isinstance(item, dict)
+        and str(item.get("item_id", "")).strip()
+        and str(item.get("sync_state", "")).strip().lower() != "auto_resolved"
+    )
     load_score -= min(len(action_items), 8) * 3
     load_score -= min(len(future_action_items), 4) * 4
     load_score -= min(open_loop_count, 4) * 4
+    load_score -= min(dashboard_bell_count, 4) * 3
     load_evidence.append(f"{len(action_items)} live tasks")
     if future_action_items:
         load_evidence.append(f"{len(future_action_items)} queued later")
     if open_loop_count:
         load_evidence.append(f"{open_loop_count} open loops")
+    if dashboard_bell_count:
+        load_evidence.append(f"{dashboard_bell_count} check-ins")
     # Context switch penalty — high app-switching signals fragmented cognitive load
     if context_switches >= 200:
         load_score -= 10
@@ -1165,11 +1199,18 @@ def build_daily_state_vector(
     ta_dah_list = diarium.get("ta_dah", []) if isinstance(diarium.get("ta_dah", []), list) else []
     throughput_task_texts = completed_task_texts + [str(item).strip() for item in ta_dah_list if str(item).strip()]
     throughput_by_domain = _domain_counts(throughput_task_texts)
+    # Derive today's workout type for schedule-aware filtering
+    _fitness_raw = cache.get("fitness", {})
+    _fitness = _fitness_raw if isinstance(_fitness_raw, dict) else {}
+    _session_raw = _fitness.get("next_session", {})
+    _next_session = _session_raw if isinstance(_session_raw, dict) else {}
+    _today_workout_type = str(_next_session.get("type", "")).strip()
     priority_candidates = _build_priority_candidates(
         action_items,
         history_rows=prior_history_rows[:14],
         now_hour=datetime.now().hour,
         primary_constraint=weakest["label"],
+        today_workout_type=_today_workout_type,
     )
     report_status = _report_status_payload(
         today=today,

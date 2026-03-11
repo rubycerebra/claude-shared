@@ -37,9 +37,12 @@ from shared.workout_logic import (
     derive_workout_progression,
     workout_progression_view,
 )
+try:
+    from shared.todoist_helper import ensure_label as _todoist_ensure_label
+except Exception:
+    _todoist_ensure_label = None  # type: ignore[assignment]
 from dashboard_action_items import (
     FUTURE_KEYWORDS,
-    collect_akiflow_today_items,
     compact_task_text,
     infer_target_date_from_text,
     is_actionable_task,
@@ -117,7 +120,6 @@ SYNC_DASHBOARD_TARGETS = [
     Path.home() / "My Drive (james.cherry01@gmail.com)" / "dashboard.html",
 ]
 COMPLETED_TODOS_FILE = Path.home() / ".claude" / "cache" / "completed-todos.json"
-DASHBOARD_BELL_STATE_FILE = Path.home() / ".claude" / "cache" / "dashboard-bell-state.json"
 
 DASHBOARD_DUMP_MARKER_PATTERNS = (
     r"^\s*(?:📊\s*)?Dashboard\s*[-—:|]",
@@ -689,6 +691,21 @@ def _is_tracker_metadata_leak_text(text):
         r"\brating:\s*[★*]",
     )
     return any(re.search(pattern, lowered) for pattern in leak_patterns)
+
+
+_YEAR_PAREN_RE = re.compile(r"\(\d{4}\)")
+_FILM_KEYWORDS = frozenset(("documentary", "film", "director", "dir.", "watched", "watchlist", "wind-down", "tonight"))
+
+
+def _is_film_connection(text: str) -> bool:
+    """Detect film-related connection insights (covered by the film card)."""
+    t = text.strip()
+    if t.startswith("🎬") or t.startswith("🔍"):
+        return True
+    lowered = t.lower()
+    if _YEAR_PAREN_RE.search(t) and any(kw in lowered for kw in _FILM_KEYWORDS):
+        return True
+    return False
 
 
 def _time_to_minutes_hhmm(value):
@@ -2212,13 +2229,8 @@ def generate_html(data):
             for item in events:
                 event_text = str(item.get("event", ""))
                 time_text = str(item.get("time", ""))
-                is_akiflow = item.get("type") == "task"
-                if is_akiflow:
-                    event_emoji = "📌"
-                    text_color = "#d4b896"
-                else:
-                    event_emoji = _pick_content_emoji(event_text)
-                    text_color = "#e5e7eb"
+                event_emoji = _pick_content_emoji(event_text)
+                text_color = "#e5e7eb"
                 calendar_html += f'''
         <div class="flex items-center gap-2 text-sm ml-2">
             <span class="w-14 font-mono text-xs" style="color: #9ca3af">{html.escape(time_text)}</span>
@@ -2227,10 +2239,6 @@ def generate_html(data):
         </div>'''
             calendar_html += '</div>'
 
-    # Scheduling nudge: if no Akiflow tasks (Tasks calendar) are in today's calendar
-    _cal_has_akiflow = any(e.get("type") == "task" for e in data.get("calendar", []))
-    if not _cal_has_akiflow:
-        calendar_html += '<p class="text-xs mt-3 pt-3" style="border-top: 1px solid rgba(249,168,212,0.12); color: #9ca3af">⏰ Nothing scheduled yet — consider time-blocking in Akiflow.</p>'
 
     # Ta-Dah HTML — categorised with emoji headers, merged with recent wins as badges
     tadah_data = data.get("tadah", {})
@@ -2346,7 +2354,7 @@ def generate_html(data):
             content_emoji = _pick_content_emoji(item_text)
             source_badge = ""
             if source == "pieces":
-                source_badge = '<span style="margin-left: 6px; padding: 1px 6px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); border-radius: 9999px; color: #d4b896; font-size: 0.65rem; vertical-align: middle; white-space: nowrap;">⚡ Pieces</span>'
+                source_badge = '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;margin-left:6px;padding:0.15rem 0.45rem;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:9999px;color:#d4b896;font-size:0.65rem;font-weight:600;vertical-align:middle;white-space:nowrap;">⚡ Pieces</span>'
             # ★ prefix on high-significance items (score 4+)
             star_prefix = '<span style="color: #d4b896; margin-right: 4px; font-size: 0.85em;">★</span>' if (score is not None and score >= 4) else ""
             return (f'<div class="flex items-start gap-2 text-sm" style="margin-left: 4px;">'
@@ -2437,13 +2445,13 @@ def generate_html(data):
             data-section="ta_dah"
             class="w-full rounded px-2 py-1.5 text-xs"
             style="background: transparent; border: none; color: #e5e7eb; resize: none; font-family: inherit; outline: none;"
-            placeholder="Drop a win or paste your Akiflow tasks (one per line)…"
+            placeholder="Drop a win or paste a task list (one per line)…"
             oninput="qaSaveScratchPad(this); this.style.height='auto'; this.style.height=this.scrollHeight+'px';"></textarea>
         <div class="flex items-center gap-2">
             <button id="qa-scratch-submit-ta_dah"
                 onclick="qaScratchSubmit('ta_dah')"
                 class="px-3 py-1 rounded text-xs"
-                style="background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.8rem;background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
                 ✅ Add to Ta-Dah
             </button>
             <span id="qa-scratch-status-ta_dah" class="text-xs" style="color: #94a3b8;"></span>
@@ -2689,7 +2697,7 @@ def generate_html(data):
         if _film_pick_source == "ai":
             source_badge = (
                 '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
-                'style="background:rgba(6,95,70,0.28);color:#b8d8c8;border:1px solid rgba(110,231,183,0.28)">AI pick</span>'
+                'style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(6,95,70,0.28);color:#b8d8c8;border:1px solid rgba(110,231,183,0.28);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">AI pick</span>'
             )
             profile_headline = str(film_profile.get("headline", "")).strip()
             profile_reason = str(film_profile.get("reason_text", "")).strip()
@@ -2878,9 +2886,6 @@ def generate_html(data):
     diarium_tadah = data.get("diariumTaDah", []) if data.get("diariumDataDate") == _effective_today else []
     ai_todos = ai_today.get("genuine_todos", []) if _ai_is_today else []
 
-    # --- Akiflow today tasks (non-routine, for action items injection) ---
-    _akiflow_today_items = collect_akiflow_today_items(data.get("akiflow_tasks", {}))
-
     # --- Schedule analysis extraction (feasibility_map populated after _task_match_key) ---
     _sa = data.get("schedule_analysis", {})
     _sa_today = isinstance(_sa, dict) and _sa.get("date") == _effective_today
@@ -2991,7 +2996,7 @@ def generate_html(data):
             return
         if _is_meta_prompt(task_text):
             return  # Never show AI meta-prompts as action items
-        if source != "akiflow" and not _is_actionable_task(task_text):
+        if not _is_actionable_task(task_text):
             return
         task_key = _task_match_key(task_text)
         if not task_key:
@@ -3118,22 +3123,8 @@ def generate_html(data):
             continue
         _append_action_item(done_text, priority="Medium", time_est="", source="completed", category="maintenance", force_done=True)
 
-    # Akiflow time-blocked tasks (non-routine) -> action items (core source)
-    # All items included; JS time-gates visibility (shown at start → start+15m).
-    for _ak in _akiflow_today_items:
-        _time_label = str(_ak.get("local_time", "")).strip()
-        _display = f"{_ak['summary']} · {_time_label}" if _time_label else _ak["summary"]
-        _append_action_item(
-            _display,
-            priority="High",
-            time_est=_ak["time_est"],
-            source="akiflow",
-            category="standard",
-            akiflow_start=_ak.get("start", ""),
-        )
-
     core_sources_present = any(
-        str(item.get("source", "")).strip().lower() in {"daemon", "apple_notes", "akiflow"}
+        str(item.get("source", "")).strip().lower() in {"daemon", "apple_notes"}
         for item in all_action_items
         if isinstance(item, dict)
     )
@@ -3433,7 +3424,7 @@ def generate_html(data):
             if time_text:
                 time_html = f'''
                         <p class="text-xs mt-1 flex items-center gap-1">
-                            <span class="rounded px-1.5 py-0.5" style="background: rgba(148,163,184,0.18); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.24);">{html.escape(time_text)}</span>'''
+                            <span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">{html.escape(time_text)}</span>'''
                 # Feasibility badge
                 _fk2 = _task_match_key(task)
                 _fval = _feasibility_map.get(_fk2, "")
@@ -3446,8 +3437,8 @@ def generate_html(data):
                     _fs = _feas_styles.get(_fval, {})
                     if _fs:
                         time_html += (
-                            f'<span class="rounded px-1.5 py-0.5" '
-                            f'style="background:{_fs["bg"]};color:{_fs["color"]};font-size:0.65rem;">'
+                            f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
+                            f'background:{_fs["bg"]};color:{_fs["color"]};border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">'
                             f'{_fs["label"]}</span>'
                         )
                 time_html += '''
@@ -3463,38 +3454,38 @@ def generate_html(data):
             if _pieces_observed and time_html:
                 time_html = time_html.rstrip()
                 time_html = time_html.rstrip("</p>").rstrip() + (
-                    '<span class="rounded px-1.5 py-0.5" '
-                    'style="background:rgba(88,28,135,0.22);color:#c4b8e0;font-size:0.65rem;">🧩 observed</span>'
+                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
+                    'background:rgba(88,28,135,0.22);color:#c4b5fd;border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">🧩 observed</span>'
                     "</p>\n"
                 )
             elif _pieces_observed:
                 time_html = (
                     '<p class="text-xs mt-1 flex items-center gap-1">'
-                    '<span class="rounded px-1.5 py-0.5" '
-                    'style="background:rgba(88,28,135,0.22);color:#c4b8e0;font-size:0.65rem;">🧩 observed</span>'
+                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
+                    'background:rgba(88,28,135,0.22);color:#c4b5fd;border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">🧩 observed</span>'
                     "</p>"
                 )
 
             if is_done:
                 row_style = "background: rgba(15,23,42,0.46); border: 1px solid rgba(148,163,184,0.2); opacity: 0.72;"
                 text_style = "color: #cbd5e1; line-height: 1.45; text-decoration: line-through; text-decoration-thickness: 1.5px; text-decoration-color: rgba(148,163,184,0.82);"
-                button_html = '<button disabled class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,64,175,0.26); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">☑ Done</button>'
+                button_html = '<button disabled style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;touch-action:manipulation;background:rgba(30,64,175,0.26);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">☑ Done</button>'
             else:
                 row_style = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
                 text_style = "color: #f3f4f6; line-height: 1.45;"
                 button_html = f'''
-                <div class="flex flex-col gap-1">
-                    <button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" data-task-hash="{html.escape(task_hash, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">☐ Done</button>
-                    <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
-                    <button onclick="qaParkActionItem(this)" data-text="{html.escape(task, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(15,23,42,0.45); color: #94a3b8; border: 1px solid rgba(148,163,184,0.18);">💤 Park</button>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;margin-top:0.35rem;">
+                    <button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" data-task-hash="{html.escape(task_hash, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(131,24,67,0.35);color:#fbcfe8;border:1px solid rgba(249,168,212,0.35);">☐ Done</button>
+                    <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(30,58,138,0.35);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
+                    <button onclick="qaParkActionItem(this)" data-text="{html.escape(task, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(15,23,42,0.45);color:#94a3b8;border:1px solid rgba(148,163,184,0.18);">💤 Park</button>
                 </div>'''
             # Stale badge for items open 7+ days
             _days_open = _days_open_score(item)
             stale_badge = ""
             if _days_open >= 14:
-                stale_badge = f'<span style="margin-left:4px;padding:1px 6px;background:rgba(251,146,60,0.15);border:1px solid rgba(251,146,60,0.3);border-radius:9999px;color:#fb923c;font-size:0.65rem;">⏰ {_days_open}d</span>'
+                stale_badge = f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;margin-left:0.25rem;padding:0.15rem 0.45rem;background:rgba(251,146,60,0.15);border:1px solid rgba(251,146,60,0.3);border-radius:9999px;color:#fb923c;font-size:0.65rem;font-weight:600;">⏰ {_days_open}d</span>'
             elif _days_open >= 7:
-                stale_badge = f'<span style="margin-left:4px;padding:1px 6px;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.3);border-radius:9999px;color:#94a3b8;font-size:0.65rem;">{_days_open}d</span>'
+                stale_badge = f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;margin-left:0.25rem;padding:0.15rem 0.45rem;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.3);border-radius:9999px;color:#94a3b8;font-size:0.65rem;font-weight:600;">{_days_open}d</span>'
 
             _ak_start_iso = str(item.get("akiflow_start", "")).strip()
             _ak_attrs = ""
@@ -3701,7 +3692,10 @@ def generate_html(data):
                 continue
             if _is_tracker_metadata_leak_text(text):
                 continue
+            # Film connections are shown in the film card — skip here
             itype = item.get("type", "other")
+            if itype == "connection" and _is_film_connection(text):
+                continue
             if itype not in grouped:
                 grouped[itype] = []
             grouped[itype].append(item)
@@ -3781,6 +3775,7 @@ def generate_html(data):
         bool(str(evening_payload_for_stale.get(field, "")).strip())
         for field in ("brave", "tomorrow", "updates", "remember_tomorrow", "evening_reflections")
     )
+
 
     def _is_stale_missing_reflection_signal(text: str) -> bool:
         lowered = re.sub(r"\s+", " ", str(text or "").strip().lower())
@@ -4462,7 +4457,7 @@ def generate_html(data):
                     </details>
 
                     <div class="mt-3 flex items-center gap-2">
-                        <button id="qa-wc-save-btn" onclick="qaSaveWorkoutChecklist(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Save checklist</button>
+                        <button id="qa-wc-save-btn" onclick="qaSaveWorkoutChecklist(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.8rem;background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Save checklist</button>
                         <span id="qa-wc-status" class="text-xs" style="color: #9ca3af">Not saved yet.</span>
                     </div>
                 </div>
@@ -5812,9 +5807,11 @@ def generate_html(data):
             "signal": ("⚡", "Signals", "#d4b896", "rgba(251,191,36,0.08)"),
             "connection": ("🔗", "Connections", "#d4a8b8", "rgba(131,24,67,0.1)"),
         }
-        # Group insights by type
+        # Group insights by type (filter film connections — shown in film card)
         _eve_grouped = {}
         for insight in evening_insights:
+            if insight.get("type") == "connection" and _is_film_connection(str(insight.get("text", ""))):
+                continue
             itype = insight.get("type", "win")
             if itype not in _eve_grouped:
                 _eve_grouped[itype] = []
@@ -6156,16 +6153,22 @@ def generate_html(data):
         _has_high = any(str(a.get("severity", "")).lower() == "high" for a in _active_alerts)
         _alert_open = " open" if _has_high else ""
         _alert_items = ""
-        _severity_colors = {"high": "#d4a0a0", "medium": "#d8c8a0", "low": "#bae6fd"}
+        _severity_styles = {
+            "high":   {"color": "#d4a0a0", "bg": "rgba(212,160,160,0.09)", "border": "rgba(212,160,160,0.2)"},
+            "medium": {"color": "#d8c8a0", "bg": "rgba(216,200,160,0.09)", "border": "rgba(216,200,160,0.2)"},
+            "low":    {"color": "#bae6fd", "bg": "rgba(186,230,253,0.09)", "border": "rgba(186,230,253,0.2)"},
+        }
+        _sev_default = {"color": "#cbd5e1", "bg": "rgba(203,213,225,0.09)", "border": "rgba(203,213,225,0.2)"}
         for _al in _active_alerts[:4]:
             _sev = str(_al.get("severity", "low")).strip().lower()
-            _col = _severity_colors.get(_sev, "#cbd5e1")
+            _ss = _severity_styles.get(_sev, _sev_default)
             _al_detail = str(_al.get("detail", "")).strip()
             _al_detail_html = f'<br><span class="text-xs" style="color:#94a3b8">{html.escape(_al_detail)}</span>' if _al_detail else ""
             _alert_items += (
-                f'<li class="text-sm mb-2" style="color:{_col};line-height:1.45;">'
-                f'<span class="text-xs rounded px-1.5 py-0.5 mr-1" '
-                f'style="border:1px solid {_col}33;background:{_col}18;color:{_col};">{html.escape(_sev)}</span>'
+                f'<li class="text-sm mb-2" style="color:{_ss["color"]};line-height:1.45;">'
+                f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
+                f'border:1px solid {_ss["border"]};background:{_ss["bg"]};color:{_ss["color"]};'
+                f'border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;margin-right:0.25rem;">{html.escape(_sev)}</span>'
                 f'{html.escape(str(_al.get("message", "")))}{_al_detail_html}</li>'
             )
         _alert_count = len(_active_alerts)
@@ -6188,11 +6191,17 @@ def generate_html(data):
             if not isinstance(_pp, dict):
                 continue
             _trend = str(_pp.get("trend", "")).strip()
-            _trend_colors = {"escalating": "#d4a0a0", "stable": "#d8c8a0", "declining": "#b8d8c8", "insufficient_data": "#94a3b8"}
-            _tc = _trend_colors.get(_trend, "#94a3b8")
+            _trend_styles = {
+                "escalating":       {"color": "#d4a0a0", "bg": "rgba(212,160,160,0.08)", "border": "rgba(212,160,160,0.27)"},
+                "stable":           {"color": "#d8c8a0", "bg": "rgba(216,200,160,0.08)", "border": "rgba(216,200,160,0.27)"},
+                "declining":        {"color": "#b8d8c8", "bg": "rgba(184,216,200,0.08)", "border": "rgba(184,216,200,0.27)"},
+                "insufficient_data": {"color": "#94a3b8", "bg": "rgba(148,163,184,0.08)", "border": "rgba(148,163,184,0.27)"},
+            }
+            _ts = _trend_styles.get(_trend, _trend_styles["insufficient_data"])
             _plc_pills += (
-                f'<span class="optional-pill text-xs rounded px-2 py-1" '
-                f'style="border:1px solid {_tc}44;background:{_tc}14;color:{_tc};">'
+                f'<span class="optional-pill" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
+                f'border:1px solid {_ts["border"]};background:{_ts["bg"]};color:{_ts["color"]};'
+                f'border-radius:9999px;padding:0.15rem 0.55rem;font-size:0.65rem;font-weight:600;">'
                 f'{html.escape(str(_pp.get("pattern", ""))[:30])} {html.escape(_trend)}</span>'
             )
         _plc_insights = ""
@@ -6846,7 +6855,7 @@ def generate_html(data):
             <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="loop" style="background: rgba(120,53,15,0.28); border: 1px solid rgba(251,191,36,0.25);">
                 <span class="text-sm" style="line-height: 1.4;">{loop_emoji}</span>
                 <span class="text-sm font-medium flex-1" title="{html.escape(loop_text, quote=True)}" style="color: #d8c8a0; line-height: 1.45;">{html.escape(loop_compact)}</span>
-                <button onclick="qaCompleteLoopFromButton(this)" data-text="{html.escape(loop_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Close</button>
+                <button onclick="qaCompleteLoopFromButton(this)" data-text="{html.escape(loop_text, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(6,95,70,0.35);color:#a7d8c4;border:1px solid rgba(110,231,183,0.35);">Close</button>
             </div>'''
     else:
         qa_loop_rows_html = '<p class="text-sm" style="color: #9ca3af">No extra open loops right now.</p>'
@@ -6857,9 +6866,9 @@ def generate_html(data):
 
     _qa_count_pills = []
     if qa_todo_options:
-        _qa_count_pills.append(f'<span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(131,24,67,0.28); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.25);">Action items: {len(qa_todo_options)}</span>')
+        _qa_count_pills.append(f'<span class="optional-pill" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(131,24,67,0.28);color:#fbcfe8;border:1px solid rgba(249,168,212,0.25);border-radius:9999px;padding:0.15rem 0.55rem;font-size:0.65rem;font-weight:600;">Action items: {len(qa_todo_options)}</span>')
     if qa_loop_options:
-        _qa_count_pills.append(f'<span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(120,53,15,0.28); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.25);">Open loops: {len(qa_loop_options)}</span>')
+        _qa_count_pills.append(f'<span class="optional-pill" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(120,53,15,0.28);color:#d8c8a0;border:1px solid rgba(251,191,36,0.25);border-radius:9999px;padding:0.15rem 0.55rem;font-size:0.65rem;font-weight:600;">Open loops: {len(qa_loop_options)}</span>')
     qa_counts_html = f'<div class="flex flex-wrap gap-2 mb-3">{"".join(_qa_count_pills)}</div>' if _qa_count_pills else ""
 
     qa_one_thing_html = ""
@@ -6871,11 +6880,11 @@ def generate_html(data):
         qa_one_thing_html = f'''
         <div data-qa-one-thing="1" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26);">
             <p class="text-xs font-semibold mb-1" style="color: #b8d8c8">🎯 One Thing Now</p>
-            <p data-qa-one-thing-text="1" class="text-sm mb-2" title="{html.escape(one_text, quote=True)}" style="color: #c8e0d4; line-height: 1.45;">{one_emoji} {html.escape(one_compact)}</p>
-            <div data-qa-one-thing-actions="1" class="flex flex-wrap items-center gap-2">
-                <button data-qa-one-thing-start="1" onclick="qaStartOneThing(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.32); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Start</button>
-                <button data-qa-one-thing-done="1" onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" data-task-hash="{html.escape(one_hash, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">☐ Done</button>
-                <button data-qa-one-thing-defer="1" onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" class="rounded px-2 py-1 text-xs font-semibold" style="min-width: 72px; min-height: 34px; touch-action: manipulation; background: rgba(30,58,138,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
+            <p data-qa-one-thing-text="1" class="text-sm mb-2" title="{html.escape(one_text, quote=True)}" style="color: #b8d8c8; line-height: 1.45;">{one_emoji} {html.escape(one_compact)}</p>
+            <div data-qa-one-thing-actions="1" style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:flex-start;margin-top:0.35rem;">
+                <button data-qa-one-thing-start="1" onclick="qaStartOneThing(this)" data-text="{html.escape(one_text, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(30,64,175,0.32);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">Start</button>
+                <button data-qa-one-thing-done="1" onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" data-task-hash="{html.escape(one_hash, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(131,24,67,0.35);color:#fbcfe8;border:1px solid rgba(249,168,212,0.35);">☐ Done</button>
+                <button data-qa-one-thing-defer="1" onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(30,58,138,0.35);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
             </div>
         </div>
         '''
@@ -7184,145 +7193,175 @@ def generate_html(data):
         </div>'''
 
     # === Notifications Bell — surfaces forward signals + NOW.md actions ===
-    # Each item: (icon, text, context, item_type, item_id)
-    _bell_items = []
-    _bell_state = {}
-    try:
-        if DASHBOARD_BELL_STATE_FILE.exists():
-            _raw_bell_state = json.loads(DASHBOARD_BELL_STATE_FILE.read_text(encoding="utf-8"))
-            if isinstance(_raw_bell_state, dict):
-                _bell_state = _raw_bell_state
-    except Exception:
-        _bell_state = {}
+    _dashboard_bell_payload = data.get("dashboardBell", {}) if isinstance(data.get("dashboardBell", {}), dict) else {}
+    _raw_bell_items = _dashboard_bell_payload.get("items", []) if isinstance(_dashboard_bell_payload.get("items", []), list) else []
 
-    def _bell_akiflow_added(item_type, item_id):
-        key = f"{str(item_type or '').strip()}::{str(item_id or '').strip()}"
-        row = _bell_state.get(key, {}) if isinstance(_bell_state.get(key), dict) else {}
-        return bool(row.get("akiflow_added", False))
+    def _bell_render_dedupe_key(item):
+        if not isinstance(item, dict):
+            return None
+        _task_id = str(item.get("todoist_task_id", "") or "").strip()
+        if _task_id:
+            return ("task", _task_id)
+        _item_type = str(item.get("item_type", "") or "").strip()
+        _item_id = str(item.get("item_id", "") or "").strip()
+        return ("item", f"{_item_type}:{_item_id}") if (_item_type or _item_id) else None
 
-    try:
-        _fs_path = Path.home() / ".claude" / "cache" / "forward-signals.json"
-        if _fs_path.exists():
-            _fs = json.loads(_fs_path.read_text(encoding="utf-8"))
-            _fs_weeks = _fs.get("by_week", {})
-            if _fs_weeks:
-                _latest_wk = sorted(_fs_weeks.keys(), reverse=True)[0]
-                for sig in _fs_weeks[_latest_wk]:
-                    if isinstance(sig, dict) and not sig.get("resolved"):
-                        _pri = "🔴" if sig.get("priority") == "high" else "🟡"
-                        _sig_id = str(sig.get("id", ""))
-                        _bell_items.append((_pri, str(sig.get("question", "?")), str(sig.get("context", "")), "forward_signal", _sig_id, _bell_akiflow_added("forward_signal", _sig_id)))
-    except Exception:
-        pass
-    try:
-        _now_path = Path.home() / ".claude" / "NOW.md"
-        if _now_path.exists():
-            _now_text = _now_path.read_text(encoding="utf-8")
-            _in_tbl = False
-            for _line in _now_text.splitlines():
-                if _line.strip().startswith("| Action"):
-                    _in_tbl = True
-                    continue
-                if _in_tbl and _line.strip().startswith("|---"):
-                    continue
-                if _in_tbl and _line.strip().startswith("|"):
-                    _cols = [c.strip() for c in _line.strip().strip("|").split("|")]
-                    if len(_cols) >= 3 and "done" not in _cols[2].lower():
-                        _action_id = _cols[0]
-                        _bell_items.append(("📋", _action_id, f"Deadline: {_cols[1]}", "now_action", _action_id, _bell_akiflow_added("now_action", _action_id)))
-                elif _in_tbl:
-                    break
-    except Exception:
-        pass
+    def _bell_render_score(item):
+        if not isinstance(item, dict):
+            return (0, 0, 0, 0)
+        _item_type = str(item.get("item_type", "") or "").strip()
+        _display_text = str(item.get("display_text", "") or item.get("raw_text", "") or "").strip()
+        _context = str(item.get("context", "") or "").strip()
+        _deadline = str(item.get("deadline", "") or "").strip()
+        return (
+            1 if _item_type == "forward_signal" else 0,
+            1 if _context else 0,
+            1 if _deadline else 0,
+            len(_display_text),
+        )
 
-    def _reword_signal_as_action(text):
-        """Reword forward signal questions as actionable tasks."""
-        t = str(text).strip()
-        # Strip leading question words + trailing ?
-        t = re.sub(r'^(Have you|Did you|Has a|Do you actually|If you haven\'t|Are you|Is the|Does|Can you|Will you|Would you|How many)\s+', '', t, flags=re.IGNORECASE)
-        t = t.rstrip('?').strip()
-        # Fix passive leftovers: "specific X been confirmed" → "Confirm specific X"
-        t = re.sub(r'^(specific\s+.+?)\s+been\s+confirmed\s+with\s+', r'Confirm \1 with ', t, flags=re.IGNORECASE)
-        # Capitalise first letter
-        if t:
-            t = t[0].upper() + t[1:]
-        return t
+    def _merge_bell_render_items(items):
+        _deduped = []
+        _seen = {}
+        for _item in items:
+            if not isinstance(_item, dict):
+                continue
+            _candidate = dict(_item)
+            _key = _bell_render_dedupe_key(_candidate)
+            if _key is None:
+                _deduped.append(_candidate)
+                continue
+            _existing_idx = _seen.get(_key)
+            if _existing_idx is None:
+                _seen[_key] = len(_deduped)
+                _deduped.append(_candidate)
+                continue
+            _existing = dict(_deduped[_existing_idx])
+            _existing_context = str(_existing.get("context", "") or "").strip()
+            _candidate_context = str(_candidate.get("context", "") or "").strip()
+            if _candidate_context and _candidate_context not in _existing_context:
+                _existing["context"] = f"{_existing_context} · {_candidate_context}".strip(" ·") if _existing_context else _candidate_context
+            if not str(_existing.get("deadline", "") or "").strip() and str(_candidate.get("deadline", "") or "").strip():
+                _existing["deadline"] = _candidate.get("deadline", "")
+            for _field in ("todoist_task_id", "todoist_url", "project_name", "due_date", "due_datetime", "due_string"):
+                if not str(_existing.get(_field, "") or "").strip() and str(_candidate.get(_field, "") or "").strip():
+                    _existing[_field] = _candidate.get(_field, "")
+            if _bell_render_score(_candidate) > _bell_render_score(_existing):
+                for _field in ("item_type", "item_id", "icon", "priority", "raw_text", "display_text", "sync_state", "matched_existing", "message"):
+                    if _field in _candidate:
+                        _existing[_field] = _candidate.get(_field)
+            _deduped[_existing_idx] = _existing
+        return _deduped
 
-    def _check_akiflow_stale(item_type, item_id):
-        """Check if item has been in Akiflow >7 days without resolution."""
-        key = f"{str(item_type or '').strip()}::{str(item_id or '').strip()}"
-        row = _bell_state.get(key, {}) if isinstance(_bell_state.get(key), dict) else {}
-        if not row.get("akiflow_added"):
-            return False
-        updated = str(row.get("updated_at", "")).strip()
-        if not updated:
-            return False
-        try:
-            from datetime import datetime as _dt
-            added_dt = _dt.fromisoformat(updated)
-            return (_dt.now() - added_dt).days >= 7
-        except Exception:
-            return False
-
+    _bell_items = _merge_bell_render_items(_raw_bell_items)
     notifications_bell_html = ""
     if _bell_items:
         _bell_rows = []
-        _bell_akiflow_count = 0
-        for _idx, (_icon, _text, _ctx, _itype, _iid, _akiflow_added) in enumerate(_bell_items):
-            # Reword forward signals as actionable tasks
-            _display_text = _reword_signal_as_action(_text) if _itype == "forward_signal" else _text
-            _ctx_html = f'<p style="font-size:0.75rem;margin:0.2rem 0 0;color:rgba(174,174,178,0.75);line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
-            _esc_type = html.escape(_itype)
-            _esc_id = html.escape(_iid)
-            _esc_task_text_attr = html.escape(str(_display_text), quote=True)
-            _akiflow_active = bool(_akiflow_added)
-            _akiflow_stale = _check_akiflow_stale(_itype, _iid)
-            if _akiflow_active:
-                _bell_akiflow_count += 1
-            # Re-escalate: if in Akiflow >7d, show warning
-            _akiflow_btn_text = "⚠️ 7d+ in Akiflow" if _akiflow_stale else ("📥 In Akiflow" if _akiflow_active else "📥 Akiflow")
-            _akiflow_bg = "rgba(153,27,27,0.2)" if _akiflow_stale else ("rgba(120,53,15,0.24)" if _akiflow_active else "rgba(15,23,42,0.45)")
-            _akiflow_color = "#d4a0a0" if _akiflow_stale else ("#d8c8a0" if _akiflow_active else "#cbd5e1")
-            _akiflow_border = "rgba(248,113,113,0.25)" if _akiflow_stale else ("rgba(251,191,36,0.25)" if _akiflow_active else "rgba(148,163,184,0.18)")
-            _akiflow_note_style = "" if _akiflow_active else "display:none;"
-            _akiflow_note_text = "⚠️ In Akiflow for 7+ days — needs attention or closing." if _akiflow_stale else "📥 Added to Akiflow — still stays here until done."
-            _akiflow_note_color = "#d4a0a0" if _akiflow_stale else "#d4b896"
-            # Escalated items get a red left border
-            _row_border_left = "border-left:3px solid rgba(248,113,113,0.5);" if _akiflow_stale else ""
+        _bell_linked_count = 0
+        for _idx, _item in enumerate(_bell_items):
+            if not isinstance(_item, dict):
+                continue
+            _display_text = str(_item.get("display_text", "")).strip() or str(_item.get("raw_text", "")).strip() or str(_item.get("item_id", "")).strip()
+            _item_type = str(_item.get("item_type", "")).strip()
+            _item_id = str(_item.get("item_id", "")).strip()
+            if not _display_text or not _item_type or not _item_id:
+                continue
+            _icon = str(_item.get("icon", "🔔")).strip() or "🔔"
+            _ctx = str(_item.get("context", "")).strip()
+            _todoist_task_id = str(_item.get("todoist_task_id", "")).strip()
+            _todoist_url = str(_item.get("todoist_url", "")).strip()
+            _todoist_project = str(_item.get("project_name", "")).strip()
+            _sync_state = str(_item.get("sync_state", "")).strip().lower()
+            _sync_message = str(_item.get("message", "")).strip()
+            _matched_existing = bool(_item.get("matched_existing", False))
+            _esc_type = html.escape(_item_type)
+            _esc_id = html.escape(_item_id)
+            _ctx_html = f'<p style="font-size:0.75rem;margin:0.2rem 0 0;color:#94a3b8;line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
+
+            if _todoist_task_id:
+                _bell_linked_count += 1
+            if _todoist_task_id and _todoist_url:
+                _todoist_action_label = "↗ Todoist"
+                _todoist_action_html = (
+                    f'<span onclick="window.location.href=\'{html.escape(_todoist_url, quote=True)}\'" '
+                    f'style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(30,64,175,0.18);color:#bfdbfe;'
+                    f'border:1px solid rgba(147,197,253,0.24);border-radius:0.4rem;padding:0.2rem 0.55rem;'
+                    f'font-size:0.7rem;font-weight:600;cursor:pointer;">{_todoist_action_label}</span>'
+                )
+            elif _todoist_task_id:
+                _todoist_action_html = (
+                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(30,64,175,0.18);color:#bfdbfe;'
+                    'border:1px solid rgba(147,197,253,0.24);border-radius:0.4rem;padding:0.2rem 0.55rem;'
+                    'font-size:0.7rem;font-weight:600;">In Todoist</span>'
+                )
+            elif _sync_state == "sync_error":
+                _todoist_action_html = (
+                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(127,29,29,0.22);color:#fca5a5;'
+                    'border:1px solid rgba(248,113,113,0.24);border-radius:0.4rem;padding:0.2rem 0.55rem;'
+                    'font-size:0.7rem;font-weight:600;">⚠ Todoist</span>'
+                )
+            elif _sync_state == "disabled":
+                _todoist_action_html = (
+                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(15,23,42,0.45);color:#cbd5e1;'
+                    'border:1px solid rgba(148,163,184,0.18);border-radius:0.4rem;padding:0.2rem 0.55rem;'
+                    'font-size:0.7rem;font-weight:600;">Todoist off</span>'
+                )
+            else:
+                _todoist_action_html = (
+                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(15,23,42,0.45);color:#cbd5e1;'
+                    'border:1px solid rgba(148,163,184,0.18);border-radius:0.4rem;padding:0.2rem 0.55rem;'
+                    'font-size:0.7rem;font-weight:600;">↻ Pending</span>'
+                )
+
+            _sync_note_parts = []
+            if _sync_state == "created":
+                _sync_note_parts.append("Sent to Todoist.")
+            elif _sync_state == "matched_existing" or _matched_existing:
+                _sync_note_parts.append("Already in Todoist.")
+            elif _sync_state == "sync_error":
+                _sync_note_parts.append(_sync_message or "Todoist sync issue.")
+            elif _sync_state == "disabled":
+                _sync_note_parts.append("Todoist disabled.")
+            elif _todoist_task_id:
+                _sync_note_parts.append("Tracked in Todoist.")
+            if _todoist_project and _todoist_task_id:
+                _sync_note_parts.append(_todoist_project)
+            _sync_note_html = (
+                f'<p style="font-size:0.72rem;margin:0.35rem 0 0;color:{"#fca5a5" if _sync_state == "sync_error" else "#94a3b8"};">'
+                f'{html.escape(" · ".join(_sync_note_parts))}</p>'
+            ) if _sync_note_parts else ""
+
             _bell_rows.append(
-                f'<div id="bell-item-{_idx}" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;{_row_border_left}">'
+                f'<div id="bell-item-{_idx}" data-bell-item-index="{_idx}" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;">'
                 f'<div style="display:flex;align-items:flex-start;gap:0.5rem;">'
                 f'<div style="flex:1;min-width:0;">'
-                f'<p style="font-size:0.875rem;color:#e5e7eb;margin:0">{_icon} {html.escape(_display_text)}</p>{_ctx_html}'
+                f'<p style="font-size:0.875rem;color:#e5e7eb;margin:0">{_icon} {html.escape(_display_text)}</p>{_ctx_html}{_sync_note_html}'
                 f'</div>'
                 f'<div style="display:flex;gap:0.35rem;flex-shrink:0;padding-top:0.1rem;flex-wrap:wrap;justify-content:flex-end;">'
-                f'<button id="bell-akiflow-btn-{_idx}" onclick="qaBellAkiflowToggle({_idx},\'{_esc_type}\',\'{_esc_id}\')" data-task-text="{_esc_task_text_attr}" data-akiflow-active="{str(_akiflow_active).lower()}" style="background:{_akiflow_bg};color:{_akiflow_color};border:1px solid {_akiflow_border};border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">{_akiflow_btn_text}</button>'
-                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\')" style="background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✓ Done</button>'
-                f'<button onclick="qaBellToggleReply({_idx})" style="background:rgba(59,130,246,0.15);color:#a8c4e0;border:1px solid rgba(147,197,253,0.15);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">💬</button>'
-                f'</div></div>'
-                f'<p id="bell-akiflow-note-{_idx}" style="font-size:0.72rem;margin:0.35rem 0 0;color:{_akiflow_note_color};{_akiflow_note_style}">{_akiflow_note_text}</p>'
-                f'<div id="bell-reply-{_idx}" style="display:none;margin-top:0.4rem;">'
-                f'<div style="display:flex;gap:0.35rem;">'
-                f'<input id="bell-reply-text-{_idx}" type="text" placeholder="Quick response..." style="flex:1;background:rgba(15,23,42,0.55);border:1px solid var(--panel-border);border-radius:0.4rem;padding:0.3rem 0.5rem;font-size:0.75rem;color:#e5e7eb;font-family:inherit;">'
-                f'<button onclick="qaBellResolve({_idx},\'{_esc_type}\',\'{_esc_id}\',true)" style="background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">Send</button>'
+                f'{_todoist_action_html}'
+                f'<button type="button" onclick="qaBellResolveFromButton(this)" data-item-type="{_esc_type}" data-item-id="{_esc_id}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;touch-action:manipulation;">✓ Done</button>'
                 f'</div></div>'
                 f'</div>'
             )
-        _bell_count = len(_bell_items)
-        _bell_stale_count = sum(1 for _, _, _, _t, _i, _ in _bell_items if _check_akiflow_stale(_t, _i))
-        _bell_summary_parts = []
-        if _bell_akiflow_count:
-            _bell_summary_parts.append(f'{_bell_akiflow_count} in Akiflow')
-        if _bell_stale_count:
-            _bell_summary_parts.append(f'{_bell_stale_count} stale')
-        _bell_summary_text = ' · '.join(_bell_summary_parts)
-        _bell_summary_color = '#d4a0a0' if _bell_stale_count else ('#d4b896' if _bell_akiflow_count else '#94a3b8')
-        notifications_bell_html = f'''
+        _bell_count = len(_bell_rows)
+        if _bell_count:
+            _created_count = int(_dashboard_bell_payload.get("created_count") or 0)
+            _error_count = int(_dashboard_bell_payload.get("error_count") or 0)
+            _bell_summary_parts = []
+            if _bell_linked_count:
+                _bell_summary_parts.append(f'{_bell_linked_count} in Todoist')
+            if _created_count:
+                _bell_summary_parts.append(f'{_created_count} new')
+            if _error_count:
+                _bell_summary_parts.append(f'{_error_count} sync issue{"s" if _error_count != 1 else ""}')
+            _bell_summary_text = ' · '.join(_bell_summary_parts)
+            _bell_summary_color = '#fca5a5' if _error_count else ('#bfdbfe' if _bell_linked_count else '#94a3b8')
+            notifications_bell_html = f'''
     <details class="card" style="padding:0.72rem 0.9rem;">
         <summary style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;">
             <span style="font-size:1.15rem">🔔</span>
             <span style="font-size:0.9rem;font-weight:600;color:#e5e7eb">Check In</span>
-            <span style="background:rgba(59,130,246,0.25);color:#a8c4e0;font-size:0.7rem;font-weight:600;padding:0.1rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
+            <span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(59,130,246,0.25);color:#a8c4e0;font-size:0.65rem;font-weight:600;padding:0.15rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
             {f'<span style="font-size:0.72rem;color:{_bell_summary_color};">{html.escape(_bell_summary_text)}</span>' if _bell_summary_text else ''}
         </summary>
         <div style="margin-top:0.55rem;">{"".join(_bell_rows)}</div>
@@ -7339,7 +7378,244 @@ def generate_html(data):
         <p class="text-xs" style="color: #d4b896">💫 Focus is scattered today — <a href="#" id="focus-nudge-switch" style="color: #fbbf24; text-decoration: underline;">switch to Focus mode</a>? <button type="button" id="focus-nudge-dismiss" style="color: #6b7280; margin-left: 4px; cursor: pointer; background: transparent; border: 0; padding: 0;">dismiss</button></p>
     </div>'''
 
-    action_items_html = rf'''
+    # === Todoist Card Section (replaces Action Items when Todoist is active) ===
+    _todoist_data = data.get("todoist_tasks", {})
+    _todoist_active = isinstance(_todoist_data, dict) and _todoist_data.get("status") == "ok"
+    _todoist_card_html = ""
+    if _todoist_active:
+        if _todoist_ensure_label is not None:
+            try:
+                _todoist_ensure_label("Claude")
+            except Exception:
+                pass
+
+        _todoist_all = _todoist_data.get("tasks", [])
+        _effective = get_effective_date()
+
+        # Priority colors: P1=high/red, P2=medium/yellow, P3=low/green, P4=normal/grey
+        # Todoist API values: 4=P1(urgent), 3=P2(high), 2=P3(medium), 1=P4(none)
+        _pri_styles = {
+            4: {"bg": "rgba(153,27,27,0.28)", "color": "#f87171", "label": "P1"},
+            3: {"bg": "rgba(161,98,7,0.22)", "color": "#fbbf24", "label": "P2"},
+            2: {"bg": "rgba(6,95,70,0.22)", "color": "#a7d8c4", "label": "P3"},
+            1: {"bg": "rgba(148,163,184,0.12)", "color": "#94a3b8", "label": "P4"},
+        }
+        _proj_colors = {
+            "health": {"bg": "rgba(6,95,70,0.22)", "color": "#a7d8c4"},
+            "work": {"bg": "rgba(30,58,138,0.22)", "color": "#93c5fd"},
+            "todo": {"bg": "rgba(88,28,135,0.22)", "color": "#c4b5fd"},
+        }
+        _proj_default_color = {"bg": "rgba(148,163,184,0.12)", "color": "#94a3b8"}
+        _todoist_routine_count = 0
+        _bell_linked_todoist_ids = {
+            str(item.get("todoist_task_id", "")).strip()
+            for item in (_dashboard_bell_payload.get("items", []) if isinstance(_dashboard_bell_payload, dict) else [])
+            if isinstance(item, dict) and str(item.get("todoist_task_id", "")).strip()
+        }
+
+        def _todoist_sort_key(task):
+            _priority = int(task.get("priority", 1) or 1)
+            _due_dt = str(task.get("due_datetime", "") or "")
+            _content = str(task.get("content", "") or "").lower()
+            return (-_priority, _due_dt or "9999-12-31T23:59:59", _content)
+
+        def _render_todoist_rows(tasks, *, card_key):
+            _sorted = sorted(tasks, key=_todoist_sort_key)
+            _by_project = {}
+            for _task in _sorted:
+                _pname = _task.get("project_name", "") or "Inbox"
+                _by_project.setdefault(_pname, []).append(_task)
+
+            _rows = ""
+            _count = 0
+            for proj_name, proj_tasks in _by_project.items():
+                proj_key = proj_name.strip().lower()
+                _pc = _proj_colors.get(proj_key, _proj_default_color)
+                _rows += f'<p class="text-xs font-semibold mb-2 mt-3" style="color: {_pc["color"]}">{html.escape(proj_name)}</p>'
+                for t in proj_tasks:
+                    _tid = html.escape(str(t.get("id", "")), quote=True)
+                    _content = html.escape(str(t.get("content", ""))[:180])
+                    _url = str(t.get("url", "")).strip()
+                    _pri = int(t.get("priority", 1) or 1)
+                    _ps = _pri_styles.get(_pri, _pri_styles[1])
+                    _due_date = str(t.get("due_date", "") or "")
+                    _due_dt = str(t.get("due_datetime", "") or "")
+                    _dur = t.get("duration")
+                    _dur_unit = t.get("duration_unit", "minute")
+                    _labels = [str(lbl).strip() for lbl in (t.get("labels", []) or []) if str(lbl).strip()]
+                    _count += 1
+
+                    _row_bg = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
+                    _due_html = ""
+                    if _due_dt:
+                        try:
+                            _dt = datetime.fromisoformat(_due_dt.replace("Z", "+00:00"))
+                            _due_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">{_dt.strftime("%H:%M")}</span>'
+                        except Exception:
+                            _due_html = ""
+                    elif _due_date and _due_date != _effective:
+                        _due_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">{html.escape(_due_date)}</span>'
+
+                    _dur_html = ""
+                    if _dur:
+                        _dur_label = f"{_dur}m" if _dur_unit == "minute" else f"{_dur}d"
+                        _dur_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(88,28,135,0.15);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">⏱ {_dur_label}</span>'
+
+                    _labels_html = ""
+                    for _lbl in _labels[:3]:
+                        _labels_html += f'<span class="rounded px-1 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.16);border-radius:9999px;padding:0.15rem 0.4rem;font-size:0.65rem;font-weight:500;">{html.escape(str(_lbl))}</span>'
+
+                    _pri_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:{_ps["bg"]};color:{_ps["color"]};border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:700;">{_ps["label"]}</span>'
+                    _meta_parts = [_pri_html]
+                    if _due_html:
+                        _meta_parts.append(_due_html)
+                    if _dur_html:
+                        _meta_parts.append(_dur_html)
+                    if _labels_html:
+                        _meta_parts.append(_labels_html)
+                    _meta_line = " ".join(_meta_parts)
+
+                    _action_button_base = (
+                        'display:inline-flex;align-items:center;justify-content:center;line-height:1;'
+                        'min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;'
+                        'font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;'
+                    )
+                    _menu_button_base = (
+                        'display:inline-flex;align-items:center;justify-content:center;line-height:1;'
+                        'min-width:72px;min-height:1.8rem;padding:0.18rem 0.45rem;font-size:0.68rem;'
+                        'border-radius:0.35rem;cursor:pointer;touch-action:manipulation;'
+                    )
+                    _action_row_style = 'display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;margin-top:0.55rem;'
+
+                    if _url:
+                        _esc_url = html.escape(_url, quote=True)
+                        _content_html = f'<span onclick="window.location.href=\'{_esc_url}\'" style="color: #f3f4f6; border-bottom: 1px solid rgba(148,163,184,0.3); cursor: pointer;">{_content}</span>'
+                        _open_action_html = (
+                            f'<button type="button" onclick="window.location.href=\'{_esc_url}\'" '
+                            f'style="{_action_button_base}background:rgba(30,64,175,0.18);color:#bfdbfe;border:1px solid rgba(147,197,253,0.24);">↗ Open</button>'
+                        )
+                    else:
+                        _content_html = _content
+                        _open_action_html = (
+                            f'<span style="{_action_button_base}background:rgba(15,23,42,0.45);color:#cbd5e1;border:1px solid rgba(148,163,184,0.18);">↗ Open</span>'
+                        )
+
+                    _schedule_html = (
+                        '<details data-qa-schedule-wrap="1" style="position:relative;display:inline-block;vertical-align:top;flex:0 0 auto;">'
+                        f'<summary style="list-style:none;{_action_button_base}background:rgba(88,28,135,0.18);color:#ddd6fe;border:1px solid rgba(196,181,253,0.2);">📅 ▾</summary>'
+                        '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end;min-width:230px;padding:0.35rem;background:rgba(15,23,42,0.96);border:1px solid rgba(148,163,184,0.24);border-radius:0.55rem;box-shadow:0 12px 32px rgba(2,6,23,0.32);z-index:8;">'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" style="{_menu_button_base}font-weight:600;background:rgba(15,23,42,0.55);color:#cbd5e1;border:1px solid rgba(148,163,184,0.22);">Tomorrow</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" style="{_menu_button_base}font-weight:600;background:rgba(15,23,42,0.55);color:#cbd5e1;border:1px solid rgba(148,163,184,0.22);">Next week</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" style="{_menu_button_base}font-weight:600;background:rgba(15,23,42,0.55);color:#cbd5e1;border:1px solid rgba(148,163,184,0.22);">No date</button>'
+                        '</div></details>'
+                    )
+
+                    _rows += f'''
+                <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-todoist-id="{_tid}" data-todoist-card="{html.escape(card_key, quote=True)}" style="{_row_bg}">
+                    <span style="font-size: 1rem; line-height: 1.35;">📌</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium" style="line-height: 1.45;">{_content_html}</p>
+                        <p class="text-xs mt-1 flex items-center gap-1 flex-wrap">{_meta_line}</p>
+                        <div style="{_action_row_style}">
+                            <button type="button" onclick="qaTodoistCompleteFromButton(this)" style="{_action_button_base}background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);">✓ Done</button>
+                            {_schedule_html}
+                            {_open_action_html}
+                        </div>
+                    </div>
+                </div>'''
+            return _rows, _count
+
+        def _render_todoist_card(title, tasks, *, icon, card_key, accent_color, border_color, background, open_url, empty_text, summary_suffix=""):
+            _rows, _count = _render_todoist_rows(tasks, card_key=card_key)
+            _task_word = "task" if _count == 1 else "tasks"
+            _empty = f'<p class="text-sm" style="color: #9ca3af">{empty_text}</p>' if not _count else ""
+            return (
+                f'<div class="card rounded-xl p-5 mb-4" style="background: {background}; border: 1px solid {border_color};">\n'
+                f'    <h3 class="text-lg font-semibold mb-2" style="color: {accent_color}">{icon} {html.escape(title)} '
+                f'<span class="text-xs font-normal" style="color: #94a3b8">{_count} {_task_word}{summary_suffix}</span>'
+                f'</h3>\n'
+                f'    <p class="text-xs mb-3" style="color: #6b7280"><a href="{html.escape(open_url, quote=True)}" style="color: #6b7280; text-decoration: underline;">Open Todoist</a></p>\n'
+                f"    {_empty}\n"
+                f"    {_rows}\n"
+                f"</div>"
+            )
+
+        _claude_tasks = []
+        _todoist_today = []
+        for t in _todoist_all:
+            if not isinstance(t, dict):
+                continue
+            _task_id = str(t.get("id", "") or "").strip()
+            if _task_id and _task_id in _bell_linked_todoist_ids:
+                continue
+            _labels = [str(lbl).strip() for lbl in (t.get("labels", []) or []) if str(lbl).strip()]
+            _has_claude = any(_lbl.lower() == "claude" for _lbl in _labels)
+            _due = str(t.get("due_date", "") or "")
+            if bool(t.get("is_recurring", False)):
+                if _has_claude or _due == _effective:
+                    _todoist_routine_count += 1
+                continue
+            if _has_claude:
+                _claude_tasks.append(t)
+            elif _due == _effective:
+                _todoist_today.append(t)
+
+        _today_rows_html, _today_count = _render_todoist_rows(_todoist_today, card_key="today")
+        _claude_rows_html, _claude_count = _render_todoist_rows(_claude_tasks, card_key="today") if _claude_tasks else ("", 0)
+
+        _total_visible = _today_count + _claude_count
+        _today_summary_text = f"{_total_visible} {'task' if _total_visible == 1 else 'tasks'}"
+
+        if _today_count:
+            _today_empty_html = ""
+        elif _claude_count:
+            _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">No dated Today tasks — Claude-labelled tasks are surfaced below.</p>'
+        else:
+            _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">Nothing scheduled — <a href="https://app.todoist.com/app/today" style="color: #93c5fd; text-decoration: underline;">open Todoist</a> to plan your day.</p>'
+
+        _claude_section_html = ""
+        if _claude_count:
+            _claude_task_word = "task" if _claude_count == 1 else "tasks"
+            _claude_section_html = (
+                '<div class="rounded-lg mt-3 p-3" style="background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.14);">'
+                '<div class="flex items-center gap-2 mb-2">'
+                '<p class="text-xs font-semibold" style="color:#c4b5fd;margin:0;">🏷️ Claude queue</p>'
+                f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(88,28,135,0.22);color:#ddd6fe;border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.6rem;font-weight:600;">{_claude_count} {_claude_task_word}</span>'
+                '</div>'
+                f'{_claude_rows_html}'
+                '</div>'
+            )
+
+        _today_card_html = (
+            '<div class="card rounded-xl mb-4" style="background: rgba(30,58,138,0.12); border: 1px solid rgba(147,197,253,0.2); padding: 0.85rem 1.15rem 1.15rem;">'
+            '<div class="flex items-center justify-between gap-3 mb-1.5" style="flex-wrap:wrap;">'
+            f'<h3 class="font-semibold" style="color: #93c5fd; font-size: 0.95rem; margin: 0;">📋 Today <span class="text-xs font-normal" style="color: #94a3b8">{html.escape(_today_summary_text)}</span></h3>'
+            '<a href="https://app.todoist.com/app/today" class="text-xs" style="color: #6b7280; text-decoration: underline;">Open Todoist</a>'
+            '</div>'
+            f'{_today_empty_html}'
+            f'{_today_rows_html}'
+            f'{_claude_section_html}'
+            '<div id="qa-todoist-done-section" style="display:none;">'
+            '<details style="margin-top:0.75rem;">'
+            '<summary style="font-size:0.72rem;color:#6b7280;cursor:pointer;user-select:none;padding:0.35rem 0;">✅ Completed</summary>'
+            '<div id="qa-todoist-done-list" style="margin-top:0.35rem;"></div>'
+            '</details>'
+            '</div>'
+            '</div>'
+        )
+
+        _todoist_card_html = (
+            f"{notifications_bell_html}\n"
+            f"{_recall_html}\n"
+            f"{_focus_nudge_html}\n"
+            f"{_today_card_html}"
+        )
+
+    # If Todoist is active, use it; otherwise fall back to legacy Action Items
+    if _todoist_active and _todoist_card_html:
+        action_items_html = _todoist_card_html
+    else:
+        action_items_html = rf'''
     {notifications_bell_html}
     {_recall_html}
     {_focus_nudge_html}
@@ -8297,8 +8573,21 @@ def generate_html(data):
         return true;
     }}
 
+    function qaResolveApiBase() {{
+        if (typeof QA_API_BASE !== "undefined" && QA_API_BASE) return QA_API_BASE;
+        if (typeof settingsApiBase !== "undefined" && settingsApiBase) return settingsApiBase;
+        if (typeof window !== "undefined" && window.location) {{
+            const protocol = (window.location.protocol || "").toLowerCase();
+            if (protocol === "http:" || protocol === "https:") {{
+                return window.location.origin;
+            }}
+        }}
+        return "http://127.0.0.1:8765";
+    }}
+
     async function qaFetchDashboardHtmlDoc() {{
-        const targetUrl = `${{QA_API_BASE}}/dashboard?_=${{Date.now()}}`;
+        const apiBase = qaResolveApiBase();
+        const targetUrl = `${{apiBase}}/dashboard?_=${{Date.now()}}`;
         const headers = new Headers();
         if (QA_API_TOKEN) headers.set("Authorization", `Bearer ${{QA_API_TOKEN}}`);
         const response = await fetch(targetUrl, {{
@@ -8639,8 +8928,9 @@ def generate_html(data):
             }}, ms);
         }});
         try {{
+            const apiBase = qaResolveApiBase();
             return await Promise.race([
-                fetch(`${{QA_API_BASE}}${{path}}`, finalOptions),
+                fetch(`${{apiBase}}${{path}}`, finalOptions),
                 timeoutPromise,
             ]);
         }} finally {{
@@ -9727,101 +10017,236 @@ def generate_html(data):
         }}
     }}
 
-    function qaBellToggleReply(idx) {{
-        const el = document.getElementById("bell-reply-" + idx);
-        if (!el) return;
-        el.style.display = el.style.display === "none" ? "block" : "none";
-        if (el.style.display !== "none") {{
-            const input = document.getElementById("bell-reply-text-" + idx);
-            if (input) input.focus();
-        }}
+    function qaBellResolveFromButton(button) {{
+        if (!button) return null;
+        const row = button.closest("[data-bell-item-index]");
+        const idx = row ? String(row.dataset.bellItemIndex || "").trim() : "";
+        const itemType = String((button.dataset && button.dataset.itemType) || "").trim();
+        const itemId = String((button.dataset && button.dataset.itemId) || "").trim();
+        return qaBellResolve(idx, itemType, itemId);
     }}
 
-    async function qaBellAkiflowToggle(idx, itemType, itemId) {{
+    async function qaBellResolve(idx, itemType, itemId) {{
         const row = document.getElementById("bell-item-" + idx);
-        const button = document.getElementById("bell-akiflow-btn-" + idx);
-        const note = document.getElementById("bell-akiflow-note-" + idx);
-        if (!button) return;
-        const taskText = String(button.dataset.taskText || "").trim();
-        const nextValue = String(button.dataset.akiflowActive || "false") !== "true";
-        button.disabled = true;
-        try {{
-            const result = await qaPostWithRetry("/v1/ui/bell/akiflow", {{
-                item_type: itemType,
-                item_id: itemId,
-                akiflow_added: nextValue,
-            }}, {{ retries: 1, label: "bell akiflow" }});
-            if (result && result.status === "ok") {{
-                button.dataset.akiflowActive = nextValue ? "true" : "false";
-                button.textContent = nextValue ? "📥 In Akiflow" : "📥 Akiflow";
-                button.style.background = nextValue ? "rgba(120,53,15,0.24)" : "rgba(15,23,42,0.45)";
-                button.style.color = nextValue ? "#d8c8a0" : "#cbd5e1";
-                button.style.borderColor = nextValue ? "rgba(251,191,36,0.25)" : "rgba(148,163,184,0.18)";
-                if (note) {{
-                    note.style.display = nextValue ? "block" : "none";
-                }}
-                let clipboardCopied = false;
-                if (nextValue && taskText) {{
-                    try {{
-                        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {{
-                            await navigator.clipboard.writeText(taskText);
-                            clipboardCopied = true;
-                        }} else {{
-                            const temp = document.createElement("textarea");
-                            temp.value = taskText;
-                            temp.setAttribute("readonly", "");
-                            temp.style.position = "absolute";
-                            temp.style.left = "-9999px";
-                            document.body.appendChild(temp);
-                            temp.select();
-                            clipboardCopied = document.execCommand("copy");
-                            document.body.removeChild(temp);
-                        }}
-                    }} catch (_copyErr) {{}}
-                }}
-                const status = document.getElementById("qa-status");
-                if (status) {{
-                    status.textContent = nextValue
-                        ? (clipboardCopied
-                            ? "📋 Copied to clipboard and parked in Akiflow — I’ll keep it visible here."
-                            : "📥 Check-in parked in Akiflow — clipboard copy failed, but I’ll keep it visible here.")
-                        : "↩️ Removed Akiflow marker from check-in.";
-                    status.style.color = nextValue ? "#d4b896" : "#94a3b8";
-                }}
-            }} else if (row) {{
-                row.insertAdjacentHTML("beforeend", '<p style="font-size:0.7rem;color:#d4b896;margin:0.35rem 0 0">⚠ Could not update Akiflow state — try again</p>');
+        const status = document.getElementById("qa-status");
+        if (!itemType || !itemId) {{
+            if (status) {{
+                status.textContent = "❌ Couldn't resolve check-in.";
+                status.style.color = "#d4a0a0";
             }}
-        }} finally {{
-            button.disabled = false;
+            return null;
         }}
-    }}
-
-    async function qaBellResolve(idx, itemType, itemId, withReply) {{
-        const row = document.getElementById("bell-item-" + idx);
-        let response = "";
-        if (withReply) {{
-            const input = document.getElementById("bell-reply-text-" + idx);
-            response = (input && input.value ? input.value : "").trim();
-        }}
-        if (row) row.querySelectorAll("button").forEach(b => {{ b.disabled = true; }});
+        if (row) row.querySelectorAll("button").forEach((b) => {{ b.disabled = true; b.style.opacity = "0.72"; }});
         const result = await qaPostWithRetry("/v1/ui/bell/resolve", {{
             item_type: itemType,
             item_id: itemId,
-            response: response || null,
+            response: null,
         }}, {{ retries: 1, label: "bell resolve" }});
         if (result && result.status === "ok") {{
             if (row) {{
-                row.style.opacity = "0.4";
+                row.querySelectorAll("button").forEach(b => b.remove());
+                row.style.opacity = "0.5";
                 row.style.pointerEvents = "none";
                 const p = row.querySelector("p");
-                if (p) p.innerHTML = "✅ " + p.textContent;
+                if (p) {{
+                    p.style.textDecoration = "line-through";
+                    p.style.color = "#6b7280";
+                }}
             }}
-        }} else {{
-            if (row) {{
-                row.querySelectorAll("button").forEach(b => {{ b.disabled = false; }});
+            const linkedTaskId = String((result.todoist_task_id || "")).trim();
+            if (linkedTaskId) {{
+                document.querySelectorAll(`[data-todoist-id="${{linkedTaskId}}"]`).forEach((todoRow) => {{
+                    qaTodoistRemoveRow(todoRow, "✅");
+                }});
+            }}
+            if (status) {{
+                status.textContent = "✅ Bell item resolved";
+                status.style.color = "#a7d8c4";
+            }}
+            return result;
+        }}
+        if (row) {{
+            row.querySelectorAll("button").forEach((b) => {{ b.disabled = false; b.style.opacity = "1"; }});
+            const existingError = row.querySelector('[data-qa-bell-error="1"]');
+            if (!existingError) {{
                 const p = row.querySelector("p");
-                if (p) p.insertAdjacentHTML("afterend", '<p style="font-size:0.7rem;color:#d4b896;margin:0.2rem 0 0">⚠ Could not save — try again</p>');
+                if (p) p.insertAdjacentHTML("afterend", '<p data-qa-bell-error="1" style="font-size:0.72rem;color:#d4b896;margin:0.3rem 0 0">⚠ Could not save — try again</p>');
             }}
+        }}
+        if (status) {{
+            const detail = result && (result.message || result.detail) ? String(result.message || result.detail) : "";
+            status.textContent = detail ? `❌ ${{detail}}` : "❌ Couldn't resolve bell item.";
+            status.style.color = "#d4a0a0";
+        }}
+        return result;
+    }}
+
+    function qaTodoistRowForButton(button) {{
+        if (!button || typeof button.closest !== "function") return null;
+        return button.closest("[data-todoist-id]");
+    }}
+
+    function qaTodoistSetRowBusy(row, busy) {{
+        if (!row) return;
+        row.querySelectorAll("button").forEach((btn) => {{
+            btn.disabled = Boolean(busy);
+            btn.style.opacity = busy ? "0.72" : "1";
+        }});
+    }}
+
+    function qaTodoistRemoveRow(row, prefix) {{
+        if (!row) return;
+        const doneSection = document.getElementById("qa-todoist-done-section");
+        const doneList = document.getElementById("qa-todoist-done-list");
+        if (doneSection && doneList) {{
+            row.querySelectorAll("button").forEach(b => b.remove());
+            row.style.opacity = "0.5";
+            const title = row.querySelector("p.text-sm");
+            if (title) {{
+                title.style.textDecoration = "line-through";
+                title.style.color = "#6b7280";
+                const clickable = title.querySelector("span[onclick]");
+                if (clickable) {{
+                    clickable.style.textDecoration = "line-through";
+                    clickable.style.color = "#7c8ca3";
+                }}
+            }}
+            const meta = row.querySelector("p.text-xs");
+            if (meta) meta.style.display = "none";
+            const undoBtn = document.createElement("button");
+            undoBtn.type = "button";
+            undoBtn.textContent = "↩ Undo";
+            undoBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.5rem;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;border-radius:0.35rem;cursor:pointer;background:rgba(120,53,15,0.2);color:#d4b896;border:1px solid rgba(251,191,36,0.2);margin-left:auto;flex-shrink:0;";
+            undoBtn.onclick = function() {{ qaTodoistUncompleteFromRow(row); }};
+            row.style.padding = "0.35rem 0.75rem";
+            row.style.marginBottom = "0.25rem";
+            row.style.background = "transparent";
+            row.style.border = "none";
+            row.style.display = "flex";
+            row.style.alignItems = "center";
+            row.style.gap = "0.5rem";
+            const inner = row.querySelector(".flex-1");
+            if (inner) inner.after(undoBtn);
+            else row.appendChild(undoBtn);
+            if (row.parentNode) row.parentNode.removeChild(row);
+            doneList.appendChild(row);
+            doneSection.style.display = "block";
+        }} else {{
+            row.style.opacity = "0.35";
+            row.style.pointerEvents = "none";
+            const title = row.querySelector("p");
+            if (title) title.textContent = `${{prefix}} ${{title.textContent || ""}}`.trim();
+        }}
+    }}
+
+    async function qaTodoistCompleteFromButton(button) {{
+        const row = qaTodoistRowForButton(button);
+        const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+        if (!taskId) return;
+        qaTodoistSetRowBusy(row, true);
+        const result = await qaPostWithRetry("/v1/ui/todoist/complete", {{
+            task_id: taskId,
+        }}, {{ retries: 1, label: "Todoist complete" }});
+        const status = document.getElementById("qa-status");
+        if (result && result.status === "ok") {{
+            qaTodoistRemoveRow(row, "✅");
+            if (status) {{
+                status.textContent = "✅ Todoist task completed";
+                status.style.color = "#a7d8c4";
+            }}
+            return;
+        }}
+        qaTodoistSetRowBusy(row, false);
+        if (status) {{
+            status.textContent = "❌ Couldn't complete Todoist task.";
+            status.style.color = "#d4a0a0";
+        }}
+    }}
+
+    async function qaTodoistScheduleFromButton(button, when) {{
+        const row = qaTodoistRowForButton(button);
+        const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+        const cardKey = String((row && row.dataset && row.dataset.todoistCard) || "").trim().toLowerCase();
+        if (!taskId) return;
+        qaTodoistSetRowBusy(row, true);
+        const result = await qaPostWithRetry("/v1/ui/todoist/reschedule", {{
+            task_id: taskId,
+            when,
+        }}, {{ retries: 1, label: "Todoist reschedule" }});
+        const status = document.getElementById("qa-status");
+        if (result && result.status === "ok") {{
+            if (cardKey === "today") {{
+                qaTodoistRemoveRow(row, "📅");
+            }} else {{
+                qaTodoistSetRowBusy(row, false);
+            }}
+            if (status) {{
+                const whenLabel = when === "next_week" ? "next week" : (when === "no_date" ? "no date" : "tomorrow");
+                status.textContent = `📅 Todoist task scheduled for ${{whenLabel}}`;
+                status.style.color = "#c4b5fd";
+            }}
+            return;
+        }}
+        qaTodoistSetRowBusy(row, false);
+        if (status) {{
+            status.textContent = "❌ Couldn't reschedule Todoist task.";
+            status.style.color = "#d4a0a0";
+        }}
+    }}
+
+    async function qaTodoistUncompleteFromRow(row) {{
+        const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+        if (!taskId) return;
+        const undoBtn = row.querySelector("button");
+        if (undoBtn) {{ undoBtn.disabled = true; undoBtn.textContent = "↩ ..."; }}
+        const result = await qaPostWithRetry("/v1/ui/todoist/uncomplete", {{
+            task_id: taskId,
+        }}, {{ retries: 1, label: "Todoist undo" }});
+        const status = document.getElementById("qa-status");
+        if (result && result.status === "ok") {{
+            if (undoBtn) undoBtn.remove();
+            row.style.opacity = "1";
+            row.style.pointerEvents = "";
+            const title = row.querySelector("p.text-sm");
+            if (title) {{
+                title.style.textDecoration = "none";
+                title.style.color = "";
+                const clickable = title.querySelector("span[onclick]");
+                if (clickable) {{
+                    clickable.style.textDecoration = "none";
+                    clickable.style.color = "#f3f4f6";
+                }}
+            }}
+            const meta = row.querySelector("p.text-xs");
+            if (meta) meta.style.display = "";
+            row.style.padding = "";
+            row.style.marginBottom = "";
+            row.style.background = "rgba(15,23,42,0.6)";
+            row.style.border = "1px solid rgba(148,163,184,0.24)";
+            row.style.display = "";
+            row.style.alignItems = "";
+            row.style.gap = "";
+            const todayRows = document.querySelector("[data-todoist-card='today']");
+            const activeContainer = todayRows ? todayRows.closest(".card") : null;
+            const doneSection = document.getElementById("qa-todoist-done-section");
+            if (activeContainer && doneSection) {{
+                activeContainer.insertBefore(row, doneSection);
+            }}
+            const doneList = document.getElementById("qa-todoist-done-list");
+            if (doneList && !doneList.children.length) {{
+                const doneSec = document.getElementById("qa-todoist-done-section");
+                if (doneSec) doneSec.style.display = "none";
+            }}
+            if (status) {{
+                status.textContent = "↩ Task reopened";
+                status.style.color = "#d4b896";
+            }}
+            return;
+        }}
+        if (undoBtn) {{ undoBtn.disabled = false; undoBtn.textContent = "↩ Undo"; }}
+        if (status) {{
+            status.textContent = "❌ Couldn't reopen task.";
+            status.style.color = "#d4a0a0";
         }}
     }}
 
@@ -10436,13 +10861,13 @@ def generate_html(data):
             return;
         }}
         if (added) {{
-            button.textContent = "📥 In Akiflow";
+            button.textContent = "📌 Tracked";
             button.style.background = "rgba(120,53,15,0.35)";
             button.style.color = "#d8c8a0";
             button.style.borderColor = "rgba(251,191,36,0.35)";
             return;
         }}
-        button.textContent = "📥 Akiflow";
+        button.textContent = "📌 Follow-up";
         button.style.background = "rgba(15,23,42,0.45)";
         button.style.color = "#cbd5e1";
         button.style.borderColor = "rgba(148,163,184,0.24)";
@@ -10498,7 +10923,7 @@ def generate_html(data):
                 akiflow_added: nextValue,
                 date: qaEffectiveDateKey(),
                 source: "dashboard_ui",
-            }}, {{ retries: 1, label: "Akiflow check-in" }});
+            }}, {{ retries: 1, label: "check-in follow-up" }});
             if (result && result.dashboard_checkins && typeof result.dashboard_checkins === "object") {{
                 qaApplyCheckinFollowupState(result.dashboard_checkins);
             }} else {{
@@ -10508,14 +10933,14 @@ def generate_html(data):
             const status = document.getElementById("qa-status");
             if (status) {{
                 status.textContent = nextValue
-                    ? `📥 ${{qaCheckinLabel(item)}} marked as added to Akiflow. I’ll keep nudging you here.`
-                    : `↩️ ${{qaCheckinLabel(item)}} removed from Akiflow tracking.`;
+                    ? `📌 ${{qaCheckinLabel(item)}} marked for follow-up. I’ll keep nudging you here.`
+                    : `↩️ ${{qaCheckinLabel(item)}} removed from follow-up tracking.`;
                 status.style.color = nextValue ? "#d4b896" : "#94a3b8";
             }}
         }} catch (_err) {{
             const status = document.getElementById("qa-status");
             if (status) {{
-                status.textContent = `❌ Couldn't update Akiflow tracking for ${{qaCheckinLabel(item)}}.`;
+                status.textContent = `❌ Couldn't update follow-up tracking for ${{qaCheckinLabel(item)}}.`;
                 status.style.color = "#d4a0a0";
             }}
         }} finally {{
@@ -11566,7 +11991,7 @@ def generate_html(data):
             <button id="qa-scratch-submit-{sid}"
                 onclick="qaScratchSubmit('{sid}')"
                 class="px-3 py-1 rounded text-xs"
-                style="background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.8rem;background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
                 Save to journal
             </button>
             <span id="qa-scratch-status-{sid}" class="text-xs" style="color: #94a3b8;"></span>
@@ -11650,9 +12075,9 @@ def generate_html(data):
         .card {{
             background: var(--panel);
             border: 1px solid var(--panel-border);
-            border-radius: 0.875rem;
-            padding: 1.35rem 1.3rem;
-            margin-bottom: 0.75rem;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
         }}
         .card:hover {{
             border-color: rgba(148,163,184,0.16);
@@ -12362,6 +12787,372 @@ def generate_html(data):
     </div>
 
     <script>
+    window.QA_API_TOKEN = window.QA_API_TOKEN || "{qa_api_token}";
+    window.QA_API_BASE = window.QA_API_BASE || (() => {{
+        if (typeof window !== "undefined" && window.location) {{
+            const protocol = (window.location.protocol || "").toLowerCase();
+            if (protocol === "http:" || protocol === "https:") {{
+                return window.location.origin;
+            }}
+        }}
+        return "http://127.0.0.1:8765";
+    }})();
+    window.__qaPendingRequests = Number(window.__qaPendingRequests || 0);
+
+    if (typeof window.qaResolveApiBase !== "function") {{
+        window.qaResolveApiBase = function qaResolveApiBase() {{
+            if (window.QA_API_BASE) return window.QA_API_BASE;
+            if (typeof settingsApiBase !== "undefined" && settingsApiBase) return settingsApiBase;
+            return "http://127.0.0.1:8765";
+        }};
+    }}
+    if (typeof window.qaHandleAuthFailure !== "function") {{
+        window.qaHandleAuthFailure = function qaHandleAuthFailure() {{
+            const status = document.getElementById("qa-status");
+            if (status) {{
+                status.textContent = "🔐 Session expired. Reloading secured dashboard...";
+                status.style.color = "#d4b896";
+            }}
+            window.setTimeout(() => {{
+                try {{
+                    window.location.replace(`${{window.qaResolveApiBase()}}/dashboard?reauth=1`);
+                }} catch (_err) {{}}
+            }}, 180);
+        }};
+    }}
+    if (typeof window.qaFetchWithTimeout !== "function") {{
+        window.qaFetchWithTimeout = async function qaFetchWithTimeout(path, options = {{}}, timeoutMs = 9000) {{
+            const ms = Math.max(1500, Number(timeoutMs) || 9000);
+            const supportsAbort = typeof AbortController !== "undefined";
+            let controller = null;
+            const finalOptions = Object.assign({{}}, options, {{ credentials: "include" }});
+            if (supportsAbort) {{
+                controller = new AbortController();
+                finalOptions.signal = controller.signal;
+            }}
+            let timer = null;
+            const timeoutPromise = new Promise((_, reject) => {{
+                timer = window.setTimeout(() => {{
+                    try {{
+                        if (controller && typeof controller.abort === "function") controller.abort();
+                    }} catch (_err) {{}}
+                    const err = new Error("Request timed out");
+                    err.name = "TimeoutError";
+                    reject(err);
+                }}, ms);
+            }});
+            try {{
+                const apiBase = window.qaResolveApiBase();
+                return await Promise.race([
+                    fetch(`${{apiBase}}${{path}}`, finalOptions),
+                    timeoutPromise,
+                ]);
+            }} finally {{
+                if (timer) window.clearTimeout(timer);
+            }}
+        }};
+    }}
+    if (typeof window.qaPost !== "function") {{
+        window.qaPost = async function qaPost(path, payload) {{
+            const status = document.getElementById("qa-status");
+            if (status) {{
+                status.textContent = "⏳ Sending...";
+                status.style.color = "#a8c4e0";
+            }}
+            window.__qaPendingRequests = Number(window.__qaPendingRequests || 0) + 1;
+            try {{
+                const headers = {{ "Content-Type": "application/json" }};
+                if (window.QA_API_TOKEN) headers.Authorization = "Bearer " + window.QA_API_TOKEN;
+                const response = await window.qaFetchWithTimeout(path, {{
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify(payload),
+                }}, 9000);
+                const text = await response.text();
+                let data = null;
+                try {{
+                    data = JSON.parse(text);
+                }} catch (_err) {{
+                    data = {{ detail: text }};
+                }}
+                if (response.status === 401) {{
+                    window.qaHandleAuthFailure();
+                    return null;
+                }}
+                if (!response.ok) {{
+                    if (status) {{
+                        const detail = (data && (data.detail || data.message)) ? String(data.detail || data.message) : `HTTP ${{response.status}}`;
+                        status.textContent = `❌ ${{detail}}`;
+                        status.style.color = "#d4a0a0";
+                    }}
+                    return null;
+                }}
+                return data;
+            }} catch (err) {{
+                if (status) {{
+                    status.textContent = "❌ API unavailable";
+                    status.style.color = "#d4a0a0";
+                }}
+                return null;
+            }} finally {{
+                window.__qaPendingRequests = Math.max(0, Number(window.__qaPendingRequests || 1) - 1);
+            }}
+        }};
+    }}
+    if (typeof window.qaPostWithRetry !== "function") {{
+        window.qaPostWithRetry = async function qaPostWithRetry(path, payload, options = {{}}) {{
+            const retriesRaw = Number(options.retries);
+            const retries = Number.isFinite(retriesRaw) ? Math.max(0, Math.min(3, Math.round(retriesRaw))) : 1;
+            const backoffRaw = Number(options.backoffMs);
+            const backoffMs = Number.isFinite(backoffRaw) ? Math.max(120, backoffRaw) : 380;
+            const label = String(options.label || "save");
+            const status = document.getElementById("qa-status");
+            for (let attempt = 0; attempt <= retries; attempt += 1) {{
+                const data = await window.qaPost(path, payload);
+                if (data) return data;
+                if (attempt < retries) {{
+                    if (status) {{
+                        status.textContent = `↻ Retrying ${{label}}...`;
+                        status.style.color = "#d4b896";
+                    }}
+                    await new Promise((resolve) => window.setTimeout(resolve, backoffMs * (attempt + 1)));
+                }}
+            }}
+            return null;
+        }};
+    }}
+    if (typeof window.qaTodoistRowForButton !== "function") {{
+        window.qaTodoistRowForButton = function qaTodoistRowForButton(button) {{
+            if (!button || typeof button.closest !== "function") return null;
+            return button.closest("[data-todoist-id]");
+        }};
+    }}
+    if (typeof window.qaTodoistSetRowBusy !== "function") {{
+        window.qaTodoistSetRowBusy = function qaTodoistSetRowBusy(row, busy) {{
+            if (!row) return;
+            row.querySelectorAll("button").forEach((btn) => {{
+                btn.disabled = Boolean(busy);
+                btn.style.opacity = busy ? "0.72" : "1";
+            }});
+        }};
+    }}
+    if (typeof window.qaTodoistRemoveRow !== "function") {{
+        window.qaTodoistRemoveRow = function qaTodoistRemoveRow(row, prefix) {{
+            if (!row) return;
+            const doneSection = document.getElementById("qa-todoist-done-section");
+            const doneList = document.getElementById("qa-todoist-done-list");
+            if (doneSection && doneList) {{
+                row.querySelectorAll("button").forEach(b => b.remove());
+                row.style.opacity = "0.5";
+                const title = row.querySelector("p.text-sm");
+                if (title) {{
+                    title.style.textDecoration = "line-through";
+                    title.style.color = "#6b7280";
+                    const clickable = title.querySelector("span[onclick]");
+                    if (clickable) {{
+                        clickable.style.textDecoration = "line-through";
+                        clickable.style.color = "#7c8ca3";
+                    }}
+                }}
+                const meta = row.querySelector("p.text-xs");
+                if (meta) meta.style.display = "none";
+                const undoBtn = document.createElement("button");
+                undoBtn.type = "button";
+                undoBtn.textContent = "↩ Undo";
+                undoBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.5rem;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;border-radius:0.35rem;cursor:pointer;background:rgba(120,53,15,0.2);color:#d4b896;border:1px solid rgba(251,191,36,0.2);margin-left:auto;flex-shrink:0;";
+                undoBtn.onclick = function() {{ window.qaTodoistUncompleteFromRow(row); }};
+                row.style.padding = "0.35rem 0.75rem";
+                row.style.marginBottom = "0.25rem";
+                row.style.background = "transparent";
+                row.style.border = "none";
+                row.style.display = "flex";
+                row.style.alignItems = "center";
+                row.style.gap = "0.5rem";
+                const inner = row.querySelector(".flex-1");
+                if (inner) inner.after(undoBtn);
+                else row.appendChild(undoBtn);
+                if (row.parentNode) row.parentNode.removeChild(row);
+                doneList.appendChild(row);
+                doneSection.style.display = "block";
+            }} else {{
+                row.style.opacity = "0.35";
+                row.style.pointerEvents = "none";
+                const title = row.querySelector("p");
+                if (title) title.textContent = `${{prefix}} ${{title.textContent || ""}}`.trim();
+            }}
+        }};
+    }}
+    if (typeof window.qaTodoistUncompleteFromRow !== "function") {{
+        window.qaTodoistUncompleteFromRow = async function qaTodoistUncompleteFromRow(row) {{
+            const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+            if (!taskId) return;
+            const undoBtn = row.querySelector("button");
+            if (undoBtn) {{ undoBtn.disabled = true; undoBtn.textContent = "↩ ..."; }}
+            const result = await window.qaPostWithRetry("/v1/ui/todoist/uncomplete", {{
+                task_id: taskId,
+            }}, {{ retries: 1, label: "Todoist undo" }});
+            const status = document.getElementById("qa-status");
+            if (result && result.status === "ok") {{
+                if (undoBtn) undoBtn.remove();
+                row.style.opacity = "1";
+                row.style.pointerEvents = "";
+                const title = row.querySelector("p.text-sm");
+                if (title) {{
+                    title.style.textDecoration = "none";
+                    title.style.color = "";
+                    const clickable = title.querySelector("span[onclick]");
+                    if (clickable) {{
+                        clickable.style.textDecoration = "none";
+                        clickable.style.color = "#f3f4f6";
+                    }}
+                }}
+                const meta = row.querySelector("p.text-xs");
+                if (meta) meta.style.display = "";
+                row.style.padding = "";
+                row.style.marginBottom = "";
+                row.style.background = "rgba(15,23,42,0.6)";
+                row.style.border = "1px solid rgba(148,163,184,0.24)";
+                row.style.display = "";
+                row.style.alignItems = "";
+                row.style.gap = "";
+                const todayRows = document.querySelector("[data-todoist-card='today']");
+                const activeContainer = todayRows ? todayRows.closest(".card") : null;
+                const doneSection = document.getElementById("qa-todoist-done-section");
+                if (activeContainer && doneSection) {{
+                    activeContainer.insertBefore(row, doneSection);
+                }}
+                const doneList = document.getElementById("qa-todoist-done-list");
+                if (doneList && !doneList.children.length) {{
+                    const doneSec = document.getElementById("qa-todoist-done-section");
+                    if (doneSec) doneSec.style.display = "none";
+                }}
+                if (status) {{
+                    status.textContent = "↩ Task reopened";
+                    status.style.color = "#d4b896";
+                }}
+                return;
+            }}
+            if (undoBtn) {{ undoBtn.disabled = false; undoBtn.textContent = "↩ Undo"; }}
+            if (status) {{
+                status.textContent = "❌ Couldn't reopen task.";
+                status.style.color = "#d4a0a0";
+            }}
+        }};
+    }}
+    if (typeof window.qaBellResolve !== "function") {{
+        window.qaBellResolve = async function qaBellResolve(idx, itemType, itemId) {{
+            const row = document.getElementById("bell-item-" + idx);
+            const status = document.getElementById("qa-status");
+            if (!itemType || !itemId) {{
+                if (status) {{
+                    status.textContent = "❌ Couldn't resolve check-in.";
+                    status.style.color = "#d4a0a0";
+                }}
+                return null;
+            }}
+            if (row) row.querySelectorAll("button").forEach((b) => {{ b.disabled = true; b.style.opacity = "0.72"; }});
+            const result = await window.qaPostWithRetry("/v1/ui/bell/resolve", {{
+                item_type: itemType,
+                item_id: itemId,
+                response: null,
+            }}, {{ retries: 1, label: "bell resolve" }});
+            if (result && result.status === "ok") {{
+                if (row) {{
+                    row.style.opacity = "0.4";
+                    row.style.pointerEvents = "none";
+                    const p = row.querySelector("p");
+                    if (p) p.textContent = `✅ ${{p.textContent || ""}}`.trim();
+                    window.setTimeout(() => {{
+                        if (row && row.parentNode) row.parentNode.removeChild(row);
+                    }}, 220);
+                }}
+                const linkedTaskId = String((result.todoist_task_id || "")).trim();
+                if (linkedTaskId) {{
+                    document.querySelectorAll(`[data-todoist-id="${{linkedTaskId}}"]`).forEach((todoRow) => {{
+                        window.qaTodoistRemoveRow(todoRow, "✅");
+                    }});
+                }}
+                if (status) {{
+                    status.textContent = "✅ Bell item resolved";
+                    status.style.color = "#a7d8c4";
+                }}
+                return result;
+            }}
+            if (row) {{
+                row.querySelectorAll("button").forEach((b) => {{ b.disabled = false; b.style.opacity = "1"; }});
+            }}
+            if (status) {{
+                const detail = result && (result.message || result.detail) ? String(result.message || result.detail) : "Couldn't resolve bell item.";
+                status.textContent = `❌ ${{detail}}`;
+                status.style.color = "#d4a0a0";
+            }}
+            return result;
+        }};
+    }}
+    if (typeof window.qaBellResolveFromButton !== "function") {{
+        window.qaBellResolveFromButton = function qaBellResolveFromButton(button) {{
+            if (!button) return null;
+            const row = button.closest("[data-bell-item-index]");
+            const idx = row ? String(row.dataset.bellItemIndex || "").trim() : "";
+            const itemType = String((button.dataset && button.dataset.itemType) || "").trim();
+            const itemId = String((button.dataset && button.dataset.itemId) || "").trim();
+            return window.qaBellResolve(idx, itemType, itemId);
+        }};
+    }}
+    if (typeof window.qaTodoistCompleteFromButton !== "function") {{
+        window.qaTodoistCompleteFromButton = async function qaTodoistCompleteFromButton(button) {{
+            const row = window.qaTodoistRowForButton(button);
+            const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+            const status = document.getElementById("qa-status");
+            if (!taskId) return null;
+            window.qaTodoistSetRowBusy(row, true);
+            const result = await window.qaPostWithRetry("/v1/ui/todoist/complete", {{ task_id: taskId }}, {{ retries: 1, label: "Todoist complete" }});
+            if (result && result.status === "ok") {{
+                window.qaTodoistRemoveRow(row, "✅");
+                if (status) {{
+                    status.textContent = "✅ Todoist task completed";
+                    status.style.color = "#a7d8c4";
+                }}
+                return result;
+            }}
+            window.qaTodoistSetRowBusy(row, false);
+            if (status) {{
+                status.textContent = "❌ Couldn't complete Todoist task.";
+                status.style.color = "#d4a0a0";
+            }}
+            return result;
+        }};
+    }}
+    if (typeof window.qaTodoistScheduleFromButton !== "function") {{
+        window.qaTodoistScheduleFromButton = async function qaTodoistScheduleFromButton(button, when) {{
+            const row = window.qaTodoistRowForButton(button);
+            const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+            const cardKey = String((row && row.dataset && row.dataset.todoistCard) || "").trim().toLowerCase();
+            const status = document.getElementById("qa-status");
+            if (!taskId) return null;
+            window.qaTodoistSetRowBusy(row, true);
+            const result = await window.qaPostWithRetry("/v1/ui/todoist/reschedule", {{ task_id: taskId, when }}, {{ retries: 1, label: "Todoist reschedule" }});
+            if (result && result.status === "ok") {{
+                if (cardKey === "today") {{
+                    window.qaTodoistRemoveRow(row, "📅");
+                }} else {{
+                    window.qaTodoistSetRowBusy(row, false);
+                }}
+                if (status) {{
+                    const whenLabel = when === "next_week" ? "next week" : (when === "no_date" ? "no date" : "tomorrow");
+                    status.textContent = `📅 Todoist task scheduled for ${{whenLabel}}`;
+                    status.style.color = "#c4b5fd";
+                }}
+                return result;
+            }}
+            window.qaTodoistSetRowBusy(row, false);
+            if (status) {{
+                status.textContent = "❌ Couldn't schedule Todoist task.";
+                status.style.color = "#d4a0a0";
+            }}
+            return result;
+        }};
+    }}
     (function () {{
         const STORAGE_KEY = "dashboard.focus.mode.v1";
         const FOCUS_OVERRIDE_KEY = "dashboard.focus.override.v1";
@@ -13055,38 +13846,7 @@ def main():
     # Extract data from cache
     diarium = cache.get("diarium", {})
     calendar_data = cache.get("calendar", {})
-    akiflow_raw = cache.get("akiflow_tasks", {})
-    # Transform akiflow tasks into calendar display format
-    _akiflow_calendar = []
-    if isinstance(akiflow_raw, dict) and akiflow_raw.get("status") == "ok":
-        for _t in akiflow_raw.get("tasks", []):
-            if _t.get("days_from_now") != 0:
-                continue
-            _akiflow_calendar.append({
-                "time": str(_t.get("time", "")).strip(),
-                "event": str(_t.get("summary", "")).strip(),
-                "type": "task",
-            })
-    # Merge calendar events (Google Calendar) + akiflow tasks
-    _gcal_events = []
-    if isinstance(calendar_data, dict):
-        for _e in calendar_data.get("events", []):
-            _start = str(_e.get("start", "")).strip()
-            _time = ""
-            if "T" in _start:
-                try:
-                    _time = datetime.fromisoformat(_start.replace("Z", "+00:00")).strftime("%H:%M")
-                except Exception:
-                    pass
-            _gcal_events.append({
-                "time": _time,
-                "event": str(_e.get("summary", "")).strip(),
-                "type": "event",
-            })
-    _all_calendar_events = sorted(
-        _akiflow_calendar + _gcal_events,
-        key=lambda x: x.get("time", "99:99"),
-    )
+    # Calendar events built below (strict date-filtered block at line ~13511)
     open_loops = cache.get("open_loops", {})
     finch = cache.get("finch", {})
     apple_health = cache.get("apple_health", {})
@@ -13253,7 +14013,7 @@ def main():
             "mood_tag": morning_mood_tag,
         },
         "evening": {**_get_evening_data(diarium_display, ai_today), "mood_tag": evening_mood_tag},
-        "calendar": _all_calendar_events,
+        "calendar": [],
         "tadah": get_tadah(),
         "healthData": [],
         "habits": [],
@@ -13288,7 +14048,9 @@ def main():
         "appleNotesTodoEntries": cache.get("apple_notes_todo_entries", []) if isinstance(cache.get("apple_notes_todo_entries", []), list) else [],
         "appleNotesIdeas": cache.get("apple_notes_ideas", {}) if isinstance(cache.get("apple_notes_ideas", {}), dict) else {},
         "diariumTaDah": diarium_display.get("ta_dah", []) if isinstance(diarium_display.get("ta_dah", []), list) else [],
-        "akiflow_tasks": akiflow_raw if isinstance(akiflow_raw, dict) else {},
+        "akiflow_tasks": {},  # Akiflow disabled 2026-03-11
+        "todoist_tasks": cache.get("todoist_tasks", {}) if isinstance(cache.get("todoist_tasks", {}), dict) else {},
+        "dashboardBell": cache.get("dashboard_bell", {}) if isinstance(cache.get("dashboard_bell", {}), dict) else {},
         "schedule_analysis": cache.get("schedule_analysis", {}),
         "pieces_activity": cache.get("pieces_activity", {}),
         "day_state_summary": cache.get("day_state_summary", {}) if isinstance(cache.get("day_state_summary", {}), dict) else {},
