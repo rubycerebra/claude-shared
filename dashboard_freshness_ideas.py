@@ -864,9 +864,6 @@ def build_today_section_freshness_registry(
     film_data = payload.get("film_data", {}) if isinstance(payload.get("film_data", {}), dict) else {}
     pieces_activity = payload.get("pieces_activity", {}) if isinstance(payload.get("pieces_activity", {}), dict) else {}
     calendar_data = payload.get("calendar", {}) if isinstance(payload.get("calendar", {}), dict) else {}
-    job_boards = payload.get("job_boards", {}) if isinstance(payload.get("job_boards", {}), dict) else {}
-    linkedin_jobs = payload.get("linkedin_jobs", {}) if isinstance(payload.get("linkedin_jobs", {}), dict) else {}
-    applications = payload.get("applications", {}) if isinstance(payload.get("applications", {}), dict) else {}
     healthfit = payload.get("healthfit", {}) if isinstance(payload.get("healthfit", {}), dict) else {}
     streaks = payload.get("streaks", {}) if isinstance(payload.get("streaks", {}), dict) else {}
     apple_health = payload.get("apple_health", {}) if isinstance(payload.get("apple_health", {}), dict) else {}
@@ -1004,24 +1001,11 @@ def build_today_section_freshness_registry(
         film_line = "Film section is stale or unavailable."
         film_reason = str(film_data.get("message", "")).strip() or "Letterboxd/film sync needs attention."
 
-    jobs_timestamp = str(job_boards.get("timestamp", "") or job_boards.get("cached_at", "")).strip()
-    jobs_today = _is_same_day_iso(jobs_timestamp, today)
-    if job_boards.get("status") == "success" and jobs_today:
-        jobs_level = "ok"
-        jobs_line = f"Jobs section refreshed today • boards {job_boards.get('total_count', 0)}."
-        jobs_reason = ""
-    elif linkedin_jobs.get("status") == "success" or applications.get("status") == "success":
-        jobs_level = "info"
-        jobs_line = "Jobs section available from partial feeds."
-        jobs_reason = ""
-    else:
-        jobs_level = "warn"
-        jobs_line = "Jobs section is missing live feeds."
-        jobs_reason = (
-            str(job_boards.get("message", "")).strip()
-            or str(linkedin_jobs.get("message", "")).strip()
-            or str(applications.get("message", "")).strip()
-        )
+    # Jobs freshness disabled — freelance-first, no active job search (2026-03-10)
+    jobs_timestamp = ""
+    jobs_level = "ok"
+    jobs_line = "Jobs section disabled (freelance-first)."
+    jobs_reason = ""
 
     ideas_last_run = str(ideas_payload.get("last_run", "")).strip()
     ideas_has_content = bool(ideas_payload.get("has_content"))

@@ -1,6 +1,6 @@
 # Jim - Coaching Context
 
-39, UK, autistic/ADHD/anxiety. Strategy: selective jobs + freelance dual track. Focus: remote £35k+ or local/hybrid £40k+ (family-compatible). British English.
+39, UK, autistic/ADHD/anxiety. Work strategy: freelance-first (Chris, £27/hr from April). Job search fully disabled. British English.
 
 **Patterns:** Object permanence (forgets wins → "I've done nothing"), false prep spiral (endless refinement blocks action), time blindness (crams tasks into unrealistic windows), completion anxiety (unfinished things → intrusive thoughts).
 

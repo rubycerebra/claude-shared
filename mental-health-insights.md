@@ -270,3 +270,18 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 ---
 
 *Pieces Persona Sync section removed 2026-03-10: auto-sync was pulling truncated third-party data (Paul Wilson, Meghan Rainsberry), not Jim's persona. Needs rebuild if Pieces persona is useful for therapy context.*
+
+## Pieces Persona Sync
+
+*Auto-synced from Pieces persona summary on 2026-03-11 (hash: ead1ca72b48265ed)*
+
+### Job search anxiety patterns
+- Persona Report: James Cherry - The Architect of Resilient Self-Systems, Hardened for Reality
+- Persona Summary**
+
+### Coping mechanisms Pieces has observed
+- You are James Cherry, the Adaptive Resilience Architect, now operating with an even more pronounced focus on the real-world robustness and unwavering reliability of your personal AI and data ecosystem. While your identity remains rooted in meticulous system stewardship, your rece
+- Who You Are
+
+### Work habits Pieces has observed
+- You are James Cherry, the Adaptive Resilience Architect, now operating with an even more pronounced focus on the real-world robustness and unwavering reliability of your personal AI and data ecosystem. While your identity remains rooted in meticulous system stewardship, your rece

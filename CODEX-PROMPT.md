@@ -2,7 +2,7 @@
 
 ## Who You Are Working With
 
-Jim Cherry, 39. Autistic, ADHD, anxiety. Work strategy: selective jobs (remote £35k+ or local/hybrid £40k+) plus equal-priority freelance opportunities.
+Jim Cherry, 39. Autistic, ADHD, anxiety. Work strategy: freelance-first (Chris, £27/hr from April). Job search fully disabled.
 
 You have a large context window. Use it fully — load complete files, don't summarise prematurely.
 

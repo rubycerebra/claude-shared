@@ -2464,18 +2464,6 @@ def generate_html(data):
             <span class="w-10 text-xs text-right" style="color: #9ca3af">{rate:.0f}%</span>
         </div>'''
 
-    # Jobs HTML
-    jobs_html = ""
-    for job in data.get("topJobs", [])[:3]:
-        score = job.get("score", 0)
-        badge_bg = "rgba(6,95,70,0.4)" if score >= 18 else "rgba(120,53,15,0.4)"
-        badge_color = "#b8d8c8" if score >= 18 else "#d8c8a0"
-        job_emoji = _pick_content_emoji(job.get("title", ""))
-        jobs_html += f'''
-        <div class="flex justify-between items-center text-sm mb-1">
-            <span style="color: #d1d5db" class="truncate flex-1">{job_emoji} {job.get("title", "")}</span>
-            <span class="ml-2 px-2 py-0.5 rounded text-xs" style="background:{badge_bg};color:{badge_color}">{score}</span>
-        </div>'''
 
     # === Workout Guide (always visible) ===
     workout_html = ""
@@ -2996,6 +2984,7 @@ def generate_html(data):
         force_done=False,
         due_today_override=False,
         target_date="",
+        akiflow_start="",
     ):
         task_text = str(task or "").strip().rstrip("~").strip()
         if not task_text:
@@ -3085,6 +3074,7 @@ def generate_html(data):
             "target_date": effective_target_date,
             "inferred_target_date": inferred_target_date,
             "defer_target_date": defer_target_date,
+            "akiflow_start": str(akiflow_start or "").strip(),
         })
 
     for todo in (diarium_data or []):
@@ -3129,17 +3119,8 @@ def generate_html(data):
         _append_action_item(done_text, priority="Medium", time_est="", source="completed", category="maintenance", force_done=True)
 
     # Akiflow time-blocked tasks (non-routine) -> action items (core source)
-    # Time-gate: items with a future start time (>15min from now) stay in calendar only.
-    _now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    # All items included; JS time-gates visibility (shown at start → start+15m).
     for _ak in _akiflow_today_items:
-        _ak_start_str = str(_ak.get("start", "")).strip()
-        if _ak_start_str:
-            try:
-                _ak_start = datetime.fromisoformat(_ak_start_str.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
-                if (_ak_start - _now_utc).total_seconds() > 15 * 60:
-                    continue  # not yet — stays in calendar section only
-            except Exception:
-                pass
         _time_label = str(_ak.get("local_time", "")).strip()
         _display = f"{_ak['summary']} · {_time_label}" if _time_label else _ak["summary"]
         _append_action_item(
@@ -3148,6 +3129,7 @@ def generate_html(data):
             time_est=_ak["time_est"],
             source="akiflow",
             category="standard",
+            akiflow_start=_ak.get("start", ""),
         )
 
     core_sources_present = any(
@@ -3514,8 +3496,15 @@ def generate_html(data):
             elif _days_open >= 7:
                 stale_badge = f'<span style="margin-left:4px;padding:1px 6px;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.3);border-radius:9999px;color:#94a3b8;font-size:0.65rem;">{_days_open}d</span>'
 
+            _ak_start_iso = str(item.get("akiflow_start", "")).strip()
+            _ak_attrs = ""
+            _ak_hide = ""
+            if _ak_start_iso:
+                _ak_attrs = f' data-akiflow-start="{html.escape(_ak_start_iso, quote=True)}"'
+                _ak_hide = " display:none;"  # JS will show when time window opens
+
             return f'''
-                <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="todo" data-task-hash="{html.escape(task_hash, quote=True)}" style="{row_style}">
+                <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="todo" data-task-hash="{html.escape(task_hash, quote=True)}"{_ak_attrs} style="{row_style}{_ak_hide}">
                     <span style="font-size: 1rem; line-height: 1.35;">{task_emoji}</span>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium" title="{html.escape(task, quote=True)}" style="{text_style}">{html.escape(compact_task)}{stale_badge}</p>
@@ -4757,10 +4746,10 @@ def generate_html(data):
                 source_label = "auto from Finch"
             else:
                 source_label = "manual"
-            status_text = f"✅ {minutes_done}m logged ({source_label})"
+            status_text = f"✅ Logged ({source_label})"
             status_color = "#a7d8c4"
         else:
-            status_text = f"⬜ Target: {minutes_target}m today"
+            status_text = "⬜ Not yet today"
             status_color = "#9ca3af"
 
         if mindfulness_habit:
@@ -6583,9 +6572,6 @@ def generate_html(data):
                 "film_data": data.get("film_data", {}),
                 "pieces_activity": data.get("pieces_activity", {}),
                 "calendar": data.get("calendarStatus", {}),
-                "job_boards": data.get("jobBoards", {}),
-                "linkedin_jobs": data.get("linkedinJobs", {}),
-                "applications": data.get("applications", {}),
                 "healthfit": data.get("healthfit", {}),
                 "apple_health": data.get("appleHealth", {}),
                 "autosleep": data.get("autosleep", {}),
@@ -6822,6 +6808,8 @@ def generate_html(data):
         if isinstance(raw_todo, dict) and raw_todo.get("done"):
             continue
         task_text = str(raw_todo.get("task", "")).strip() if isinstance(raw_todo, dict) else str(raw_todo).strip()
+        if task_text and _is_task_completed_today(task_text):
+            continue
         if not task_text:
             continue
         task_key = _task_match_key(task_text)
@@ -6867,12 +6855,12 @@ def generate_html(data):
     if qa_loop_hidden_by_actions:
         qa_loop_hidden_note_html = f'<p class="text-xs mt-1" style="color: #94a3b8">{qa_loop_hidden_by_actions} loop(s) already shown above as action items.</p>'
 
-    qa_counts_html = f'''
-        <div class="flex flex-wrap gap-2 mb-3">
-            <span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(131,24,67,0.28); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.25);">Action items: {len(qa_todo_options)}</span>
-            <span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(120,53,15,0.28); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.25);">Open loops: {len(qa_loop_options)}</span>
-        </div>
-    '''
+    _qa_count_pills = []
+    if qa_todo_options:
+        _qa_count_pills.append(f'<span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(131,24,67,0.28); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.25);">Action items: {len(qa_todo_options)}</span>')
+    if qa_loop_options:
+        _qa_count_pills.append(f'<span class="optional-pill rounded px-2 py-1 text-xs" style="background: rgba(120,53,15,0.28); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.25);">Open loops: {len(qa_loop_options)}</span>')
+    qa_counts_html = f'<div class="flex flex-wrap gap-2 mb-3">{"".join(_qa_count_pills)}</div>' if _qa_count_pills else ""
 
     qa_one_thing_html = ""
     if qa_todo_options:
@@ -6952,24 +6940,23 @@ def generate_html(data):
     qa_prompt_missing_fields = []
     if qa_quick_workout_done and qa_quick_workout_type == "yoga":
         qa_prompt_missing_fields = _qa_missing_yoga_feedback(qa_workout_checklist_state, qa_today_score_raw)
-        qa_prompt_title = "🧾 Add yoga details to unlock progression advice"
+        qa_prompt_title = "🧾 Yoga details available to log"
         qa_prompt_hint = "What I need:"
     elif qa_quick_workout_done and qa_quick_workout_type == "weights":
         qa_prompt_missing_fields = _qa_missing_weights_feedback(
             qa_workout_checklist_state,
             qa_workout_signals_state.get("recovery_signal", "unknown"),
         )
-        qa_prompt_title = "🧾 Add weights details to unlock progression advice"
+        qa_prompt_title = "🧾 Weights details available to log"
         qa_prompt_hint = "What I need:"
     qa_yoga_prompt_needed = bool(qa_prompt_missing_fields)
     qa_yoga_missing_text = ", ".join(qa_prompt_missing_fields)
     qa_yoga_nudge_html = ""
     _yoga_nudge_muted = _nudge_should_mute("yoga_feedback", cooldown_hours=12)
-    if qa_yoga_prompt_needed:
+    if qa_yoga_prompt_needed and not _yoga_nudge_muted:
         _nudge_record("yoga_feedback")
-        _yoga_mute_style = "opacity: 0.4;" if _yoga_nudge_muted else ""
         qa_yoga_nudge_html = f'''
-        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="true" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3); {_yoga_mute_style}">
+        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="true" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
             <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">{html.escape(qa_prompt_title)}</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">{html.escape(qa_prompt_hint)}</span> <span id="qa-yoga-feedback-missing">{html.escape(qa_yoga_missing_text)}</span></p>
             <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
@@ -6978,7 +6965,7 @@ def generate_html(data):
     else:
         qa_yoga_nudge_html = '''
         <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="false" style="display:none; background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
-            <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">🧾 Add details to unlock progression advice</p>
+            <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">🧾 Workout details available to log</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">What I need:</span> <span id="qa-yoga-feedback-missing"></span></p>
             <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
         </div>
@@ -7759,6 +7746,22 @@ def generate_html(data):
         setTimeout(() => {{ qaRetryPendingScratch(); }}, 3000);
         // Periodic retry every 60s in case tab stays open
         setInterval(() => {{ qaRetryPendingScratch(); }}, 60000);
+
+        // Akiflow time-gate: show items from start → start+15m, hide otherwise
+        function qaAkiflowTimeGate() {{
+            const rows = document.querySelectorAll("[data-akiflow-start]");
+            const now = Date.now();
+            rows.forEach(row => {{
+                const iso = row.getAttribute("data-akiflow-start");
+                if (!iso) return;
+                const start = new Date(iso).getTime();
+                if (isNaN(start)) return;
+                const end = start + 15 * 60 * 1000;
+                row.style.display = (now >= start && now <= end) ? "" : "none";
+            }});
+        }}
+        qaAkiflowTimeGate();
+        setInterval(qaAkiflowTimeGate, 30000);
     }});
     if (typeof window !== "undefined") {{
         window.addEventListener("online", () => {{ qaRetryPendingScratch(); }});
@@ -10093,14 +10096,14 @@ def generate_html(data):
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
     }}
 
-    function qaOpenWorkoutChecklist(scrollTo = false) {{
+    window.qaOpenWorkoutChecklist = function(scrollTo = false) {{
         const details = document.getElementById("qa-workout-checklist");
         if (!details) return;
         details.open = true;
         if (scrollTo && typeof details.scrollIntoView === "function") {{
             details.scrollIntoView({{ behavior: "smooth", block: "center" }});
         }}
-    }}
+    }};
 
     function qaWorkoutChecklistFeedbackState() {{
         const currentChecklist = (QA_WORKOUT_CHECKLIST_INITIAL && typeof QA_WORKOUT_CHECKLIST_INITIAL === "object")
@@ -10215,14 +10218,14 @@ def generate_html(data):
         if (qaCurrentWorkoutType === "yoga") {{
             const feedbackState = qaWorkoutChecklistFeedbackState();
             missing = qaMissingYogaFields(feedbackState);
-            title = "🧾 Add yoga details to unlock progression advice";
+            title = "🧾 Yoga details available to log";
         }} else if (qaCurrentWorkoutType === "weights") {{
             const weightsState = qaWeightsChecklistFeedbackState();
             const recoverySignal = (qaCurrentWorkoutSignals && typeof qaCurrentWorkoutSignals === "object")
                 ? String(qaCurrentWorkoutSignals.recovery_signal || "unknown")
                 : "unknown";
             missing = qaMissingWeightsFields(weightsState, recoverySignal);
-            title = "🧾 Add weights details to unlock progression advice";
+            title = "🧾 Weights details available to log";
         }} else {{
             missing = [];
         }}
@@ -10235,7 +10238,7 @@ def generate_html(data):
         nudge.style.display = "block";
         nudge.dataset.needed = "true";
         if (titleEl) {{
-            titleEl.textContent = title || "🧾 Add details to unlock progression advice";
+            titleEl.textContent = title || "🧾 Workout details available to log";
         }}
         if (hintEl) {{
             hintEl.textContent = "What I need:";
@@ -10640,7 +10643,7 @@ def generate_html(data):
                 if (status) {{
                     const minutes = Number(latestState.minutes_done || QA_MINDFULNESS_TARGET);
                     if (desired) {{
-                        status.textContent = `✅ Mindfulness saved (${{Math.max(0, Math.round(minutes))}}m)`;
+                        status.textContent = "✅ Mindfulness logged";
                         status.style.color = "#a7d8c4";
                     }} else {{
                         status.textContent = "↩️ Mindfulness cleared";
@@ -12334,29 +12337,7 @@ def generate_html(data):
     <!-- Therapy Notes -->
     <section class="dashboard-section" data-focus="all">{therapy_notes_html}</section>
 
-    <!-- Jobs (always collapsed) -->
-    <section id="jobs" class="dashboard-section" data-focus="all">
-    <details class="card">
-        <summary class="cursor-pointer"><span class="text-sm font-semibold" style="color: var(--muted)">Jobs — {data.get("actualApps", 0)} submitted · {data.get("jobAlerts", 0)} alerts</span></summary>
-        <div style="margin-top: 0.75rem;">
-        <div class="flex gap-4 mb-4">
-            <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(6,95,70,0.15)">
-                <p class="text-2xl font-bold" style="color: #a7d8c4">{data.get("actualApps", 0)}</p>
-                <p class="text-xs" style="color: #9ca3af">submitted</p>
-            </div>
-            <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(88,28,135,0.1)">
-                <p class="text-sm font-semibold" style="color: #c4b8e0">{data.get("focus_label", "Freelance-first (Chris £27/hr from April)")}</p>
-                <p class="text-xs" style="color: #9ca3af">focus</p>
-            </div>
-            <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(131,24,67,0.1)">
-                <p class="text-lg font-semibold" style="color: #d4a8b8">{data.get("jobAlerts", 0)}</p>
-                <p class="text-xs" style="color: #9ca3af">alerts</p>
-            </div>
-        </div>
-        <div class="space-y-2">{jobs_html if jobs_html else '<p class="text-sm" style="color: #6b7280">No job alerts</p>'}</div>
-        </div>
-    </details>
-    </section>
+    <!-- Jobs section removed — freelance-first, no active job search (2026-03-10) -->
 
     <!-- System -->
     <section id="system" class="dashboard-section" data-focus="all">
@@ -13108,7 +13089,6 @@ def main():
     )
     open_loops = cache.get("open_loops", {})
     finch = cache.get("finch", {})
-    linkedin = cache.get("linkedin_jobs", {})
     apple_health = cache.get("apple_health", {})
     mh_correlation = cache.get("mental_health_correlation", {})
     context = cache.get("context_digest", {})
@@ -13255,7 +13235,7 @@ def main():
     if not evening_mood_tag:
         evening_mood_tag = "unknown"
     work_strategy = cache.get("work_strategy", {}) if isinstance(cache.get("work_strategy", {}), dict) else {}
-    work_focus_label = str(work_strategy.get("focus_label", "Freelance-first (Chris £27/hr from April)")).strip() or "Freelance-first (Chris £27/hr from April)"
+    # work_focus_label removed — Jobs section disabled (2026-03-10)
 
     # Build dashboard data
     data = {
@@ -13278,8 +13258,6 @@ def main():
         "healthData": [],
         "habits": [],
         "sleepCalm": 0,
-        "actualApps": 0,
-        "jobAlerts": 0,
         "openLoops": open_loops.get("count", 0) if open_loops.get("status") == "found" else 0,
         "openLoopItems": open_loops.get("items", []) if open_loops.get("status") == "found" else [],
         "calendar_raw": calendar_data.get("events", []),
@@ -13296,16 +13274,10 @@ def main():
             "photo_count": len(diarium_images),
             "source_date": diarium_source_date,
         },
-        "totalApps": 0,
-        "focus_label": work_focus_label,
-        "topJobs": [],
         "wins": [],
         "screentime": cache.get("screentime", {}),
         "activitywatch": cache.get("activitywatch", {}),
         "film_data": cache.get("film_data", {}) if isinstance(cache.get("film_data", {}), dict) else {},
-        "jobBoards": cache.get("job_boards", {}) if isinstance(cache.get("job_boards", {}), dict) else {},
-        "linkedinJobs": linkedin if isinstance(linkedin, dict) else {},
-        "applications": cache.get("applications", {}) if isinstance(cache.get("applications", {}), dict) else {},
         "healthfit": cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {},
         "appleHealth": apple_health if isinstance(apple_health, dict) else {},
         "autosleep": cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {},
@@ -13664,20 +13636,7 @@ def main():
         shortcut_base = "http://127.0.0.1:8765"
     data["workoutShortcutEndpoint"] = shortcut_base.rstrip("/") + "/v1/workout/log"
 
-    # Parse LinkedIn jobs
-    if linkedin.get("status") == "success":
-        data["jobAlerts"] = linkedin.get("count", 0)
-        for job in linkedin.get("jobs", [])[:5]:
-            data["topJobs"].append({
-                "title": job.get("title", ""),
-                "company": job.get("company", ""),
-                "score": job.get("score", 0)
-            })
-
-    # Get ACTUAL application count
-    wins_data = context.get("wins", {}).get("digest", {})
-    data["actualApps"] = wins_data.get("total_apps", 0)
-    data["totalApps"] = data["actualApps"]
+    # Job data parsing removed — freelance-first (2026-03-10)
 
     # Parse wins
     if WINS_FILE.exists():

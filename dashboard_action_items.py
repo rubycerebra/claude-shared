@@ -844,12 +844,14 @@ def load_completed_todo_state(completed_file, effective_today: str) -> tuple[set
 
 
 def collect_akiflow_today_items(akiflow_payload) -> list[dict]:
+    """Only surfaces Akiflow tasks during their scheduled time window (start → end)."""
     routine_lower = {
         "weights", "yoga", "walk dog", "walk the dog", "get ready", "meditation", "stretch",
         "break", "lunch", "dinner", "breakfast", "shower", "morning routine", "evening routine",
     }
     rows = []
     seen_summary = set()
+    now = datetime.now().astimezone()
     if isinstance(akiflow_payload, dict) and akiflow_payload.get("status") == "ok":
         for task in akiflow_payload.get("tasks", []):
             if task.get("days_from_now") != 0:
@@ -857,9 +859,6 @@ def collect_akiflow_today_items(akiflow_payload) -> list[dict]:
             summary = str(task.get("summary", "")).strip()
             if not summary or summary.lower() in routine_lower:
                 continue
-            # Skip check-in/goal items copied from checkins — these contain
-            # metadata patterns like "Deadline:" or "( target)" and belong in
-            # their own section, not the action queue.
             summary_lower = summary.lower()
             if "deadline:" in summary_lower or "( target)" in summary_lower:
                 continue
@@ -874,10 +873,13 @@ def collect_akiflow_today_items(akiflow_payload) -> list[dict]:
                 mins = int((end - start).total_seconds() / 60)
                 if mins > 0:
                     time_est = (f"{mins}m" if mins < 60 else f"{mins//60}h{mins%60}m" if mins % 60 else f"{mins//60}h")
+                # Only show during the scheduled window
+                if now < start or now > end:
+                    continue
             except Exception:
                 pass
             seen_summary.add(summary_key)
-            local_time = str(task.get("time", "")).strip()  # already local (e.g. "10:00")
+            local_time = str(task.get("time", "")).strip()
             rows.append({"summary": summary, "time_est": time_est, "start": start_iso, "local_time": local_time})
     rows.sort(
         key=lambda row: (

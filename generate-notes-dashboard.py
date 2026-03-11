@@ -65,9 +65,7 @@ def generate_html(cache):
     calendar_data = cache.get("calendar", {})
     open_loops = cache.get("open_loops", {})
     streaks = cache.get("streaks", {})
-    linkedin = cache.get("linkedin_jobs", {})
     apple_health = cache.get("apple_health", {})
-    context = cache.get("context_digest", {})
 
     html_parts = []
 
@@ -119,25 +117,7 @@ def generate_html(cache):
                 html_parts.append(f"<li>{item}</li>")
             html_parts.append("</ul>")
 
-    # Job Search
-    wins_data = context.get("wins", {}).get("digest", {})
-    actual_apps = wins_data.get("total_apps", 0)
-    job_alerts = linkedin.get("count", 0) if linkedin.get("status") == "success" else 0
-
-    html_parts.append("<h3>💼 Job Search</h3>")
-    html_parts.append(f"<p><b>Submitted:</b> {actual_apps} | <b>Target:</b> 3-4/wk | <b>Alerts:</b> {job_alerts}</p>")
-
-    # Top jobs
-    if linkedin.get("status") == "success":
-        jobs = linkedin.get("jobs", [])[:3]
-        if jobs:
-            html_parts.append("<table>")
-            for job in jobs:
-                title = job.get("title", "")[:40]
-                company = job.get("company", "")[:20]
-                score = job.get("score", 0)
-                html_parts.append(f"<tr><td>{title}</td><td>{company}</td><td>[{score}]</td></tr>")
-            html_parts.append("</table>")
+    # Job Search section removed — freelance-first (2026-03-10)
 
     # Health (7 days)
     if apple_health.get("status") == "success":
