@@ -7518,7 +7518,7 @@ def generate_html(data):
                 f'    <h3 class="text-lg font-semibold mb-2" style="color: {accent_color}">{icon} {html.escape(title)} '
                 f'<span class="text-xs font-normal" style="color: #94a3b8">{_count} {_task_word}{summary_suffix}</span>'
                 f'</h3>\n'
-                f'    <p class="text-xs mb-3" style="color: #6b7280"><a href="{html.escape(open_url, quote=True)}" style="color: #6b7280; text-decoration: underline;">Open Todoist</a></p>\n'
+                f'    <p class="text-xs mb-3"><a href="{html.escape(open_url, quote=True)}" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M11.23 7.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332"/><path d="M11.23 2.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332" opacity=".6"/></svg></a></p>\n'
                 f"    {_empty}\n"
                 f"    {_rows}\n"
                 f"</div>"
@@ -7574,7 +7574,7 @@ def generate_html(data):
             '<div class="card rounded-xl mb-4" style="background: rgba(30,58,138,0.12); border: 1px solid rgba(147,197,253,0.2); padding: 0.85rem 1.15rem 1.15rem;">'
             '<div class="flex items-center justify-between gap-3 mb-1.5" style="flex-wrap:wrap;">'
             f'<h3 class="font-semibold" style="color: #93c5fd; font-size: 0.95rem; margin: 0;">📋 Today <span class="text-xs font-normal" style="color: #94a3b8">{html.escape(_today_summary_text)}</span></h3>'
-            '<a href="https://app.todoist.com/app/today" class="text-xs" style="color: #6b7280; text-decoration: underline;">Open Todoist</a>'
+            '<a href="https://app.todoist.com/app/today" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M11.23 7.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332"/><path d="M11.23 2.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332" opacity=".6"/></svg></a>'
             '</div>'
             f'{_today_empty_html}'
             f'{_today_rows_html}'
@@ -12638,6 +12638,7 @@ def generate_html(data):
         li {{ line-height: 1.5; }}
         details > summary {{ list-style: none; }}
         details > summary::-webkit-details-marker {{ display: none; }}
+        #dashboard-controls[open] .controls-arrow {{ transform: rotate(90deg); }}
         @media (max-width: 640px) {{
             html {{ font-size: 16px; }}
             .dashboard-shell {{ padding-top: 0.72rem; }}
@@ -12672,34 +12673,40 @@ def generate_html(data):
         </div>
     </header>
 
-    <!-- Jump links -->
-    <nav style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; font-size: 0.75rem;">
-        <a href="#actions" style="color: var(--muted);">Actions</a>
-        <a href="#daily-report" style="color: var(--muted);">Report</a>
-        <a href="#guidance" style="color: var(--muted);">Guidance</a>
-        <a href="#morning" style="color: var(--muted);">Morning</a>
-        <a href="#evening" style="color: var(--muted);">Evening</a>
-        <a href="#review" style="color: var(--muted);">Review</a>
-        <a href="#health" style="color: var(--muted);">Health</a>
-    </nav>
+    <!-- Controls (collapsible) -->
+    <details id="dashboard-controls" style="margin-bottom: 0.75rem;">
+        <summary style="cursor: pointer; font-size: 0.7rem; color: var(--muted); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.3rem;">
+            <span aria-hidden="true" style="display: inline-block; transition: transform 0.15s; font-size: 0.55rem;" class="controls-arrow">▶</span> Controls
+        </summary>
+        <!-- Jump links -->
+        <nav style="display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; font-size: 0.75rem;">
+            <a href="#actions" style="color: var(--muted);">Actions</a>
+            <a href="#daily-report" style="color: var(--muted);">Report</a>
+            <a href="#guidance" style="color: var(--muted);">Guidance</a>
+            <a href="#morning" style="color: var(--muted);">Morning</a>
+            <a href="#evening" style="color: var(--muted);">Evening</a>
+            <a href="#review" style="color: var(--muted);">Review</a>
+            <a href="#health" style="color: var(--muted);">Health</a>
+        </nav>
 
-    <!-- Focus mode pills (inline) -->
-    <div style="display: flex; align-items: center; gap: 0.3rem; margin-bottom: 1rem; flex-wrap: wrap;">
-        <div class="focus-chips" style="display: flex; gap: 0.25rem;">
-            <button type="button" class="focus-chip is-active" data-focus-btn="all">All</button>
-            <button type="button" class="focus-chip" data-focus-btn="morning">Morning</button>
-            <button type="button" class="focus-chip" data-focus-btn="day">Day</button>
-            <button type="button" class="focus-chip" data-focus-btn="evening">Evening</button>
-            <button type="button" class="focus-chip" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>Report</button>
+        <!-- Focus mode pills (inline) -->
+        <div style="display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+            <div class="focus-chips" style="display: flex; gap: 0.25rem;">
+                <button type="button" class="focus-chip is-active" data-focus-btn="all">All</button>
+                <button type="button" class="focus-chip" data-focus-btn="morning">Morning</button>
+                <button type="button" class="focus-chip" data-focus-btn="day">Day</button>
+                <button type="button" class="focus-chip" data-focus-btn="evening">Evening</button>
+                <button type="button" class="focus-chip" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>Report</button>
+            </div>
+            <span style="flex: 1;"></span>
+            <button type="button" class="focus-chip" id="low-stim-toggle" style="font-size: 0.68rem; opacity: 0.6;">Low stim</button>
+            <button type="button" class="focus-chip" id="compact-toggle" style="font-size: 0.68rem; opacity: 0.6;">Compact</button>
+            <button type="button" class="focus-chip" id="density-toggle" style="font-size: 0.68rem; opacity: 0.6;">Focus</button>
+            <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
         </div>
-        <span style="flex: 1;"></span>
-        <button type="button" class="focus-chip" id="low-stim-toggle" style="font-size: 0.68rem; opacity: 0.6;">Low stim</button>
-        <button type="button" class="focus-chip" id="compact-toggle" style="font-size: 0.68rem; opacity: 0.6;">Compact</button>
-        <button type="button" class="focus-chip" id="density-toggle" style="font-size: 0.68rem; opacity: 0.6;">Focus</button>
-        <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
-    </div>
-    <p id="focus-mode-note" class="focus-note">All sections visible.</p>
-    <p id="focus-meta-note" class="focus-note">Style: Standard • Density: Standard.</p>
+        <p id="focus-mode-note" class="focus-note">All sections visible.</p>
+        <p id="focus-meta-note" class="focus-note">Style: Standard • Density: Standard.</p>
+    </details>
 
     {'<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(127,29,29,0.12); border: 1px solid rgba(212,160,160,0.2);"><p class="text-xs" style="color: #d4a0a0">Low energy detected — showing essentials only. Tap sections to expand.</p></div>' if _energy_low else ''}
 
@@ -13233,7 +13240,7 @@ def generate_html(data):
         const note = document.getElementById("focus-mode-note");
         const lowStimButton = document.getElementById("low-stim-toggle");
         const compactButton = document.getElementById("compact-toggle");
-        const dashboardControlsWrap = document.getElementById("dashboard-controls-wrap");
+        const dashboardControlsWrap = document.getElementById("dashboard-controls");
         const statusLegendWrap = document.getElementById("status-legend-wrap");
         const focusMetaNote = document.getElementById("focus-meta-note");
         const cmdPalette = document.getElementById("cmd-palette");
