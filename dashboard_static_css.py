@@ -107,6 +107,112 @@ def _escape_class_name(class_name: str) -> str:
     return class_name.replace("\\", "\\\\").replace(":", "\\:").replace(".", "\\.")
 
 
+COMPONENT_CSS = """
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  touch-action: manipulation;
+  white-space: nowrap;
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+.btn--sm { height: 24px; padding: 0 10px; font-size: 11px; min-width: 72px; }
+.btn--xs { height: 22px; padding: 0 8px; font-size: 11px; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+
+.btn--primary {
+  background: rgba(69,204,144,0.15);
+  color: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+}
+.btn--primary:hover { background: rgba(69,204,144,0.25); }
+
+.btn--secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+.btn--secondary:hover { background: rgba(30,41,59,0.8); }
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+.btn--ghost:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
+.btn--danger {
+  background: var(--semantic-red-bg);
+  color: var(--semantic-red);
+  border: 1px solid var(--semantic-red-border);
+}
+.btn--danger:hover { background: rgba(127,29,29,0.28); }
+
+.btn--amber {
+  background: var(--semantic-amber-bg);
+  color: var(--semantic-amber);
+  border: 1px solid var(--semantic-amber-border);
+}
+.btn--amber:hover { background: rgba(120,53,15,0.28); }
+
+.btn--blue {
+  background: rgba(30,64,175,0.15);
+  color: var(--color-day);
+  border: 1px solid rgba(147,197,253,0.2);
+}
+.btn--blue:hover { background: rgba(30,64,175,0.25); }
+
+.btn--purple {
+  background: var(--semantic-purple-bg);
+  color: var(--semantic-purple);
+  border: 1px solid var(--semantic-purple-border);
+}
+.btn--purple:hover { background: rgba(88,28,135,0.25); }
+
+/* ── Pills / Badges ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 4px;
+  white-space: nowrap;
+  border: none;
+  background: rgba(148,163,184,0.1);
+  color: var(--text-secondary);
+}
+.pill--sm { height: 18px; padding: 0 6px; font-size: 10px; }
+.pill--green  { background: var(--semantic-green-bg); color: var(--semantic-green); }
+.pill--amber  { background: var(--semantic-amber-bg); color: var(--semantic-amber); }
+.pill--red    { background: var(--semantic-red-bg); color: var(--semantic-red); }
+.pill--purple { background: var(--semantic-purple-bg); color: var(--semantic-purple); }
+.pill--blue   { background: rgba(30,64,175,0.15); color: var(--color-day); }
+
+/* ── Semantic text colors ── */
+.text-green  { color: var(--semantic-green) !important; }
+.text-amber  { color: var(--semantic-amber) !important; }
+.text-red    { color: var(--semantic-red) !important; }
+.text-purple { color: var(--semantic-purple) !important; }
+.text-blue   { color: var(--color-day) !important; }
+.text-dim    { color: var(--text-secondary) !important; }
+"""
+
+
 def build_dashboard_utility_css() -> str:
     lines: list[str] = []
     for class_name, rule in UTILITY_RULES.items():
@@ -118,4 +224,5 @@ def build_dashboard_utility_css() -> str:
         for class_name, rule in RESPONSIVE_RULES.items():
             lines.append(f'  .{_escape_class_name(class_name)} {{{rule}}}')
         lines.append("}")
+    lines.append(COMPONENT_CSS)
     return "\n".join(lines)

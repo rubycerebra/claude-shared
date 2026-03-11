@@ -2639,7 +2639,7 @@ def generate_html(data):
                     "url": _wl_m.get("url", "") if _wl_m else "",
                     "reason": "",
                 }
-                film_profile = {"headline": _ai_reason[:180], "reason_text": _heuristic_reason}
+                film_profile = {"headline": _ai_reason[:300], "reason_text": _heuristic_reason}
                 _film_pick_source = "ai"
 
         discovery_html = ""
@@ -3424,23 +3424,19 @@ def generate_html(data):
             if time_text:
                 time_html = f'''
                         <p class="text-xs mt-1 flex items-center gap-1">
-                            <span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">{html.escape(time_text)}</span>'''
+                            <span class="pill pill--sm">{html.escape(time_text)}</span>'''
                 # Feasibility badge
                 _fk2 = _task_match_key(task)
                 _fval = _feasibility_map.get(_fk2, "")
                 if _fval:
-                    _feas_styles = {
-                        "ok":         {"bg": "rgba(6,95,70,0.28)",   "color": "#a7d8c4", "label": "🟢 ok"},
-                        "tight":      {"bg": "rgba(120,53,15,0.28)", "color": "#d8c8a0", "label": "🟡 tight"},
-                        "overloaded": {"bg": "rgba(153,27,27,0.28)", "color": "#d4a0a0", "label": "🔴 overloaded"},
+                    _feas_pill = {
+                        "ok":         {"cls": "pill pill--sm pill--green", "label": "🟢 ok"},
+                        "tight":      {"cls": "pill pill--sm pill--amber", "label": "🟡 tight"},
+                        "overloaded": {"cls": "pill pill--sm pill--red",   "label": "🔴 overloaded"},
                     }
-                    _fs = _feas_styles.get(_fval, {})
-                    if _fs:
-                        time_html += (
-                            f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
-                            f'background:{_fs["bg"]};color:{_fs["color"]};border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">'
-                            f'{_fs["label"]}</span>'
-                        )
+                    _fp = _feas_pill.get(_fval, {})
+                    if _fp:
+                        time_html += f'<span class="{_fp["cls"]}">{_fp["label"]}</span>'
                 time_html += '''
                         </p>
                 '''
@@ -3454,15 +3450,13 @@ def generate_html(data):
             if _pieces_observed and time_html:
                 time_html = time_html.rstrip()
                 time_html = time_html.rstrip("</p>").rstrip() + (
-                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
-                    'background:rgba(88,28,135,0.22);color:#c4b5fd;border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">🧩 observed</span>'
+                    '<span class="pill pill--sm pill--purple">🧩 observed</span>'
                     "</p>\n"
                 )
             elif _pieces_observed:
                 time_html = (
                     '<p class="text-xs mt-1 flex items-center gap-1">'
-                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
-                    'background:rgba(88,28,135,0.22);color:#c4b5fd;border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">🧩 observed</span>'
+                    '<span class="pill pill--sm pill--purple">🧩 observed</span>'
                     "</p>"
                 )
 
@@ -3475,17 +3469,17 @@ def generate_html(data):
                 text_style = "color: #f3f4f6; line-height: 1.45;"
                 button_html = f'''
                 <div style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;margin-top:0.35rem;">
-                    <button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" data-task-hash="{html.escape(task_hash, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(131,24,67,0.35);color:#fbcfe8;border:1px solid rgba(249,168,212,0.35);">☐ Done</button>
-                    <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(30,58,138,0.35);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
-                    <button onclick="qaParkActionItem(this)" data-text="{html.escape(task, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(15,23,42,0.45);color:#94a3b8;border:1px solid rgba(148,163,184,0.18);">💤 Park</button>
+                    <button onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" data-task-hash="{html.escape(task_hash, quote=True)}" class="btn btn--primary">☐ Done</button>
+                    <button onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(task, quote=True)}" class="btn btn--blue">⏭️ Defer</button>
+                    <button onclick="qaParkActionItem(this)" data-text="{html.escape(task, quote=True)}" class="btn btn--ghost">💤 Park</button>
                 </div>'''
             # Stale badge for items open 7+ days
             _days_open = _days_open_score(item)
             stale_badge = ""
             if _days_open >= 14:
-                stale_badge = f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;margin-left:0.25rem;padding:0.15rem 0.45rem;background:rgba(251,146,60,0.15);border:1px solid rgba(251,146,60,0.3);border-radius:9999px;color:#fb923c;font-size:0.65rem;font-weight:600;">⏰ {_days_open}d</span>'
+                stale_badge = f'<span class="pill pill--sm pill--amber" style="margin-left:0.25rem;">⏰ {_days_open}d</span>'
             elif _days_open >= 7:
-                stale_badge = f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;margin-left:0.25rem;padding:0.15rem 0.45rem;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.3);border-radius:9999px;color:#94a3b8;font-size:0.65rem;font-weight:600;">{_days_open}d</span>'
+                stale_badge = f'<span class="pill pill--sm" style="margin-left:0.25rem;">{_days_open}d</span>'
 
             _ak_start_iso = str(item.get("akiflow_start", "")).strip()
             _ak_attrs = ""
@@ -6855,7 +6849,7 @@ def generate_html(data):
             <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="loop" style="background: rgba(120,53,15,0.28); border: 1px solid rgba(251,191,36,0.25);">
                 <span class="text-sm" style="line-height: 1.4;">{loop_emoji}</span>
                 <span class="text-sm font-medium flex-1" title="{html.escape(loop_text, quote=True)}" style="color: #d8c8a0; line-height: 1.45;">{html.escape(loop_compact)}</span>
-                <button onclick="qaCompleteLoopFromButton(this)" data-text="{html.escape(loop_text, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(6,95,70,0.35);color:#a7d8c4;border:1px solid rgba(110,231,183,0.35);">Close</button>
+                <button onclick="qaCompleteLoopFromButton(this)" data-text="{html.escape(loop_text, quote=True)}" class="btn btn--primary">Close</button>
             </div>'''
     else:
         qa_loop_rows_html = '<p class="text-sm" style="color: #9ca3af">No extra open loops right now.</p>'
@@ -6866,9 +6860,9 @@ def generate_html(data):
 
     _qa_count_pills = []
     if qa_todo_options:
-        _qa_count_pills.append(f'<span class="optional-pill" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(131,24,67,0.28);color:#fbcfe8;border:1px solid rgba(249,168,212,0.25);border-radius:9999px;padding:0.15rem 0.55rem;font-size:0.65rem;font-weight:600;">Action items: {len(qa_todo_options)}</span>')
+        _qa_count_pills.append(f'<span class="pill pill--sm pill--red">Action items: {len(qa_todo_options)}</span>')
     if qa_loop_options:
-        _qa_count_pills.append(f'<span class="optional-pill" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(120,53,15,0.28);color:#d8c8a0;border:1px solid rgba(251,191,36,0.25);border-radius:9999px;padding:0.15rem 0.55rem;font-size:0.65rem;font-weight:600;">Open loops: {len(qa_loop_options)}</span>')
+        _qa_count_pills.append(f'<span class="pill pill--sm pill--amber">Open loops: {len(qa_loop_options)}</span>')
     qa_counts_html = f'<div class="flex flex-wrap gap-2 mb-3">{"".join(_qa_count_pills)}</div>' if _qa_count_pills else ""
 
     qa_one_thing_html = ""
@@ -6882,9 +6876,9 @@ def generate_html(data):
             <p class="text-xs font-semibold mb-1" style="color: #b8d8c8">🎯 One Thing Now</p>
             <p data-qa-one-thing-text="1" class="text-sm mb-2" title="{html.escape(one_text, quote=True)}" style="color: #b8d8c8; line-height: 1.45;">{one_emoji} {html.escape(one_compact)}</p>
             <div data-qa-one-thing-actions="1" style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:flex-start;margin-top:0.35rem;">
-                <button data-qa-one-thing-start="1" onclick="qaStartOneThing(this)" data-text="{html.escape(one_text, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(30,64,175,0.32);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">Start</button>
-                <button data-qa-one-thing-done="1" onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" data-task-hash="{html.escape(one_hash, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(131,24,67,0.35);color:#fbcfe8;border:1px solid rgba(249,168,212,0.35);">☐ Done</button>
-                <button data-qa-one-thing-defer="1" onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;background:rgba(30,58,138,0.35);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">⏭️ Defer</button>
+                <button data-qa-one-thing-start="1" onclick="qaStartOneThing(this)" data-text="{html.escape(one_text, quote=True)}" class="btn btn--blue">Start</button>
+                <button data-qa-one-thing-done="1" onclick="qaCompleteTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" data-task-hash="{html.escape(one_hash, quote=True)}" class="btn btn--primary">☐ Done</button>
+                <button data-qa-one-thing-defer="1" onclick="qaDeferTodoFromButton(this)" data-text="{html.escape(one_text, quote=True)}" class="btn btn--blue">⏭️ Defer</button>
             </div>
         </div>
         '''
@@ -7339,7 +7333,7 @@ def generate_html(data):
                 f'</div>'
                 f'<div style="display:flex;gap:0.35rem;flex-shrink:0;padding-top:0.1rem;flex-wrap:wrap;justify-content:flex-end;">'
                 f'{_todoist_action_html}'
-                f'<button type="button" onclick="qaBellResolveFromButton(this)" data-item-type="{_esc_type}" data-item-id="{_esc_id}" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);border-radius:0.4rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;touch-action:manipulation;">✓ Done</button>'
+                f'<button type="button" onclick="qaBellResolveFromButton(this)" data-item-type="{_esc_type}" data-item-id="{_esc_id}" class="btn btn--primary">✓ Done</button>'
                 f'</div></div>'
                 f'</div>'
             )
@@ -7475,16 +7469,6 @@ def generate_html(data):
                         _meta_parts.append(_labels_html)
                     _meta_line = " ".join(_meta_parts)
 
-                    _action_button_base = (
-                        'display:inline-flex;align-items:center;justify-content:center;line-height:1;'
-                        'min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;'
-                        'font-weight:600;border-radius:0.4rem;cursor:pointer;touch-action:manipulation;'
-                    )
-                    _menu_button_base = (
-                        'display:inline-flex;align-items:center;justify-content:center;line-height:1;'
-                        'min-width:72px;min-height:1.8rem;padding:0.18rem 0.45rem;font-size:0.68rem;'
-                        'border-radius:0.35rem;cursor:pointer;touch-action:manipulation;'
-                    )
                     _action_row_style = 'display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;margin-top:0.55rem;'
 
                     if _url:
@@ -7492,21 +7476,21 @@ def generate_html(data):
                         _content_html = f'<span onclick="window.location.href=\'{_esc_url}\'" style="color: #f3f4f6; border-bottom: 1px solid rgba(148,163,184,0.3); cursor: pointer;">{_content}</span>'
                         _open_action_html = (
                             f'<button type="button" onclick="window.location.href=\'{_esc_url}\'" '
-                            f'style="{_action_button_base}background:rgba(30,64,175,0.18);color:#bfdbfe;border:1px solid rgba(147,197,253,0.24);">↗ Open</button>'
+                            f'class="btn btn--blue">↗ Open</button>'
                         )
                     else:
                         _content_html = _content
                         _open_action_html = (
-                            f'<span style="{_action_button_base}background:rgba(15,23,42,0.45);color:#cbd5e1;border:1px solid rgba(148,163,184,0.18);">↗ Open</span>'
+                            f'<span class="btn btn--ghost">↗ Open</span>'
                         )
 
                     _schedule_html = (
                         '<details data-qa-schedule-wrap="1" style="position:relative;display:inline-block;vertical-align:top;flex:0 0 auto;">'
-                        f'<summary style="list-style:none;{_action_button_base}background:rgba(88,28,135,0.18);color:#ddd6fe;border:1px solid rgba(196,181,253,0.2);">📅 ▾</summary>'
-                        '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end;min-width:230px;padding:0.35rem;background:rgba(15,23,42,0.96);border:1px solid rgba(148,163,184,0.24);border-radius:0.55rem;box-shadow:0 12px 32px rgba(2,6,23,0.32);z-index:8;">'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" style="{_menu_button_base}font-weight:600;background:rgba(15,23,42,0.55);color:#cbd5e1;border:1px solid rgba(148,163,184,0.22);">Tomorrow</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" style="{_menu_button_base}font-weight:600;background:rgba(15,23,42,0.55);color:#cbd5e1;border:1px solid rgba(148,163,184,0.22);">Next week</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" style="{_menu_button_base}font-weight:600;background:rgba(15,23,42,0.55);color:#cbd5e1;border:1px solid rgba(148,163,184,0.22);">No date</button>'
+                        f'<summary class="btn btn--purple" style="list-style:none;">📅 ▾</summary>'
+                        '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end;min-width:230px;padding:0.35rem;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary">Tomorrow</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary">Next week</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary">No date</button>'
                         '</div></details>'
                     )
 
@@ -7517,7 +7501,7 @@ def generate_html(data):
                         <p class="text-sm font-medium" style="line-height: 1.45;">{_content_html}</p>
                         <p class="text-xs mt-1 flex items-center gap-1 flex-wrap">{_meta_line}</p>
                         <div style="{_action_row_style}">
-                            <button type="button" onclick="qaTodoistCompleteFromButton(this)" style="{_action_button_base}background:rgba(6,95,70,0.25);color:#a7d8c4;border:1px solid rgba(110,231,183,0.2);">✓ Done</button>
+                            <button type="button" onclick="qaTodoistCompleteFromButton(this)" class="btn btn--primary">✓ Done</button>
                             {_schedule_html}
                             {_open_action_html}
                         </div>
@@ -10116,15 +10100,10 @@ def generate_html(data):
             const undoBtn = document.createElement("button");
             undoBtn.type = "button";
             undoBtn.textContent = "↩ Undo";
-            undoBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.5rem;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;border-radius:0.35rem;cursor:pointer;background:rgba(120,53,15,0.2);color:#d4b896;border:1px solid rgba(251,191,36,0.2);margin-left:auto;flex-shrink:0;";
+            undoBtn.className = "btn btn--xs btn--amber";
+            undoBtn.style.cssText = "margin-left:auto;flex-shrink:0;";
             undoBtn.onclick = function() {{ qaTodoistUncompleteFromRow(row); }};
-            row.style.padding = "0.35rem 0.75rem";
-            row.style.marginBottom = "0.25rem";
-            row.style.background = "transparent";
-            row.style.border = "none";
-            row.style.display = "flex";
-            row.style.alignItems = "center";
-            row.style.gap = "0.5rem";
+            row.style.cssText = "padding:0.35rem 0.75rem;margin-bottom:0.25rem;background:transparent;border:none;display:flex;align-items:center;gap:0.5rem;";
             const inner = row.querySelector(".flex-1");
             if (inner) inner.after(undoBtn);
             else row.appendChild(undoBtn);
@@ -12043,6 +12022,7 @@ def generate_html(data):
     <style>
         {utility_css}
         :root {{
+            /* ── Legacy aliases (keep for existing references) ── */
             --bg: #0b0f19;
             --panel: rgba(17,24,39,0.72);
             --panel-border: rgba(148,163,184,0.08);
@@ -12051,6 +12031,77 @@ def generate_html(data):
             --focus: #a7d8c4;
             --focus-soft: #d4e8dc;
             --section-gap: 0.6rem;
+
+            /* ── Backgrounds ── */
+            --bg-base: #0b0f19;
+            --bg-primary: rgba(17,24,39,0.72);
+            --bg-secondary: rgba(30,41,59,0.55);
+            --bg-elevated: rgba(30,41,59,0.85);
+            --bg-glass: rgba(17,24,39,0.45);
+
+            /* ── Text ── */
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            /* ── Borders ── */
+            --border-subtle: rgba(148,163,184,0.08);
+            --border-default: rgba(148,163,184,0.16);
+            --border-strong: rgba(148,163,184,0.24);
+
+            /* ── Accent (brand green #45CC90) ── */
+            --accent: #45CC90;
+            --accent-soft: #86efac;
+            --accent-border: rgba(69,204,144,0.22);
+            --accent-muted: rgba(69,204,144,0.08);
+
+            /* ── Semantic: Green ── */
+            --semantic-green: #86efac;
+            --semantic-green-bg: rgba(34,197,94,0.12);
+            --semantic-green-border: rgba(34,197,94,0.2);
+
+            /* ── Semantic: Amber ── */
+            --semantic-amber: #fbbf24;
+            --semantic-amber-bg: rgba(245,158,11,0.12);
+            --semantic-amber-border: rgba(245,158,11,0.2);
+
+            /* ── Semantic: Red ── */
+            --semantic-red: #f87171;
+            --semantic-red-bg: rgba(239,68,68,0.12);
+            --semantic-red-border: rgba(239,68,68,0.2);
+
+            /* ── Semantic: Purple ── */
+            --semantic-purple: #c4b5fd;
+            --semantic-purple-bg: rgba(139,92,246,0.12);
+            --semantic-purple-border: rgba(139,92,246,0.2);
+
+            /* ── Time-of-day accents ── */
+            --color-morning: #fbbf24;
+            --color-day: #60a5fa;
+            --color-evening: #c084fc;
+
+            /* ── Shadows ── */
+            --shadow-card: 0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
+            --shadow-hover: 0 4px 12px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
+            --shadow-elevated: 0 8px 24px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.25);
+
+            /* ── Spacing (4px grid) ── */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+
+            /* ── Radius ── */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+
+            /* ── Transitions ── */
+            --transition-fast: 120ms ease;
+            --transition-normal: 180ms ease;
         }}
         * {{ box-sizing: border-box; }}
         html {{ font-size: 17px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }}
@@ -12073,15 +12124,23 @@ def generate_html(data):
             .dashboard-shell {{ padding: 1.75rem 1.5rem 3.5rem; }}
         }}
         .card {{
-            background: var(--panel);
-            border: 1px solid var(--panel-border);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-            margin-bottom: 1rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+            margin-bottom: var(--space-4);
+            box-shadow: var(--shadow-card);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
         }}
         .card:hover {{
-            border-color: rgba(148,163,184,0.16);
+            border-color: var(--border-default);
+            box-shadow: var(--shadow-hover);
         }}
+        .card--green  {{ border-left: 3px solid var(--semantic-green); }}
+        .card--purple {{ border-left: 3px solid var(--semantic-purple); }}
+        .card--amber  {{ border-left: 3px solid var(--semantic-amber); }}
+        .card--red    {{ border-left: 3px solid var(--semantic-red); }}
+        .card--glass  {{ background: var(--bg-glass); backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3); }}
         .top-status-row {{
             display: flex;
             flex-wrap: wrap;
@@ -12440,12 +12499,12 @@ def generate_html(data):
             font-weight: 700;
             letter-spacing: 0.06em;
             text-transform: uppercase;
-            color: var(--muted);
+            color: var(--text-muted);
             margin: 0 0 0.4rem 0.15rem;
         }}
-        .section-label-morning {{ color: #a7d8c4; }}
-        .section-label-day {{ color: #a8c4e0; }}
-        .section-label-evening {{ color: #c4b8e0; }}
+        .section-label-morning {{ color: var(--color-morning); opacity: 0.7; }}
+        .section-label-day {{ color: var(--color-day); opacity: 0.7; }}
+        .section-label-evening {{ color: var(--color-evening); opacity: 0.7; }}
         body[data-compact=\"on\"] .dashboard-shell {{
             padding-top: 0.75rem;
             padding-bottom: 1.45rem;
@@ -12501,16 +12560,17 @@ def generate_html(data):
             min-height: 1.35rem;
         }}
         body[data-low-stim=\"on\"] {{
-            background: #0f172a;
-        }}
-        body[data-low-stim=\"on\"] .card {{
-            background: rgba(15,23,42,0.9);
-            border-color: rgba(100,116,139,0.28);
-            box-shadow: none;
-        }}
-        body[data-low-stim=\"on\"] .card:hover {{
-            border-color: rgba(148,163,184,0.35);
-            box-shadow: none;
+            --bg-base: #0f172a;
+            --bg-primary: rgba(15,23,42,0.9);
+            --bg-secondary: rgba(30,41,59,0.7);
+            --bg-elevated: rgba(30,41,59,0.9);
+            --bg-glass: rgba(15,23,42,0.85);
+            --border-subtle: rgba(100,116,139,0.28);
+            --border-default: rgba(148,163,184,0.35);
+            --shadow-card: none;
+            --shadow-hover: none;
+            --shadow-elevated: none;
+            background: var(--bg-base);
         }}
         body[data-low-stim=\"on\"] .settings-rail {{
             background: rgba(15,23,42,0.9);
@@ -12959,15 +13019,10 @@ def generate_html(data):
                 const undoBtn = document.createElement("button");
                 undoBtn.type = "button";
                 undoBtn.textContent = "↩ Undo";
-                undoBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.5rem;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;border-radius:0.35rem;cursor:pointer;background:rgba(120,53,15,0.2);color:#d4b896;border:1px solid rgba(251,191,36,0.2);margin-left:auto;flex-shrink:0;";
+                undoBtn.className = "btn btn--amber";
+                undoBtn.style.cssText = "margin-left:auto;flex-shrink:0;height:22px;font-size:11px;";
                 undoBtn.onclick = function() {{ window.qaTodoistUncompleteFromRow(row); }};
-                row.style.padding = "0.35rem 0.75rem";
-                row.style.marginBottom = "0.25rem";
-                row.style.background = "transparent";
-                row.style.border = "none";
-                row.style.display = "flex";
-                row.style.alignItems = "center";
-                row.style.gap = "0.5rem";
+                row.style.cssText = "padding:0.35rem 0.75rem;margin-bottom:0.25rem;background:transparent;border:none;display:flex;align-items:center;gap:0.5rem;";
                 const inner = row.querySelector(".flex-1");
                 if (inner) inner.after(undoBtn);
                 else row.appendChild(undoBtn);
