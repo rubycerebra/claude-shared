@@ -2021,6 +2021,9 @@ def parse_wins(content):
     return deduped[:4]
 
 
+_TODOIST_ICON_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M11.23 7.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332"/><path d="M11.23 2.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332" opacity=".6"/></svg>'
+
+
 def generate_html(data):
     """Generate the dashboard HTML with pastel mint/pink colour palette"""
 
@@ -7518,7 +7521,7 @@ def generate_html(data):
                 f'    <h3 class="text-lg font-semibold mb-2" style="color: {accent_color}">{icon} {html.escape(title)} '
                 f'<span class="text-xs font-normal" style="color: #94a3b8">{_count} {_task_word}{summary_suffix}</span>'
                 f'</h3>\n'
-                f'    <p class="text-xs mb-3"><a href="{html.escape(open_url, quote=True)}" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M11.23 7.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332"/><path d="M11.23 2.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332" opacity=".6"/></svg></a></p>\n'
+                f'    <p class="text-xs mb-3"><a href="{html.escape(open_url, quote=True)}" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;">{_TODOIST_ICON_SVG}</a></p>\n'
                 f"    {_empty}\n"
                 f"    {_rows}\n"
                 f"</div>"
@@ -7574,7 +7577,7 @@ def generate_html(data):
             '<div class="card rounded-xl mb-4" style="background: rgba(30,58,138,0.12); border: 1px solid rgba(147,197,253,0.2); padding: 0.85rem 1.15rem 1.15rem;">'
             '<div class="flex items-center justify-between gap-3 mb-1.5" style="flex-wrap:wrap;">'
             f'<h3 class="font-semibold" style="color: #93c5fd; font-size: 0.95rem; margin: 0;">📋 Today <span class="text-xs font-normal" style="color: #94a3b8">{html.escape(_today_summary_text)}</span></h3>'
-            '<a href="https://app.todoist.com/app/today" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M11.23 7.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332"/><path d="M11.23 2.29l-9.2 5.32a.5.5 0 000 .87l9.2 5.31a1.56 1.56 0 001.54 0l9.2-5.31a.5.5 0 000-.87l-9.2-5.32a1.56 1.56 0 00-1.54 0z" fill="#E44332" opacity=".6"/></svg></a>'
+            f'<a href="https://app.todoist.com/app/today" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;">{_TODOIST_ICON_SVG}</a>'
             '</div>'
             f'{_today_empty_html}'
             f'{_today_rows_html}'
