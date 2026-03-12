@@ -672,6 +672,8 @@ def _build_snapshot(
     diarium = cache.get("diarium", {}) if isinstance(cache.get("diarium", {}), dict) else {}
     healthfit = cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {}
     open_loops = cache.get("open_loops", {}) if isinstance(cache.get("open_loops", {}), dict) else {}
+    _aw = cache.get("activitywatch", {}) if isinstance(cache.get("activitywatch", {}), dict) else {}
+    _aw_fp = _aw.get("focus_patterns", {}) if isinstance(_aw.get("focus_patterns"), dict) else {}
     steps_history = _healthfit_steps_history(healthfit)
     sleep_history = _healthfit_sleep_history(healthfit)
     latest_steps = steps_history[0] if steps_history else {}
@@ -726,6 +728,12 @@ def _build_snapshot(
             "sleep_hours": _to_float(latest_sleep.get("asleep_hours")),
             "sleep_efficiency": _to_float((cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {}).get("last_night", {}).get("efficiency")),
             "screen_time_hours": _to_float(_parse_hours((cache.get("screentime", {}) if isinstance(cache.get("screentime", {}), dict) else {}).get("today_total"))),
+        },
+        "activitywatch": {
+            "productive_minutes": _to_float(_aw.get("productive_minutes")),
+            "focus_state": str(_aw_fp.get("focus_state", "")).strip(),
+            "context_switches": _safe_int(_aw_fp.get("context_switches")),
+            "total_tracked_minutes": _to_float(_aw.get("total_tracked_minutes")),
         },
         "regulation": {
             "mood_morning": str((day.get("mood_slots", {}) if isinstance(day.get("mood_slots", {}), dict) else {}).get("morning", "")).strip(),
