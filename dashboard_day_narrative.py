@@ -190,12 +190,16 @@ def evaluate_cached_narrative(
     generated_iso = meta_generated_iso or morning_generated_iso
     generated_ts = iso_to_ts(generated_iso)
     meta_source_max_ts = iso_to_ts(meta_source_max_iso)
-    if source_max_ts >= meta_source_max_ts:
-        latest_source_iso = source_max_iso
-        latest_source_ts = source_max_ts
-    else:
+    # Narrative freshness metadata is the canonical contract for the cached
+    # day narrative itself. Do not let later unrelated same-day AI entries
+    # (for example daemon_evening / tomorrow suggestions) outvote it and mark
+    # the narrative stale when the narrative cache explicitly says it is fresh.
+    if meta_source_max_ts > 0:
         latest_source_iso = meta_source_max_iso
         latest_source_ts = meta_source_max_ts
+    else:
+        latest_source_iso = source_max_iso
+        latest_source_ts = source_max_ts
     if isinstance(meta_source_includes_today, bool):
         source_includes_today = bool(meta_source_includes_today)
 

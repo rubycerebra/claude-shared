@@ -84,6 +84,14 @@ def parse_ymd(raw_text: str):
         return None
 
 
+def _is_auto_expired(freshness_dt, target_dt, today_dt, stale_days=3) -> bool:
+    """True when an item hasn't been seen live in >stale_days AND its target_date is past."""
+    if freshness_dt and freshness_dt < (today_dt - timedelta(days=stale_days)):
+        if target_dt and target_dt < today_dt:
+            return True
+    return False
+
+
 def normalise_action_item_key(raw_text: str) -> str:
     return task_match_key(str(raw_text or ""))
 
@@ -500,10 +508,8 @@ def load_active_action_item_state_rows(
             keep = True
         if not keep:
             continue
-        # Auto-expire: items not seen live in >3 days with a past target_date are stale
-        if freshness_dt and freshness_dt < (today_dt - timedelta(days=3)):
-            if target_dt and target_dt < today_dt:
-                continue
+        if _is_auto_expired(freshness_dt, target_dt, today_dt):
+            continue
         rows_by_key[key] = {
             "task_key": key,
             "text": text,
@@ -656,10 +662,8 @@ def save_action_item_state(
             keep = True
         if not keep:
             continue
-        # Auto-expire carried items not seen live in >3 days with past target_date
-        if freshness_dt and freshness_dt < (today_dt - timedelta(days=3)):
-            if target_dt and target_dt < today_dt:
-                continue
+        if _is_auto_expired(freshness_dt, target_dt, today_dt):
+            continue
         carried = dict(prev)
         carried["task_key"] = key
         carried["status"] = "open"
@@ -843,48 +847,3 @@ def load_completed_todo_state(completed_file, effective_today: str) -> tuple[set
     return hashes, text_keys, labels
 
 
-def collect_akiflow_today_items(akiflow_payload) -> list[dict]:
-    """Only surfaces Akiflow tasks during their scheduled time window (start → end)."""
-    routine_lower = {
-        "weights", "yoga", "walk dog", "walk the dog", "get ready", "meditation", "stretch",
-        "break", "lunch", "dinner", "breakfast", "shower", "morning routine", "evening routine",
-    }
-    rows = []
-    seen_summary = set()
-    now = datetime.now().astimezone()
-    if isinstance(akiflow_payload, dict) and akiflow_payload.get("status") == "ok":
-        for task in akiflow_payload.get("tasks", []):
-            if task.get("days_from_now") != 0:
-                continue
-            summary = str(task.get("summary", "")).strip()
-            if not summary or summary.lower() in routine_lower:
-                continue
-            summary_lower = summary.lower()
-            if "deadline:" in summary_lower or "( target)" in summary_lower:
-                continue
-            summary_key = re.sub(r"\s+", " ", summary_lower).strip()
-            if summary_key in seen_summary:
-                continue
-            time_est = "30m"
-            start_iso = str(task.get("start", "")).strip()
-            try:
-                start = datetime.fromisoformat(task["start"].replace("Z", "+00:00"))
-                end = datetime.fromisoformat(task["end"].replace("Z", "+00:00"))
-                mins = int((end - start).total_seconds() / 60)
-                if mins > 0:
-                    time_est = (f"{mins}m" if mins < 60 else f"{mins//60}h{mins%60}m" if mins % 60 else f"{mins//60}h")
-                # Only show during the scheduled window
-                if now < start or now > end:
-                    continue
-            except Exception:
-                pass
-            seen_summary.add(summary_key)
-            local_time = str(task.get("time", "")).strip()
-            rows.append({"summary": summary, "time_est": time_est, "start": start_iso, "local_time": local_time})
-    rows.sort(
-        key=lambda row: (
-            str(row.get("start", "")).strip(),
-            re.sub(r"\s+", " ", str(row.get("summary", "")).strip().lower()),
-        )
-    )
-    return rows

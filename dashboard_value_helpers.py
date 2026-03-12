@@ -152,12 +152,6 @@ TADAH_THEME_EMOJIS = {
     "emotional_growth": "🌱",
 }
 
-# Lightweight subset for quick theme detection (evening insights etc.)
-TADAH_THEME_KEYWORDS_LIGHT = {
-    k: v for k, v in TADAH_THEME_KEYWORDS.items()
-    if k in ("family", "self_care", "work", "household", "creative")
-}
-
 # Keywords that indicate cleaning (used to prevent false self_care matches)
 CLEANING_KEYWORDS = frozenset([
     "clean", "tidy", "wash", "hoover", "vacuum", "sweep", "mop", "dust", "iron",

@@ -1772,6 +1772,12 @@ def _tadah_score_key(text):
     return re.sub(r'[^a-z0-9\s]', '', raw).strip()
 
 
+_FUTURE_INTENT_RE = re.compile(
+    r'^(?:get|do|sort|check|make sure|try to|need to|set a|write a|plan|look at|start|stop'
+    r'|figure out|decide|think about|remember to)\s',
+)
+
+
 def _is_future_intent(text):
     """Detect items that aren't genuine accomplishments.
 
@@ -1779,14 +1785,13 @@ def _is_future_intent(text):
     routine items that pad the list, and debug artifacts.
     """
     lower = text.strip().lower()
-    # Imperative verb starters — "get the bath panel sorted", "do a brief look"
-    future_starters = (
-        "get ", "do ", "sort ", "check ", "make sure ", "try to ", "need to ",
-        "set a ", "write a ", "plan ", "look at ", "start ", "stop ",
-        "figure out ", "decide ", "think about ", "remember to ",
-    )
-    if any(lower.startswith(s) for s in future_starters):
-        return True
+    if _FUTURE_INTENT_RE.match(lower):
+        # Exclude past-tense completions: second word ends in -ed/-ing means it's a win
+        words = lower.split(None, 2)
+        if len(words) >= 2 and (words[1].endswith("ed") or words[1].endswith("ing")):
+            pass  # "sorted the kitchen", "started freelance" — genuine wins
+        else:
+            return True
     # Very short + no past-tense signal = probably a label, not a win
     if len(lower.split()) <= 2 and not any(w in lower for w in ("fixed", "done", "finished", "sent", "built", "walked")):
         return True
@@ -2338,16 +2343,10 @@ def generate_html(data):
         _items_with_source = tadah_data.get("items_with_source", []) if isinstance(tadah_data, dict) else []
         _source_lookup = {}
         _score_lookup = {}
-        _intent_lookup = {}
         for _itm in _items_with_source:
             _cleaned_key = _BULLET_STRIP.sub("", str(_itm.get("text", ""))).strip()
             _source_lookup[_cleaned_key] = _itm.get("source", "diary")
             _score_lookup[_cleaned_key] = _itm.get("score")
-            _intent_lookup[_cleaned_key] = _itm.get("is_intent", False)
-        # Also check items not in items_with_source (e.g. from flat list)
-        for _item_text in tadah_flat:
-            if _item_text not in _intent_lookup:
-                _intent_lookup[_item_text] = _is_future_intent(_item_text)
         _has_scores = any(v is not None for v in _score_lookup.values())
 
         # Category helpers (used for inline emoji on each item)
@@ -7266,14 +7265,14 @@ def generate_html(data):
         # Todoist API values: 4=P1(urgent), 3=P2(high), 2=P3(medium), 1=P4(none)
         _pri_styles = {
             4: {"bg": "rgba(153,27,27,0.28)", "color": "#f87171", "label": "P1"},
-            3: {"bg": "rgba(161,98,7,0.22)", "color": "#fbbf24", "label": "P2"},
+            3: {"bg": "rgba(161,98,7,0.22)", "color": "#d4b896", "label": "P2"},
             2: {"bg": "rgba(6,95,70,0.22)", "color": "#a7d8c4", "label": "P3"},
             1: {"bg": "rgba(148,163,184,0.12)", "color": "#94a3b8", "label": "P4"},
         }
         _proj_colors = {
             "health": {"bg": "rgba(6,95,70,0.22)", "color": "#a7d8c4"},
-            "work": {"bg": "rgba(30,58,138,0.22)", "color": "#93c5fd"},
-            "todo": {"bg": "rgba(88,28,135,0.22)", "color": "#c4b5fd"},
+            "work": {"bg": "rgba(30,58,138,0.22)", "color": "#a8c4e0"},
+            "todo": {"bg": "rgba(88,28,135,0.22)", "color": "#c4b8e0"},
         }
         _proj_default_color = {"bg": "rgba(148,163,184,0.12)", "color": "#94a3b8"}
         _todoist_routine_count = 0
@@ -7366,6 +7365,16 @@ def generate_html(data):
                         _open_action_html = (
                             f'<span class="btn btn--ghost btn--flex">↗ Open</span>'
                         )
+
+                    _schedule_html = (
+                        '<details data-qa-schedule-wrap="1" style="position:relative;display:inline-block;vertical-align:top;flex:0 0 auto;">'
+                        f'<summary class="btn btn--purple btn--flex" style="list-style:none;">📅 ▾</summary>'
+                        '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end;min-width:230px;padding:0.35rem;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary btn--flex">Tomorrow</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary btn--flex">Next week</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary btn--flex">No date</button>'
+                        '</div></details>'
+                    )
 
                     _rows += f'''
                 <div class="rounded-lg px-3 py-2 mb-1.5 flex items-center gap-3" data-todoist-id="{_tid}" data-todoist-card="{html.escape(card_key, quote=True)}" style="{_row_bg}">
@@ -7523,7 +7532,7 @@ def generate_html(data):
     '''
 
     # Script block renders for BOTH Todoist and legacy paths — always needed for interactive features
-    qa_script_html = f'''
+    qa_script_html = rf'''
     <script>
     const QA_API_TOKEN = "{qa_api_token}";
     const QA_LOCAL_IP = "{qa_local_ip}";
@@ -10033,7 +10042,7 @@ def generate_html(data):
             if (status) {{
                 const whenLabel = when === "next_week" ? "next week" : (when === "no_date" ? "no date" : "tomorrow");
                 status.textContent = `📅 Todoist task scheduled for ${{whenLabel}}`;
-                status.style.color = "#c4b5fd";
+                status.style.color = "#c4b8e0";
             }}
             return;
         }}
@@ -13091,7 +13100,7 @@ def generate_html(data):
                 if (status) {{
                     const whenLabel = when === "next_week" ? "next week" : (when === "no_date" ? "no date" : "tomorrow");
                     status.textContent = `📅 Todoist task scheduled for ${{whenLabel}}`;
-                    status.style.color = "#c4b5fd";
+                    status.style.color = "#c4b8e0";
                 }}
                 return result;
             }}
