@@ -273,13 +273,14 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-12 (hash: c3630a44b7aee30d)*
+*Auto-synced from Pieces persona summary on 2026-03-12 (hash: e8f6059edabdd48a)*
 
 ### Job search anxiety patterns
-- Neil Layton** is a personal acquaintance of James Cherry whose presence in James's digital workstream continues to be primarily marked by personal life events, specifically his birthday. Based on 10+ prior and 51 new observed interactions, Neil's personal milestone remains a cons
+- Jess Weatherbed is identified as an **author** (observed in 3 events in Readwise Inbox content). Her professional work seen through the observer's lens indicates a focus on **technology journalism**, specifically contributing to "The Verge - All Posts" (observed in 3 events in Re
 
 ### Coping mechanisms Pieces has observed
-- Neil Layton is a personal acquaintance of James Cherry. He was previously noted to be 39 years old as of March 12, 2026 (Existing Profile). The new events provide further,
+- Jess Weatherbed** is a professional, likely a technology journalist or writer, who also appears to be a personal friend of the observer, James Cherry. Based on observed interactions, she is an author of technology articles and shares a social connection with James, including fami
+- Jess Weatherbed is identified as an **author** (observed in 3 events in Readwise Inbox content). Her professional work seen through the observer's lens indicates a focus on **technology journalism**, specifically contributing to "The Verge - All Posts" (observed in 3 events in Re
 
 ### Work habits Pieces has observed
-- Neil Layton** is a personal acquaintance of James Cherry whose presence in James's digital workstream continues to be primarily marked by personal life events, specifically his birthday. Based on 10+ prior and 51 new observed interactions, Neil's personal milestone remains a cons
+- Jess Weatherbed is identified as an **author** (observed in 3 events in Readwise Inbox content). Her professional work seen through the observer's lens indicates a focus on **technology journalism**, specifically contributing to "The Verge - All Posts" (observed in 3 events in Re

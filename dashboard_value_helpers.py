@@ -27,7 +27,7 @@ TADAH_THEME_KEYWORDS = OrderedDict([
         "processed", "worked through", "sat with",
         # Philosophical wins / acceptance / equanimity
         "found solace", "found peace", "found meaning", "found comfort",
-        "at peace with", "came to terms", "made peace with", "accepted",
+        "at peace with", "came to terms", "made peace with", "accepted that", "accepted myself", "accepted the",
         "let myself", "allowed myself", "gave myself permission",
         "it's okay", "that's enough", "enough for today",
         "sat with the uncertainty", "held the uncertainty",
@@ -37,7 +37,7 @@ TADAH_THEME_KEYWORDS = OrderedDict([
         "self-compassion", "self compassion", "compassion for",
         "reframed", "shifted my perspective", "changed how i",
         "made sense of", "found clarity", "got perspective",
-        "chose", "decided to let", "released",
+        "chose to", "chose myself", "decided to let", "released the need", "released my grip",
     ]),
     ("family", [
         "family", "wife", "daughter", "kids", "janna", "girls", "mum", "my dad",
