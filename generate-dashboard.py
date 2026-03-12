@@ -7297,16 +7297,6 @@ def generate_html(data):
 
             _rows = ""
             _count = 0
-            _row_bg = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
-            _schedule_html = (
-                '<details data-qa-schedule-wrap="1" style="position:relative;display:inline-flex;flex:0 0 auto;">'
-                '<summary class="btn btn--purple btn--flex" style="list-style:none;">📅 ▾</summary>'
-                '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;flex-direction:column;gap:0.25rem;min-width:120px;padding:0.35rem;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
-                f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary" style="width:100%;text-align:center;">Tomorrow</button>'
-                f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary" style="width:100%;text-align:center;">Next week</button>'
-                f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary" style="width:100%;text-align:center;">No date</button>'
-                '</div></details>'
-            )
             for proj_name, proj_tasks in _by_project.items():
                 proj_key = proj_name.strip().lower()
                 _pc = _proj_colors.get(proj_key, _proj_default_color)
@@ -7343,8 +7333,7 @@ def generate_html(data):
                     for _lbl in _labels[:3]:
                         _labels_html += f'<span class="inline-pill" style="background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.16);font-weight:500;">{html.escape(str(_lbl))}</span>'
 
-                    _pri_html = f'<span class="inline-pill" style="background:{_ps["bg"]};color:{_ps["color"]};font-weight:700;">{_ps["label"]}</span>'
-                    _meta_parts = [_pri_html]
+                    _meta_parts = []
                     if _due_html:
                         _meta_parts.append(_due_html)
                     if _dur_html:
@@ -7353,37 +7342,37 @@ def generate_html(data):
                         _meta_parts.append(_labels_html)
                     _meta_line = " ".join(_meta_parts)
 
+                    _pri_class = {4: "p1", 3: "p2", 2: "p3"}.get(_pri, "p4")
+
                     if _url:
                         _esc_url = html.escape(_url, quote=True)
-                        _content_html = f'<span onclick="window.location.href=\'{_esc_url}\'" style="color: #f3f4f6; border-bottom: 1px solid rgba(148,163,184,0.3); cursor: pointer;">{_content}</span>'
+                        _content_html = f'<span onclick="window.location.href=\'{_esc_url}\'" style="cursor:pointer;">{_content}</span>'
                         _open_action_html = (
-                            f'<button type="button" onclick="window.location.href=\'{_esc_url}\'" '
-                            f'class="btn btn--blue btn--flex">↗ Open</button>'
+                            f'<span onclick="window.location.href=\'{_esc_url}\'" '
+                            f'class="todo-act todo-act--open" title="Open in Todoist">↗</span>'
                         )
                     else:
                         _content_html = _content
-                        _open_action_html = (
-                            f'<span class="btn btn--ghost btn--flex">↗ Open</span>'
-                        )
+                        _open_action_html = ''
 
                     _schedule_html = (
-                        '<details data-qa-schedule-wrap="1" style="position:relative;display:inline-block;vertical-align:top;flex:0 0 auto;">'
-                        f'<summary class="btn btn--purple btn--flex" style="list-style:none;">📅 ▾</summary>'
-                        '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end;min-width:230px;padding:0.35rem;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary btn--flex">Tomorrow</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary btn--flex">Next week</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary btn--flex">No date</button>'
+                        '<details data-qa-schedule-wrap="1">'
+                        f'<summary class="todo-act todo-act--schedule" title="Reschedule">📅</summary>'
+                        '<div style="position:absolute;right:0;top:calc(100% + 4px);display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;min-width:220px;padding:6px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary btn--xs">Tomorrow</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary btn--xs">Next week</button>'
+                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary btn--xs">No date</button>'
                         '</div></details>'
                     )
 
                     _rows += f'''
-                <div class="rounded-lg px-3 py-2 mb-1.5 flex items-center gap-3" data-todoist-id="{_tid}" data-todoist-card="{html.escape(card_key, quote=True)}" style="{_row_bg}">
-                    <div class="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap" style="line-height:1.4;">
-                        <span class="text-sm font-medium">{_content_html}</span>
-                        {_meta_line}
+                <div class="todo-row todo-row--{_pri_class}" data-todoist-id="{_tid}" data-todoist-card="{html.escape(card_key, quote=True)}">
+                    <span onclick="qaTodoistCompleteFromButton(this)" class="todo-check" title="Complete task">&#10003;</span>
+                    <div class="todo-body">
+                        <span class="todo-title">{_content_html}</span>
+                        {f'<div class="todo-meta">{_meta_line}</div>' if _meta_line else ''}
                     </div>
-                    <div style="display:flex;gap:0.3rem;flex-shrink:0;align-items:stretch;">
-                        <button type="button" onclick="qaTodoistCompleteFromButton(this)" class="btn btn--primary btn--flex">✓ Done</button>
+                    <div class="todo-actions">
                         {_schedule_html}
                         {_open_action_html}
                     </div>
@@ -9963,9 +9952,13 @@ def generate_html(data):
         const doneSection = document.getElementById("qa-todoist-done-section");
         const doneList = document.getElementById("qa-todoist-done-list");
         if (doneSection && doneList) {{
-            row.querySelectorAll("button").forEach(b => b.remove());
-            row.style.opacity = "0.5";
-            const title = row.querySelector("p.text-sm");
+            /* Remove check circle and action buttons */
+            const check = row.querySelector(".todo-check");
+            if (check) check.remove();
+            const actions = row.querySelector(".todo-actions");
+            if (actions) actions.remove();
+            /* Style completed title */
+            const title = row.querySelector(".todo-title");
             if (title) {{
                 title.style.textDecoration = "line-through";
                 title.style.color = "#6b7280";
@@ -9975,17 +9968,19 @@ def generate_html(data):
                     clickable.style.color = "#7c8ca3";
                 }}
             }}
-            const meta = row.querySelector("p.text-xs");
+            const meta = row.querySelector(".todo-meta");
             if (meta) meta.style.display = "none";
+            /* Add undo button */
             const undoBtn = document.createElement("button");
             undoBtn.type = "button";
             undoBtn.textContent = "↩ Undo";
             undoBtn.className = "btn btn--xs btn--amber";
             undoBtn.style.cssText = "margin-left:auto;flex-shrink:0;";
             undoBtn.onclick = function() {{ qaTodoistUncompleteFromRow(row); }};
-            row.style.cssText = "padding:0.35rem 0.75rem;margin-bottom:0.25rem;background:transparent;border:none;display:flex;align-items:center;gap:0.5rem;";
-            const inner = row.querySelector(".flex-1");
-            if (inner) inner.after(undoBtn);
+            /* Restyle row as compact done row */
+            row.style.cssText = "padding:6px 12px;margin-bottom:4px;background:transparent;border:1px solid rgba(148,163,184,0.08);border-radius:8px;display:flex;align-items:center;gap:8px;";
+            const body = row.querySelector(".todo-body");
+            if (body) body.after(undoBtn);
             else row.appendChild(undoBtn);
             if (row.parentNode) row.parentNode.removeChild(row);
             doneList.appendChild(row);
@@ -9993,7 +9988,7 @@ def generate_html(data):
         }} else {{
             row.style.opacity = "0.35";
             row.style.pointerEvents = "none";
-            const title = row.querySelector("p");
+            const title = row.querySelector(".todo-title");
             if (title) title.textContent = `${{prefix}} ${{title.textContent || ""}}`.trim();
         }}
     }}
@@ -10025,7 +10020,6 @@ def generate_html(data):
     async function qaTodoistScheduleFromButton(button, when) {{
         const row = qaTodoistRowForButton(button);
         const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
-        const cardKey = String((row && row.dataset && row.dataset.todoistCard) || "").trim().toLowerCase();
         if (!taskId) return;
         qaTodoistSetRowBusy(row, true);
         const result = await qaPostWithRetry("/v1/ui/todoist/reschedule", {{
@@ -10034,11 +10028,7 @@ def generate_html(data):
         }}, {{ retries: 1, label: "Todoist reschedule" }});
         const status = document.getElementById("qa-status");
         if (result && result.status === "ok") {{
-            if (cardKey === "today") {{
-                qaTodoistRemoveRow(row, "📅");
-            }} else {{
-                qaTodoistSetRowBusy(row, false);
-            }}
+            qaTodoistRemoveRow(row, "📅");
             if (status) {{
                 const whenLabel = when === "next_week" ? "next week" : (when === "no_date" ? "no date" : "tomorrow");
                 status.textContent = `📅 Todoist task scheduled for ${{whenLabel}}`;
@@ -12906,9 +12896,11 @@ def generate_html(data):
             const doneSection = document.getElementById("qa-todoist-done-section");
             const doneList = document.getElementById("qa-todoist-done-list");
             if (doneSection && doneList) {{
-                row.querySelectorAll("button").forEach(b => b.remove());
-                row.style.opacity = "0.5";
-                const title = row.querySelector("p.text-sm");
+                const check = row.querySelector(".todo-check");
+                if (check) check.remove();
+                const actions = row.querySelector(".todo-actions");
+                if (actions) actions.remove();
+                const title = row.querySelector(".todo-title");
                 if (title) {{
                     title.style.textDecoration = "line-through";
                     title.style.color = "#6b7280";
@@ -12918,17 +12910,17 @@ def generate_html(data):
                         clickable.style.color = "#7c8ca3";
                     }}
                 }}
-                const meta = row.querySelector("p.text-xs");
+                const meta = row.querySelector(".todo-meta");
                 if (meta) meta.style.display = "none";
                 const undoBtn = document.createElement("button");
                 undoBtn.type = "button";
                 undoBtn.textContent = "↩ Undo";
-                undoBtn.className = "btn btn--amber";
-                undoBtn.style.cssText = "margin-left:auto;flex-shrink:0;height:22px;font-size:11px;";
+                undoBtn.className = "btn btn--xs btn--amber";
+                undoBtn.style.cssText = "margin-left:auto;flex-shrink:0;";
                 undoBtn.onclick = function() {{ window.qaTodoistUncompleteFromRow(row); }};
-                row.style.cssText = "padding:0.35rem 0.75rem;margin-bottom:0.25rem;background:transparent;border:none;display:flex;align-items:center;gap:0.5rem;";
-                const inner = row.querySelector(".flex-1");
-                if (inner) inner.after(undoBtn);
+                row.style.cssText = "padding:6px 12px;margin-bottom:4px;background:transparent;border:1px solid rgba(148,163,184,0.08);border-radius:8px;display:flex;align-items:center;gap:8px;";
+                const body = row.querySelector(".todo-body");
+                if (body) body.after(undoBtn);
                 else row.appendChild(undoBtn);
                 if (row.parentNode) row.parentNode.removeChild(row);
                 doneList.appendChild(row);
@@ -12936,7 +12928,7 @@ def generate_html(data):
             }} else {{
                 row.style.opacity = "0.35";
                 row.style.pointerEvents = "none";
-                const title = row.querySelector("p");
+                const title = row.querySelector(".todo-title");
                 if (title) title.textContent = `${{prefix}} ${{title.textContent || ""}}`.trim();
             }}
         }};
@@ -13086,17 +13078,12 @@ def generate_html(data):
         window.qaTodoistScheduleFromButton = async function qaTodoistScheduleFromButton(button, when) {{
             const row = window.qaTodoistRowForButton(button);
             const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
-            const cardKey = String((row && row.dataset && row.dataset.todoistCard) || "").trim().toLowerCase();
             const status = document.getElementById("qa-status");
             if (!taskId) return null;
             window.qaTodoistSetRowBusy(row, true);
             const result = await window.qaPostWithRetry("/v1/ui/todoist/reschedule", {{ task_id: taskId, when }}, {{ retries: 1, label: "Todoist reschedule" }});
             if (result && result.status === "ok") {{
-                if (cardKey === "today") {{
-                    window.qaTodoistRemoveRow(row, "📅");
-                }} else {{
-                    window.qaTodoistSetRowBusy(row, false);
-                }}
+                window.qaTodoistRemoveRow(row, "📅");
                 if (status) {{
                     const whenLabel = when === "next_week" ? "next week" : (when === "no_date" ? "no date" : "tomorrow");
                     status.textContent = `📅 Todoist task scheduled for ${{whenLabel}}`;

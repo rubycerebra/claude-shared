@@ -43,6 +43,12 @@ if [[ "$DELAY" == "true" ]]; then
     sleep 5
 fi
 
+# Clear Readwise dedup markers on --force so re-sends work
+if [[ "$FORCE" == "true" ]]; then
+    rm -f "$HOME/.claude/cache/readwise-sent/"*dashboard* 2>/dev/null
+    rm -f "$HOME/.claude/cache/readwise-sent/"*daily* 2>/dev/null
+fi
+
 # Dedup check: skip if cache hasn't changed since last generation
 MARKER="$HOME/.claude/cache/last-dashboard-trigger"
 CACHE="$HOME/.claude/cache/session-data.json"

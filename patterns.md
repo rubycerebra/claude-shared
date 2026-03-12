@@ -206,4 +206,35 @@ python3 job_scrapers.py
 **System Work as Regulation:** **Confirmed.** Dashboard work on Monday, Tuesday, Wednesday, Sunday evenings. This is the week's dominant pattern — evening after evening consumed by system refinement. The stop condition is absent.
 
 **PDA Demand Spiral:** **Confirmed — formally named this week (8 March) — and meaningfully overcome in one critical instance.** The spiral was visibly active: the Chris email was deferred on Wednesday, and all the conditions for indefinite avoidance were present (masking fatigue, Thursday's crisis stack, weekend hyperfocus objects). But Jim sent it on Friday — mid-week, under load, without a structured plan forcing his hand. This is important: the PDA spiral was not absent, it was *overridden*. The avoidance of job applications more broadly, and the weekend's absorption into practical tasks and system work, confirm the spiral continued operating on other fronts. The pattern is real and named; what's new is evidence that Jim can move through it on a high-stakes, real-world task when the relational context supports action.
+
+---
+
+## Therapy Techniques in Use
+
+Techniques introduced by Samantha and actively being practised. Auto-updated from session transcripts.
+
+### One Thing Now
+- **Source:** Samantha — session 2026-03-12
+- **What it is:** When multiple tasks are active or future anxieties compound, stop and identify the single thing to do *right now*. Close everything else. The overwhelm comes from holding all threads simultaneously — this cuts it down to one.
+- **Jim's context:** ADHD hyperfocus means Jim often has "10 things on the go." This technique directly counters the paralysis that comes from the gap between what's started and what's finished.
+- **W11 (2026-03-12):** Introduced this session. Todoist task created for same-day practice.
+
+### Language Reframing (should/need → could/want to)
+- **Source:** Samantha — ongoing, reinforced 2026-03-12
+- **What it is:** Replace demand language ("should", "need to", "have to", "must") with autonomous language ("could", "want to", "I'd like to"). PDA demand avoidance is triggered by the framing of obligation, not the task itself.
+- **Jim's context:** "Should" re-fires the avoidance loop involuntarily. Reframing is not just semantics — it changes the nervous system response.
+- **W11 (2026-03-12):** Partially confirmed active in journals but ironic self-correction still uses "should." Awareness is present, full shift ongoing.
+
+### Lower Goal Thresholds
+- **Source:** Samantha — session 2026-03-12
+- **What it is:** Set achievable targets deliberately below what feels "right" (e.g. 15 min yoga instead of 30) to build a felt sense of accomplishment. The brain needs to register completion, not effort.
+- **Jim's context:** Jim consistently overestimates what he can achieve in a session (ADHD time blindness + effort/output mismatch). Lower thresholds counteract perfectionism-driven avoidance.
+- **W11 (2026-03-12):** Newly introduced. Paired with doubling time estimates strategy.
+
+### Consequences Journaling
+- **Source:** Samantha — session 2026-03-12
+- **What it is:** Before acting on an impulse or hyperfocus pull, write down the consequences: "if I do X now, what happens?" Slows the automatic dive into activity and engages Adult ego state decision-making.
+- **Jim's context:** Hyperfocus episodes (e.g. staying up late on computer, bypassing bedtime with Janna) happen without conscious evaluation of cost. This technique inserts a pause.
+- **W11 (2026-03-12):** Newly introduced. Todoist task created as reminder to practise.
+
 ---

@@ -114,8 +114,8 @@ COMPONENT_CSS = """
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 28px;
-  padding: 0 12px;
+  height: 30px;
+  padding: 0 14px;
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
@@ -127,7 +127,7 @@ COMPONENT_CSS = """
 }
 .btn--sm { height: 24px; padding: 0 10px; font-size: 11px; min-width: 72px; }
 .btn--xs { height: 22px; padding: 0 8px; font-size: 11px; }
-.btn--flex { height: auto; min-height: 28px; }
+.btn--flex { height: auto; min-height: 30px; padding: 5px 14px; }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; pointer-events: none; }
 
@@ -179,6 +179,94 @@ COMPONENT_CSS = """
   border: 1px solid var(--semantic-purple-border);
 }
 .btn--purple:hover { background: rgba(88,28,135,0.25); }
+
+/* ── Todoist task rows ── */
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  background: rgba(15,23,42,0.5);
+  border: 1px solid rgba(148,163,184,0.12);
+  border-left: 3px solid rgba(148,163,184,0.18);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.todo-row:hover {
+  background: rgba(22,33,62,0.75);
+  border-color: rgba(148,163,184,0.24);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+  transform: translateY(-1px);
+}
+.todo-row--p1 { border-left-color: rgba(248,113,113,0.7); }
+.todo-row--p2 { border-left-color: rgba(251,191,36,0.6); }
+.todo-row--p3 { border-left-color: rgba(134,239,172,0.45); }
+
+/* Checkbox — uses a styled <span> to avoid Safari <button> sizing issues */
+.todo-check {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(69,204,144,0.35);
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  font-size: 10px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.todo-check:hover {
+  border-color: var(--accent);
+  background: rgba(69,204,144,0.15);
+  color: var(--accent);
+  transform: scale(1.15);
+}
+.todo-check:active { transform: scale(0.9); }
+.todo-row--p1 .todo-check { border-color: rgba(248,113,113,0.4); }
+.todo-row--p1 .todo-check:hover { border-color: #f87171; background: rgba(248,113,113,0.14); color: #f87171; }
+.todo-row--p2 .todo-check { border-color: rgba(251,191,36,0.35); }
+.todo-row--p2 .todo-check:hover { border-color: #fbbf24; background: rgba(251,191,36,0.12); color: #fbbf24; }
+
+.todo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.todo-title { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); line-height: 1.4; }
+.todo-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
+.todo-actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  align-items: center;
+  opacity: 0.3;
+  transition: opacity var(--transition-fast);
+}
+.todo-row:hover .todo-actions { opacity: 1; }
+.todo-actions details { display: inline-flex; position: relative; }
+.todo-actions details > summary { list-style: none; }
+.todo-actions details > summary::-webkit-details-marker { display: none; }
+.todo-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.todo-act:hover { background: rgba(148,163,184,0.12); border-color: var(--border-default); }
+.todo-act--schedule { color: var(--semantic-purple); border-color: var(--semantic-purple-border); }
+.todo-act--schedule:hover { background: var(--semantic-purple-bg); }
+.todo-act--open { color: var(--color-day); border-color: rgba(147,197,253,0.2); }
+.todo-act--open:hover { background: rgba(30,64,175,0.15); }
 
 /* ── Pills / Badges ── */
 .pill {

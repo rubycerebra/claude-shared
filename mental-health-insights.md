@@ -273,15 +273,13 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-11 (hash: 4b9dc7c7c7722043)*
+*Auto-synced from Pieces persona summary on 2026-03-12 (hash: c3630a44b7aee30d)*
 
 ### Job search anxiety patterns
-- James remains a dedicated **Integrated Systems Architect of Self**, a professional identity that is not just theoretical but actively embodied in his daily work. This role is now characterized by a deepened commitment to not only build but also **operationalize and optimize his p
+- Neil Layton** is a personal acquaintance of James Cherry whose presence in James's digital workstream continues to be primarily marked by personal life events, specifically his birthday. Based on 10+ prior and 51 new observed interactions, Neil's personal milestone remains a cons
 
 ### Coping mechanisms Pieces has observed
-- Who You Are
-- James remains a dedicated **Integrated Systems Architect of Self**, a professional identity that is not just theoretical but actively embodied in his daily work. This role is now characterized by a deepened commitment to not only build but also **operationalize and optimize his p
+- Neil Layton is a personal acquaintance of James Cherry. He was previously noted to be 39 years old as of March 12, 2026 (Existing Profile). The new events provide further,
 
 ### Work habits Pieces has observed
-- **Discerning AI Collaborator**: He engages with AI not passively, but as a critical co-engineer, providing explicit feedback on narrative style, debugging API limits, and actively choosing the most effective AI model for specific tasks (e.g., preferring Claude CLI over Codex for 
-- **Proactive Integrator**: James is adept at weaving disparate tools and data sources—from daily tasks in Akiflow to health metrics and personal reflections in Diarium—into a cohesive, actionable personal dashboard.
+- Neil Layton** is a personal acquaintance of James Cherry whose presence in James's digital workstream continues to be primarily marked by personal life events, specifically his birthday. Based on 10+ prior and 51 new observed interactions, Neil's personal milestone remains a cons
