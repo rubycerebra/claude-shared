@@ -127,6 +127,7 @@ COMPONENT_CSS = """
 }
 .btn--sm { height: 24px; padding: 0 10px; font-size: 11px; min-width: 72px; }
 .btn--xs { height: 22px; padding: 0 8px; font-size: 11px; }
+.btn--flex { height: auto; min-height: 28px; }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; pointer-events: none; }
 
@@ -210,6 +211,42 @@ COMPONENT_CSS = """
 .text-purple { color: var(--semantic-purple) !important; }
 .text-blue   { color: var(--color-day) !important; }
 .text-dim    { color: var(--text-secondary) !important; }
+
+/* ── Type scale extensions ── */
+.text-micro   { font-size: 0.65rem !important; line-height: 1.3; }
+.text-caption  { font-size: 0.72rem !important; line-height: 1.4; }
+body[data-compact="on"] .text-micro  { font-size: 0.6rem !important; }
+body[data-compact="on"] .text-caption { font-size: 0.66rem !important; }
+
+/* ── Inline pills (badges, tags) ── */
+.inline-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  min-height: 1.2rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+/* ── Section headers (details/summary) ── */
+.summary-section {
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-primary);
+  list-style: none;
+}
+.summary-section::-webkit-details-marker { display: none; }
+.summary-sub {
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
 """
 
 

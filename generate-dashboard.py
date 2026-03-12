@@ -33,7 +33,7 @@ from shared.insights import synthesise_top_insights
 from shared.cache_dates import get_effective_date, get_ai_day, normalize_ai_cache_for_date
 from shared.workout_logic import (
     is_healthfit_export_today,
-    extract_healthfit_sleep_hours,
+    derive_workout_checklist_signals,
     derive_workout_progression,
     workout_progression_view,
 )
@@ -494,6 +494,18 @@ def _is_updates_verification_noise_text(text):
     ):
         return True
     if re.search(r"\btest[-_ ]?(?:item|entry|stub|dummy|does)\b", lowered):
+        return True
+    return False
+
+
+def _looks_like_test_noise(text):
+    lowered = str(text or "").strip().lower()
+    if not lowered:
+        return False
+    compact = re.sub(r"[\s_\-]+", "", lowered)
+    if "doesnotexist" in compact:
+        return True
+    if re.fullmatch(r"(?:test|dummy|placeholder)[a-z0-9]{4,}", compact):
         return True
     return False
 
@@ -2037,7 +2049,7 @@ def generate_html(data):
         _auth_alert_html = '''<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(153,27,27,0.2); border: 1px solid rgba(248,113,113,0.3);">
             <p class="text-sm font-semibold" style="color: #fca5a5">🔑 Google Auth Expired</p>
             <p class="text-xs mt-1" style="color: #d4a0a0">Calendar, Gmail + Akiflow are offline. Run in terminal:<br>
-            <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">python3 ~/.claude/scripts/google-reauth.py</code></p>
+            <code class="text-caption" style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; ">python3 ~/.claude/scripts/google-reauth.py</code></p>
         </div>'''
 
     # --- Notification fatigue protection ---
@@ -2357,7 +2369,7 @@ def generate_html(data):
             content_emoji = _pick_content_emoji(item_text)
             source_badge = ""
             if source == "pieces":
-                source_badge = '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;margin-left:6px;padding:0.15rem 0.45rem;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:9999px;color:#d4b896;font-size:0.65rem;font-weight:600;vertical-align:middle;white-space:nowrap;">⚡ Pieces</span>'
+                source_badge = '<span class="inline-pill" style="margin-left:6px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#d4b896;">⚡ Pieces</span>'
             # ★ prefix on high-significance items (score 4+)
             star_prefix = '<span style="color: #d4b896; margin-right: 4px; font-size: 0.85em;">★</span>' if (score is not None and score >= 4) else ""
             return (f'<div class="flex items-start gap-2 text-sm" style="margin-left: 4px;">'
@@ -2396,7 +2408,7 @@ def generate_html(data):
 
         if len(all_sorted) > _VISIBLE_TADAH:
             extra_html = _render_tadah_list(all_sorted[_VISIBLE_TADAH:])
-            tadah_html += (f'<details class="mt-2"><summary style="color: #a7d8c4; font-size: 0.75rem; cursor: pointer;">'
+            tadah_html += (f'<details class="mt-2"><summary class="text-caption" style="color: #a7d8c4;  cursor: pointer;">'
                            f'+{len(all_sorted) - _VISIBLE_TADAH} more</summary>'
                            f'<div class="mt-1 space-y-1">{extra_html}</div></details>')
 
@@ -2405,7 +2417,7 @@ def generate_html(data):
         wins_badges = ""
         for w in wins:
             win_emoji = _pick_content_emoji(w)
-            wins_badges += f'<span class="optional-pill" style="background: rgba(6,95,70,0.4); border: 1px solid rgba(110,231,183,0.3); border-radius: 9999px; padding: 2px 10px; color: #b8d8c8; font-size: 0.75rem;">{win_emoji} {html.escape(str(w))}</span>'
+            wins_badges += f'<span class="text-caption optional-pill" style="background: rgba(6,95,70,0.4); border: 1px solid rgba(110,231,183,0.3); border-radius: 9999px; padding: 2px 10px; color: #b8d8c8; ">{win_emoji} {html.escape(str(w))}</span>'
         tadah_html += f'<div class="flex flex-wrap gap-1 mt-3 pt-2" style="border-top: 1px solid #374151">{wins_badges}</div>'
 
     # Yesterday's ta-dahs — always separate from today's list for clear differentiation
@@ -2453,8 +2465,7 @@ def generate_html(data):
         <div class="flex items-center gap-2">
             <button id="qa-scratch-submit-ta_dah"
                 onclick="qaScratchSubmit('ta_dah')"
-                class="px-3 py-1 rounded text-xs"
-                style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.8rem;background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                class="btn btn--primary btn--sm">
                 ✅ Add to Ta-Dah
             </button>
             <span id="qa-scratch-status-ta_dah" class="text-xs" style="color: #94a3b8;"></span>
@@ -2699,8 +2710,8 @@ def generate_html(data):
         primary_title = str(film_primary.get("title", "")).strip()
         if _film_pick_source == "ai":
             source_badge = (
-                '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
-                'style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(6,95,70,0.28);color:#b8d8c8;border:1px solid rgba(110,231,183,0.28);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">AI pick</span>'
+                '<span class="inline-pill ml-2" '
+                'style="background:rgba(6,95,70,0.28);color:#b8d8c8;border:1px solid rgba(110,231,183,0.28);">AI pick</span>'
             )
             profile_headline = str(film_profile.get("headline", "")).strip()
             profile_reason = str(film_profile.get("reason_text", "")).strip()
@@ -3466,7 +3477,7 @@ def generate_html(data):
             if is_done:
                 row_style = "background: rgba(15,23,42,0.46); border: 1px solid rgba(148,163,184,0.2); opacity: 0.72;"
                 text_style = "color: #cbd5e1; line-height: 1.45; text-decoration: line-through; text-decoration-thickness: 1.5px; text-decoration-color: rgba(148,163,184,0.82);"
-                button_html = '<button disabled style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-width:88px;min-height:1.9rem;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:600;border-radius:0.4rem;touch-action:manipulation;background:rgba(30,64,175,0.26);color:#b0c8d8;border:1px solid rgba(147,197,253,0.35);">☑ Done</button>'
+                button_html = '<button class="btn btn--blue" disabled>☑ Done</button>'
             else:
                 row_style = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
                 text_style = "color: #f3f4f6; line-height: 1.45;"
@@ -4325,13 +4336,10 @@ def generate_html(data):
     evening_close_checks_html = ""
     if is_evening_close_window:
         evening_close_checks_html = f'''
-                        <label class="flex items-center gap-2 text-xs mb-1" style="color: #cbd5e1"><input id="qa-wc-sig-anxiety" type="checkbox" disabled {anxiety_saved_checked} class="h-3 w-3">Anxiety score saved</label>
                         <label class="flex items-center gap-2 text-xs mb-1" style="color: #cbd5e1"><input id="qa-wc-sig-reflection" type="checkbox" disabled {reflection_saved_checked} class="h-3 w-3">Evening reflection saved</label>
         '''
     else:
-        evening_close_checks_html = '''
-                        <p class="text-xs" style="color: #94a3b8">⏳ Evening close checks unlock after 18:00.</p>
-        '''
+        evening_close_checks_html = ''
     wc_progression = data.get("workoutProgression", {}) if isinstance(data.get("workoutProgression"), dict) else {}
     wc_progression_view = workout_progression_view(wc_progression)
     wc_weights_progression = data.get("workoutProgressionWeights", {}) if isinstance(data.get("workoutProgressionWeights"), dict) else {}
@@ -4384,7 +4392,7 @@ def generate_html(data):
 
                     <div id="qa-wc-yoga-feedback-wrap" class="rounded px-3 py-3 mb-3" style="display: {'block' if wc_workout_type == 'yoga' else 'none'}; background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);">
                         <p class="text-xs font-semibold mb-2" style="color: #b0c8d8">🧘 Yoga feedback (for progression)</p>
-                        <p class="text-xs mb-2" style="color: #9ca3af">To personalise progression, fill: duration, intensity, type, anxiety, body feel.</p>
+                        <p class="text-xs mb-2" style="color: #9ca3af">Fill for progression tracking.</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
                             <label class="text-xs" style="color: #9ca3af">Duration (minutes)
                                 <input id="qa-wc-duration" type="number" min="5" max="240" value="{wc_duration_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;">
@@ -4441,20 +4449,8 @@ def generate_html(data):
                     </div>
                     {wc_weights_progression_html}
 
-                    <details class="mt-2">
-                        <summary class="text-xs font-semibold cursor-pointer" style="color: #a8c4e0">📱 Shortcut hybrid setup (Health + dashboard sync)</summary>
-                        <div class="mt-2 rounded px-3 py-2 text-xs" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.2); color: #dbeafe;">
-                            <p class="mb-1">1) In iOS Shortcuts, add <span style="color:#b0c8d8;">Log Workout</span> (Traditional Strength Training).</p>
-                            <p class="mb-1">2) Add <span style="color:#b0c8d8;">Format Date</span> with <code>yyyy-MM-dd</code>.</p>
-                            <p class="mb-1">3) Add <span style="color:#b0c8d8;">Get Contents of URL</span> POST to:</p>
-                            <p class="mb-1"><code style="word-break: break-all;">{html.escape(shortcut_endpoint)}</code></p>
-                            <p class="mb-1">4) JSON body: <code>{{"done":true,"workout":"Workout A","date":"Formatted Date","source":"shortcuts"}}</code></p>
-                            <p>5) Header: <code>Authorization: Bearer &lt;api-token&gt;</code> (token in <code>~/.claude/config/api-token.txt</code>).</p>
-                        </div>
-                    </details>
-
                     <div class="mt-3 flex items-center gap-2">
-                        <button id="qa-wc-save-btn" onclick="qaSaveWorkoutChecklist(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.8rem;background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Save checklist</button>
+                        <button id="qa-wc-save-btn" onclick="qaSaveWorkoutChecklist(this)" class="btn btn--primary">Save checklist</button>
                         <span id="qa-wc-status" class="text-xs" style="color: #9ca3af">Not saved yet.</span>
                     </div>
                 </div>
@@ -5399,10 +5395,10 @@ def generate_html(data):
             return ""
         return (
             '<div style="margin: -0.25rem 0 0.75rem;">'
-            f'<span class="optional-pill" style="display:inline-flex;align-items:center;gap:0.35rem;'
+            f'<span class="optional-pill text-caption" style="display:inline-flex;align-items:center;gap:0.35rem;'
             f'padding:0.2rem 0.55rem;border-radius:999px;'
             f'border:1px solid {border_color};background:{bg_color};'
-            f'color:#d1d5db;font-size:0.72rem;line-height:1.2;">'
+            f'color:#d1d5db;line-height:1.2;">'
             f'{emoji} {html.escape(tag.title())}'
             '</span></div>'
         )
@@ -5597,7 +5593,6 @@ def generate_html(data):
     if _is_effectively_empty_updates_text(updates_text):
         updates_text = ""
     updates_card_html = ""
-    completed_updates_html = ""
     updates_freshness_line = "ℹ️ No updates logged yet."
     updates_freshness_level = "info"
     # Guard: if the Updates section contains a pasted journal/evening entry (prose, no bullets,
@@ -5640,113 +5635,7 @@ def generate_html(data):
         </div>
     </div>'''
 
-    # If updates text was a pasted prose journal entry, don't extract completed items from it —
-    # the AI would have extracted fragments from the narrative, not real task completions.
-    if _updates_is_prose:
-        updates_completed_items = []
-    else:
-        updates_completed_items = _today_ai.get("updates_completed_today", [])
-        if isinstance(updates_completed_items, list):
-            updates_completed_items = [str(item).strip() for item in updates_completed_items if str(item).strip()]
-        else:
-            updates_completed_items = []
-
-    # Avoid duplicate mindfulness completion in two places:
-    # keep mindfulness status in the dedicated Mindfulness card, not in updates list.
-    mindfulness_state = data.get("mindfulness", {}) if isinstance(data.get("mindfulness"), dict) else {}
-    mindfulness_done = bool(mindfulness_state.get("done"))
-    if mindfulness_done:
-        def _is_mindfulness_item(text):
-            ll = str(text or "").strip().lower()
-            return any(token in ll for token in ("mindfulness", "mindful"))
-
-        updates_completed_items = [item for item in updates_completed_items if not _is_mindfulness_item(item)]
-
-    # Filter out future-facing items — these are plans for tomorrow, not completions
-    # Also drop garbage fragments: single words, very short strings, or items that look
-    # like partial sentences extracted from prose (e.g. "Enough", "Nything")
-    def _looks_like_real_item(text):
-        t = str(text).strip()
-        if len(t) < 8:
-            return False  # too short to be a real task
-        words = t.split()
-        if len(words) < 2:
-            return False  # single word = fragment
-        if re.match(r'^[A-Z][a-z]{1,8}$', t):
-            return False  # single capitalised word
-        return True
-
-    updates_completed_items = [
-        item for item in updates_completed_items
-        if "tomorrow" not in str(item).lower()
-        and "next week" not in str(item).lower()
-        and _looks_like_real_item(item)
-        and not _is_future_intent(str(item).strip())
-    ]
-
-    # Deduplicate completed items robustly:
-    # - strip markdown wrappers
-    # - drop short hash IDs often appended by task systems (e.g. [bf9cb2], "bf9cb2")
-    # - normalise spacing/punctuation before comparing
-    _BRACKET_ID_RE = re.compile(r"\[\s*[0-9a-f]{6,8}\s*\]", re.IGNORECASE)
-    _TRAILING_ID_RE = re.compile(r"(?:\s+|^)[0-9a-f]{6,8}$", re.IGNORECASE)
-
-    def _clean_completed_display(text):
-        cleaned = str(text or "").replace("~~", "").strip()
-        cleaned = _BRACKET_ID_RE.sub("", cleaned).strip()
-        # Remove one or more trailing short IDs (some sources duplicate IDs in two forms)
-        while cleaned:
-            next_cleaned = _TRAILING_ID_RE.sub("", cleaned).strip()
-            if next_cleaned == cleaned:
-                break
-            cleaned = next_cleaned
-        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" -–—:;,.")
-        return cleaned
-
-    def _norm_completed(t):
-        cleaned = _clean_completed_display(t)
-        return re.sub(r"[^a-z0-9\s]", "", re.sub(r"\s+", " ", cleaned.lower())).strip()
-
-    def _looks_like_test_noise(text):
-        lowered = str(text or "").strip().lower()
-        if not lowered:
-            return False
-        compact = re.sub(r"[\s_\-]+", "", lowered)
-        if "doesnotexist" in compact:
-            return True
-        if re.fullmatch(r"(?:test|dummy|placeholder)[a-z0-9]{4,}", compact):
-            return True
-        return False
-
-    _seen_completed = set()
-    _deduped_completed = []
-    for _ci in updates_completed_items:
-        _display = _clean_completed_display(_ci)
-        if not _display:
-            continue
-        if _looks_like_test_noise(_display):
-            continue
-        _ck = _norm_completed(_display)
-        if _ck and _ck not in _seen_completed:
-            _seen_completed.add(_ck)
-            _deduped_completed.append(_display)
-    updates_completed_items = _deduped_completed
-
-    if updates_completed_items:
-        completed_rows = "".join(
-            f'''<div class="flex items-start gap-2 text-sm">
-                <span style="color: #a7d8c4">✅</span>
-                <span style="color: #e5e7eb">{item}</span>
-            </div>'''
-            for item in updates_completed_items
-        )
-        completed_updates_html = f'''
-    <div class="card mb-4">
-        <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">✅ Completed today (from updates)</h3>
-        <div class="space-y-2">{completed_rows}</div>
-    </div>'''
-
-    if not updates_card_html and not updates_insights_html and not completed_updates_html:
+    if not updates_card_html and not updates_insights_html:
         updates_card_html = '''
     <div class="card mb-4">
         <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">📝 Updates</h3>
@@ -6163,9 +6052,7 @@ def generate_html(data):
             _al_detail_html = f'<br><span class="text-xs" style="color:#94a3b8">{html.escape(_al_detail)}</span>' if _al_detail else ""
             _alert_items += (
                 f'<li class="text-sm mb-2" style="color:{_ss["color"]};line-height:1.45;">'
-                f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
-                f'border:1px solid {_ss["border"]};background:{_ss["bg"]};color:{_ss["color"]};'
-                f'border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;margin-right:0.25rem;">{html.escape(_sev)}</span>'
+                f'<span class="inline-pill" style="border:1px solid {_ss["border"]};background:{_ss["bg"]};color:{_ss["color"]};margin-right:0.25rem;">{html.escape(_sev)}</span>'
                 f'{html.escape(str(_al.get("message", "")))}{_al_detail_html}</li>'
             )
         _alert_count = len(_active_alerts)
@@ -6196,9 +6083,7 @@ def generate_html(data):
             }
             _ts = _trend_styles.get(_trend, _trend_styles["insufficient_data"])
             _plc_pills += (
-                f'<span class="optional-pill" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;'
-                f'border:1px solid {_ts["border"]};background:{_ts["bg"]};color:{_ts["color"]};'
-                f'border-radius:9999px;padding:0.15rem 0.55rem;font-size:0.65rem;font-weight:600;">'
+                f'<span class="optional-pill inline-pill" style="border:1px solid {_ts["border"]};background:{_ts["bg"]};color:{_ts["color"]};padding:0.15rem 0.55rem;">'
                 f'{html.escape(str(_pp.get("pattern", ""))[:30])} {html.escape(_trend)}</span>'
             )
         _plc_insights = ""
@@ -6744,7 +6629,7 @@ def generate_html(data):
     }
     if qa_workout_checklist_state["recovery_gate"] not in {"pass", "fail", "unknown"}:
         qa_workout_checklist_state["recovery_gate"] = "unknown"
-    qa_workout_signals_raw = data.get("workoutChecklistSignals", {}) if isinstance(data.get("workoutChecklistSignals"), dict) else {}
+    qa_workout_signals_raw = workout_checklist_signals  # use already-computed (with health_live fallback)
     qa_workout_signals_state = {
         "healthfit_export_today": bool(qa_workout_signals_raw.get("healthfit_export_today")),
         "anxiety_saved_today": bool(qa_workout_signals_raw.get("anxiety_saved_today")),
@@ -6965,7 +6850,7 @@ def generate_html(data):
         <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="true" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
             <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">{html.escape(qa_prompt_title)}</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">{html.escape(qa_prompt_hint)}</span> <span id="qa-yoga-feedback-missing">{html.escape(qa_yoga_missing_text)}</span></p>
-            <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
+            <button onclick="qaOpenWorkoutChecklist(true)" class="btn btn--blue btn--sm">Open workout checklist</button>
         </div>
         '''
     else:
@@ -6973,7 +6858,7 @@ def generate_html(data):
         <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="false" style="display:none; background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
             <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">🧾 Workout details available to log</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">What I need:</span> <span id="qa-yoga-feedback-missing"></span></p>
-            <button onclick="qaOpenWorkoutChecklist(true)" class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">Open workout checklist</button>
+            <button onclick="qaOpenWorkoutChecklist(true)" class="btn btn--blue btn--sm">Open workout checklist</button>
         </div>
         '''
     qa_quick_done_count = int(bool(qa_mindfulness_done)) + int(bool(qa_quick_workout_done)) + int(bool(qa_quick_mood_done))
@@ -7043,19 +6928,19 @@ def generate_html(data):
         '''
 
     qa_evening_unlock_hidden_attr = "" if is_evening else ' hidden="hidden"'
+    qa_anxiety_visible = is_evening or qa_mindfulness_done or qa_workout_signals_state.get("anxiety_saved_today", False)
+    qa_anxiety_hidden_attr = "" if qa_anxiety_visible else ' hidden="hidden"'
     qa_anxiety_relief_html = f'''
-        <div id="qa-anxiety-relief-wrap"{qa_evening_unlock_hidden_attr}>
-            <div class="mt-4 pt-4" style="border-top: 1px solid rgba(251,191,36,0.16);">
-                <label class="text-xs block mb-1" style="color: #d4b896">📉 Rate today's anxiety relief (0-10)</label>
-                <div class="flex items-center gap-3">
-                    <input id="qa-anxiety-score" type="range" min="0" max="10" step="1" value="{qa_slider_value}" class="flex-1" oninput="qaOnAnxietyInput(this)" onchange="qaOnAnxietyInput(this, true)">
-                    <span id="qa-anxiety-score-val" class="text-sm font-semibold" style="color: #d4c090">{qa_slider_value}</span>
-                    <span id="qa-anxiety-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
-                </div>
-                {qa_yoga_evening_hint_html}
-                {qa_week_summary_html}
-            </div>
+    <div id="qa-anxiety-relief-wrap" class="card rounded-xl mb-4"{qa_anxiety_hidden_attr} style="background: rgba(120,53,15,0.10); border: 1px solid rgba(251,191,36,0.15); padding: 0.85rem 1rem;">
+        <label class="text-xs block mb-2" style="color: #d4b896">📉 Anxiety relief</label>
+        <div class="flex items-center gap-3">
+            <input id="qa-anxiety-score" type="range" min="0" max="10" step="1" value="{qa_slider_value}" class="flex-1" style="accent-color: #d97706;" oninput="qaOnAnxietyInput(this)" onchange="qaOnAnxietyInput(this, true)">
+            <span id="qa-anxiety-score-val" class="text-lg font-bold" style="color: #fbbf24; min-width: 1.5rem; text-align: center;">{qa_slider_value}</span>
+            <span id="qa-anxiety-save-state" hidden="hidden" class="text-xs rounded px-2 py-0.5" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
         </div>
+        {qa_yoga_evening_hint_html}
+        {qa_week_summary_html}
+    </div>
     '''
 
     qa_end_day_label = "✅ End Day done" if qa_end_day_done_today else "🌙 End Day (after diary)"
@@ -7063,10 +6948,8 @@ def generate_html(data):
     qa_end_day_opacity = "0.72" if qa_end_day_done_today else "1"
     qa_end_day_controls_html = f'''
         <div id="qa-end-day-wrap"{qa_evening_unlock_hidden_attr}>
-            <div class="flex items-center gap-2 flex-wrap">
-                <button id="qa-end-day-btn" onclick="qaRunEndDay(this)" {qa_end_day_disabled} class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(120,53,15,0.35); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.35); opacity: {qa_end_day_opacity};">{qa_end_day_label}</button>
-            </div>
-            <p id="qa-end-day-status" class="text-xs mt-1" style="color: {qa_end_day_status_color}">{html.escape(qa_end_day_status_text)}</p>
+            <button id="qa-end-day-btn" onclick="qaRunEndDay(this)" {qa_end_day_disabled} class="btn btn--amber" style="width:100%;height:auto;padding:0.5rem 0.75rem;opacity:{qa_end_day_opacity};">{qa_end_day_label}</button>
+            <p id="qa-end-day-status" class="text-xs" style="color: {qa_end_day_status_color}; display:none">{html.escape(qa_end_day_status_text)}</p>
         </div>
     '''
     qa_end_day_command_option = '{ label: "Action: End day (after diary)", run: () => { if (typeof qaRunEndDay === "function") qaRunEndDay(document.getElementById("qa-end-day-btn")); } },' if is_evening else ""
@@ -7162,8 +7045,8 @@ def generate_html(data):
     # Section is visible all day when there's content; only the focus chip is evening-gated
     daily_report_section_hidden_attr = ""
     qa_daily_report_focus_btn_html = f'''
-        <button id="qa-daily-report-focus-btn" onclick="qaOpenReportFocus()" type="button" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.28); color:#b8d8c8; border:1px solid rgba(110,231,183,0.3);">
-            📖 Focus report
+        <button id="qa-daily-report-focus-btn" onclick="qaOpenReportFocus()" type="button" class="btn btn--primary" style="width:100%;height:auto;padding:0.5rem 0.75rem;">
+            📖 Report
         </button>
     ''' if daily_report_html else ""
     qa_report_command_option = '{ label: "Focus: Report", run: () => { if (typeof qaOpenReportFocus === "function") qaOpenReportFocus(); } },' if daily_report_html else ""
@@ -7273,41 +7156,31 @@ def generate_html(data):
             _matched_existing = bool(_item.get("matched_existing", False))
             _esc_type = html.escape(_item_type)
             _esc_id = html.escape(_item_id)
-            _ctx_html = f'<p style="font-size:0.75rem;margin:0.2rem 0 0;color:#94a3b8;line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
+            _ctx_html = f'<p class="text-caption" style="margin:0.2rem 0 0;color:#94a3b8;line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
 
             if _todoist_task_id:
                 _bell_linked_count += 1
             if _todoist_task_id and _todoist_url:
                 _todoist_action_label = "↗ Todoist"
                 _todoist_action_html = (
-                    f'<span onclick="window.location.href=\'{html.escape(_todoist_url, quote=True)}\'" '
-                    f'style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(30,64,175,0.18);color:#bfdbfe;'
-                    f'border:1px solid rgba(147,197,253,0.24);border-radius:0.4rem;padding:0.2rem 0.55rem;'
-                    f'font-size:0.7rem;font-weight:600;cursor:pointer;">{_todoist_action_label}</span>'
+                    f'<button type="button" class="btn btn--blue" onclick="window.location.href=\'{html.escape(_todoist_url, quote=True)}\'">'
+                    f'{_todoist_action_label}</button>'
                 )
             elif _todoist_task_id:
                 _todoist_action_html = (
-                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(30,64,175,0.18);color:#bfdbfe;'
-                    'border:1px solid rgba(147,197,253,0.24);border-radius:0.4rem;padding:0.2rem 0.55rem;'
-                    'font-size:0.7rem;font-weight:600;">In Todoist</span>'
+                    '<span class="btn btn--blue" style="pointer-events:none;">In Todoist</span>'
                 )
             elif _sync_state == "sync_error":
                 _todoist_action_html = (
-                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(127,29,29,0.22);color:#fca5a5;'
-                    'border:1px solid rgba(248,113,113,0.24);border-radius:0.4rem;padding:0.2rem 0.55rem;'
-                    'font-size:0.7rem;font-weight:600;">⚠ Todoist</span>'
+                    '<span class="btn btn--danger" style="pointer-events:none;">⚠ Todoist</span>'
                 )
             elif _sync_state == "disabled":
                 _todoist_action_html = (
-                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(15,23,42,0.45);color:#cbd5e1;'
-                    'border:1px solid rgba(148,163,184,0.18);border-radius:0.4rem;padding:0.2rem 0.55rem;'
-                    'font-size:0.7rem;font-weight:600;">Todoist off</span>'
+                    '<span class="btn btn--ghost" style="pointer-events:none;">Todoist off</span>'
                 )
             else:
                 _todoist_action_html = (
-                    '<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.9rem;background:rgba(15,23,42,0.45);color:#cbd5e1;'
-                    'border:1px solid rgba(148,163,184,0.18);border-radius:0.4rem;padding:0.2rem 0.55rem;'
-                    'font-size:0.7rem;font-weight:600;">↻ Pending</span>'
+                    '<span class="btn btn--ghost" style="pointer-events:none;">↻ Pending</span>'
                 )
 
             _sync_note_parts = []
@@ -7324,7 +7197,7 @@ def generate_html(data):
             if _todoist_project and _todoist_task_id:
                 _sync_note_parts.append(_todoist_project)
             _sync_note_html = (
-                f'<p style="font-size:0.72rem;margin:0.35rem 0 0;color:{"#fca5a5" if _sync_state == "sync_error" else "#94a3b8"};">'
+                f'<p class="text-caption" style="margin:0.35rem 0 0;color:{"#fca5a5" if _sync_state == "sync_error" else "#94a3b8"};">'
                 f'{html.escape(" · ".join(_sync_note_parts))}</p>'
             ) if _sync_note_parts else ""
 
@@ -7358,8 +7231,8 @@ def generate_html(data):
         <summary style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;">
             <span style="font-size:1.15rem">🔔</span>
             <span style="font-size:0.9rem;font-weight:600;color:#e5e7eb">Check In</span>
-            <span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(59,130,246,0.25);color:#a8c4e0;font-size:0.65rem;font-weight:600;padding:0.15rem 0.45rem;border-radius:9999px;">{_bell_count}</span>
-            {f'<span style="font-size:0.72rem;color:{_bell_summary_color};">{html.escape(_bell_summary_text)}</span>' if _bell_summary_text else ''}
+            <span class="inline-pill" style="background:rgba(59,130,246,0.25);color:#a8c4e0;">{_bell_count}</span>
+            {f'<span class="text-caption" style="color:{_bell_summary_color};">{html.escape(_bell_summary_text)}</span>' if _bell_summary_text else ''}
         </summary>
         <div style="margin-top:0.55rem;">{"".join(_bell_rows)}</div>
     </details>'''
@@ -7425,10 +7298,20 @@ def generate_html(data):
 
             _rows = ""
             _count = 0
+            _row_bg = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
+            _schedule_html = (
+                '<details data-qa-schedule-wrap="1" style="position:relative;display:inline-flex;flex:0 0 auto;">'
+                '<summary class="btn btn--purple btn--flex" style="list-style:none;">📅 ▾</summary>'
+                '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;flex-direction:column;gap:0.25rem;min-width:120px;padding:0.35rem;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
+                f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary" style="width:100%;text-align:center;">Tomorrow</button>'
+                f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary" style="width:100%;text-align:center;">Next week</button>'
+                f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary" style="width:100%;text-align:center;">No date</button>'
+                '</div></details>'
+            )
             for proj_name, proj_tasks in _by_project.items():
                 proj_key = proj_name.strip().lower()
                 _pc = _proj_colors.get(proj_key, _proj_default_color)
-                _rows += f'<p class="text-xs font-semibold mb-2 mt-3" style="color: {_pc["color"]}">{html.escape(proj_name)}</p>'
+                _rows += f'<p class="text-xs font-semibold mb-1 mt-2" style="color: {_pc["color"]}">{html.escape(proj_name)}</p>'
                 for t in proj_tasks:
                     _tid = html.escape(str(t.get("id", "")), quote=True)
                     _content = html.escape(str(t.get("content", ""))[:180])
@@ -7442,27 +7325,26 @@ def generate_html(data):
                     _labels = [str(lbl).strip() for lbl in (t.get("labels", []) or []) if str(lbl).strip()]
                     _count += 1
 
-                    _row_bg = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
                     _due_html = ""
                     if _due_dt:
                         try:
                             _dt = datetime.fromisoformat(_due_dt.replace("Z", "+00:00"))
-                            _due_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">{_dt.strftime("%H:%M")}</span>'
+                            _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{_dt.strftime("%H:%M")}</span>'
                         except Exception:
                             _due_html = ""
                     elif _due_date and _due_date != _effective:
-                        _due_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">{html.escape(_due_date)}</span>'
+                        _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{html.escape(_due_date)}</span>'
 
                     _dur_html = ""
                     if _dur:
                         _dur_label = f"{_dur}m" if _dur_unit == "minute" else f"{_dur}d"
-                        _dur_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(88,28,135,0.15);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2);border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:600;">⏱ {_dur_label}</span>'
+                        _dur_html = f'<span class="inline-pill" style="background:rgba(88,28,135,0.15);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2);">⏱ {_dur_label}</span>'
 
                     _labels_html = ""
                     for _lbl in _labels[:3]:
-                        _labels_html += f'<span class="rounded px-1 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.16);border-radius:9999px;padding:0.15rem 0.4rem;font-size:0.65rem;font-weight:500;">{html.escape(str(_lbl))}</span>'
+                        _labels_html += f'<span class="inline-pill" style="background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.16);font-weight:500;">{html.escape(str(_lbl))}</span>'
 
-                    _pri_html = f'<span class="rounded px-1.5 py-0.5" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:{_ps["bg"]};color:{_ps["color"]};border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:700;">{_ps["label"]}</span>'
+                    _pri_html = f'<span class="inline-pill" style="background:{_ps["bg"]};color:{_ps["color"]};font-weight:700;">{_ps["label"]}</span>'
                     _meta_parts = [_pri_html]
                     if _due_html:
                         _meta_parts.append(_due_html)
@@ -7472,42 +7354,29 @@ def generate_html(data):
                         _meta_parts.append(_labels_html)
                     _meta_line = " ".join(_meta_parts)
 
-                    _action_row_style = 'display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;margin-top:0.55rem;'
-
                     if _url:
                         _esc_url = html.escape(_url, quote=True)
                         _content_html = f'<span onclick="window.location.href=\'{_esc_url}\'" style="color: #f3f4f6; border-bottom: 1px solid rgba(148,163,184,0.3); cursor: pointer;">{_content}</span>'
                         _open_action_html = (
                             f'<button type="button" onclick="window.location.href=\'{_esc_url}\'" '
-                            f'class="btn btn--blue">↗ Open</button>'
+                            f'class="btn btn--blue btn--flex">↗ Open</button>'
                         )
                     else:
                         _content_html = _content
                         _open_action_html = (
-                            f'<span class="btn btn--ghost">↗ Open</span>'
+                            f'<span class="btn btn--ghost btn--flex">↗ Open</span>'
                         )
 
-                    _schedule_html = (
-                        '<details data-qa-schedule-wrap="1" style="position:relative;display:inline-block;vertical-align:top;flex:0 0 auto;">'
-                        f'<summary class="btn btn--purple" style="list-style:none;">📅 ▾</summary>'
-                        '<div style="position:absolute;right:0;top:calc(100% + 0.3rem);display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end;min-width:230px;padding:0.35rem;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary">Tomorrow</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary">Next week</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary">No date</button>'
-                        '</div></details>'
-                    )
-
                     _rows += f'''
-                <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-todoist-id="{_tid}" data-todoist-card="{html.escape(card_key, quote=True)}" style="{_row_bg}">
-                    <span style="font-size: 1rem; line-height: 1.35;">📌</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium" style="line-height: 1.45;">{_content_html}</p>
-                        <p class="text-xs mt-1 flex items-center gap-1 flex-wrap">{_meta_line}</p>
-                        <div style="{_action_row_style}">
-                            <button type="button" onclick="qaTodoistCompleteFromButton(this)" class="btn btn--primary">✓ Done</button>
-                            {_schedule_html}
-                            {_open_action_html}
-                        </div>
+                <div class="rounded-lg px-3 py-2 mb-1.5 flex items-center gap-3" data-todoist-id="{_tid}" data-todoist-card="{html.escape(card_key, quote=True)}" style="{_row_bg}">
+                    <div class="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap" style="line-height:1.4;">
+                        <span class="text-sm font-medium">{_content_html}</span>
+                        {_meta_line}
+                    </div>
+                    <div style="display:flex;gap:0.3rem;flex-shrink:0;align-items:stretch;">
+                        <button type="button" onclick="qaTodoistCompleteFromButton(this)" class="btn btn--primary btn--flex">✓ Done</button>
+                        {_schedule_html}
+                        {_open_action_html}
                     </div>
                 </div>'''
             return _rows, _count
@@ -7517,11 +7386,10 @@ def generate_html(data):
             _task_word = "task" if _count == 1 else "tasks"
             _empty = f'<p class="text-sm" style="color: #9ca3af">{empty_text}</p>' if not _count else ""
             return (
-                f'<div class="card rounded-xl p-5 mb-4" style="background: {background}; border: 1px solid {border_color};">\n'
-                f'    <h3 class="text-lg font-semibold mb-2" style="color: {accent_color}">{icon} {html.escape(title)} '
+                f'<div class="card rounded-xl px-4 py-3 mb-3" style="background: {background}; border: 1px solid {border_color};">\n'
+                f'    <div class="flex items-center gap-2 mb-2"><h3 class="text-base font-semibold" style="color: {accent_color}">{icon} {html.escape(title)} '
                 f'<span class="text-xs font-normal" style="color: #94a3b8">{_count} {_task_word}{summary_suffix}</span>'
-                f'</h3>\n'
-                f'    <p class="text-xs mb-3"><a href="{html.escape(open_url, quote=True)}" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;">{_TODOIST_ICON_SVG}</a></p>\n'
+                f'</h3><a href="{html.escape(open_url, quote=True)}" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.4;transition:opacity 0.15s;margin-left:auto;">{_TODOIST_ICON_SVG}</a></div>\n'
                 f"    {_empty}\n"
                 f"    {_rows}\n"
                 f"</div>"
@@ -7567,7 +7435,7 @@ def generate_html(data):
                 '<div class="rounded-lg mt-3 p-3" style="background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.14);">'
                 '<div class="flex items-center gap-2 mb-2">'
                 '<p class="text-xs font-semibold" style="color:#c4b5fd;margin:0;">🏷️ Claude queue</p>'
-                f'<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.2rem;background:rgba(88,28,135,0.22);color:#ddd6fe;border-radius:9999px;padding:0.15rem 0.45rem;font-size:0.6rem;font-weight:600;">{_claude_count} {_claude_task_word}</span>'
+                f'<span class="inline-pill" style="background:rgba(88,28,135,0.22);color:#ddd6fe;">{_claude_count} {_claude_task_word}</span>'
                 '</div>'
                 f'{_claude_rows_html}'
                 '</div>'
@@ -7584,7 +7452,7 @@ def generate_html(data):
             f'{_claude_section_html}'
             '<div id="qa-todoist-done-section" style="display:none;">'
             '<details style="margin-top:0.75rem;">'
-            '<summary style="font-size:0.72rem;color:#6b7280;cursor:pointer;user-select:none;padding:0.35rem 0;">✅ Completed</summary>'
+            '<summary class="text-caption" style="color:#6b7280;cursor:pointer;user-select:none;padding:0.35rem 0;">✅ Completed</summary>'
             '<div id="qa-todoist-done-list" style="margin-top:0.35rem;"></div>'
             '</details>'
             '</div>'
@@ -7598,9 +7466,21 @@ def generate_html(data):
             f"{_today_card_html}"
         )
 
+    # Action buttons — placed inside the Controls <details> section
+    _controls_action_buttons_html = f'''
+        <div class="grid gap-2 mt-2" style="grid-template-columns:1fr 1fr 1fr;">
+            {qa_end_day_controls_html}
+            <div id="qa-daily-report-focus-wrap"{daily_report_control_hidden_attr}>
+                {qa_daily_report_focus_btn_html}
+            </div>
+            <button id="qa-refresh-btn" onclick="qaRefreshData(this)" class="btn btn--blue btn--sm" style="width:100%;">🔄 Refresh</button>
+        </div>
+        <p id="qa-status" class="text-xs mt-2" style="color: #9ca3af"></p>
+    '''
+
     # If Todoist is active, use it; otherwise fall back to legacy Action Items
     if _todoist_active and _todoist_card_html:
-        action_items_html = _todoist_card_html
+        action_items_html = _todoist_card_html + qa_anxiety_relief_html
     else:
         action_items_html = rf'''
     {notifications_bell_html}
@@ -7639,27 +7519,11 @@ def generate_html(data):
         </details>
 
         {qa_anxiety_relief_html}
-
-        <div class="mt-4 pt-4 space-y-2" style="border-top: 1px solid rgba(148,163,184,0.16);">
-            {qa_end_day_controls_html}
-            <div id="qa-daily-report-focus-wrap"{daily_report_control_hidden_attr}>
-                {qa_daily_report_focus_btn_html}
-            </div>
-            <div class="flex items-center gap-2 flex-wrap" style="display:none">
-                <span id="qa-sync-pause-meta" class="text-xs" style="color: #94a3b8">Live sync active</span>
-                <button id="qa-sync-pause-10" onclick="qaSetSyncPause(10)" style="display:none">Pause 10m</button>
-                <button id="qa-sync-pause-30" onclick="qaSetSyncPause(30)" style="display:none">Pause 30m</button>
-                <button id="qa-sync-resume" onclick="qaSetSyncPause(0)" style="display:none">Resume</button>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-                <button id="qa-refresh-btn" onclick="qaRefreshData(this)" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(30,64,175,0.35); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">🔄 Refresh Data Now</button>
-                <span class="text-xs" style="color: #94a3b8">Runs live daemon refresh via API.</span>
-            </div>
-        </div>
-
-        <p id="qa-status" class="text-xs mt-3" style="color: #9ca3af">Ready.</p>
     </div>
+    '''
 
+    # Script block renders for BOTH Todoist and legacy paths — always needed for interactive features
+    qa_script_html = f'''
     <script>
     const QA_API_TOKEN = "{qa_api_token}";
     const QA_LOCAL_IP = "{qa_local_ip}";
@@ -8300,7 +8164,11 @@ def generate_html(data):
         const unlocked = qaIsEveningUnlockOpen();
         const anxietyWrap = document.getElementById("qa-anxiety-relief-wrap");
         if (anxietyWrap) {{
-            anxietyWrap.hidden = !unlocked;
+            // Anxiety slider visible when: evening OR mindfulness done OR score already saved
+            const mindfulnessCheck = document.getElementById("qa-mindfulness-check");
+            const mindfulnessDone = mindfulnessCheck ? mindfulnessCheck.checked : false;
+            const anxietySaved = Boolean(qaCurrentAnxietyScore !== null);
+            anxietyWrap.hidden = !(unlocked || mindfulnessDone || anxietySaved);
         }}
         const endDayWrap = document.getElementById("qa-end-day-wrap");
         if (endDayWrap) {{
@@ -8434,7 +8302,7 @@ def generate_html(data):
         const listEl = document.getElementById("qa-tadah-list");
         if (!listEl) return;
         const countEl = document.getElementById("qa-tadah-count");
-        const lines = String(scratchText || "").split(/\n/).map(l => l.replace(/^[\s\-\*\u2022]+/, "").trim()).filter(Boolean);
+        const lines = String(scratchText || "").split("\\n").map(l => l.replace(/^[\s\-\*\u2022]+/, "").trim()).filter(Boolean);
         let added = 0;
         lines.forEach(function(item) {{
             // Dedup: don't add if already in DOM
@@ -10057,7 +9925,7 @@ def generate_html(data):
             const existingError = row.querySelector('[data-qa-bell-error="1"]');
             if (!existingError) {{
                 const p = row.querySelector("p");
-                if (p) p.insertAdjacentHTML("afterend", '<p data-qa-bell-error="1" style="font-size:0.72rem;color:#d4b896;margin:0.3rem 0 0">⚠ Could not save — try again</p>');
+                if (p) p.insertAdjacentHTML("afterend", '<p class="text-caption" data-qa-bell-error="1" style="color:#d4b896;margin:0.3rem 0 0">⚠ Could not save — try again</p>');
             }}
         }}
         if (status) {{
@@ -11749,6 +11617,16 @@ def generate_html(data):
         }}
     }}
 
+    function qaToggleExpandAll(button) {{
+        const allDetails = document.querySelectorAll("details:not(#dashboard-controls)");
+        const anyOpen = Array.from(allDetails).some(d => d.open);
+        allDetails.forEach(d => {{ d.open = !anyOpen; }});
+        if (button) {{
+            button.classList.toggle("is-active", !anyOpen);
+            button.textContent = !anyOpen ? "▲ Collapse" : "▼ Expand";
+        }}
+    }}
+
     async function qaRefreshData(button) {{
         if (button) {{
             button.disabled = true;
@@ -11956,6 +11834,9 @@ def generate_html(data):
 	    </script>
 	    '''
 
+    # Append script to action_items_html so it always renders
+    action_items_html += qa_script_html
+
     def _scratch_pad_html(section_id, label, today_str):
         storage_key = f"dashboard.scratch.{today_str}.{section_id}"
         sid = html.escape(section_id)
@@ -11972,8 +11853,7 @@ def generate_html(data):
         <div class="mt-1 flex items-center gap-2">
             <button id="qa-scratch-submit-{sid}"
                 onclick="qaScratchSubmit('{sid}')"
-                class="px-3 py-1 rounded text-xs"
-                style="display:inline-flex;align-items:center;justify-content:center;line-height:1;min-height:1.8rem;background: rgba(110,231,183,0.18); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.3); cursor: pointer;">
+                class="btn btn--primary btn--sm">
                 Save to journal
             </button>
             <span id="qa-scratch-status-{sid}" class="text-xs" style="color: #94a3b8;"></span>
@@ -12148,6 +12028,10 @@ def generate_html(data):
             display: flex;
             flex-wrap: wrap;
             gap: 0.35rem;
+            justify-content: center;
+        }}
+        @media (min-width: 768px) {{
+            .top-status-row {{ justify-content: flex-start; }}
         }}
         .status-pill-mini {{
             display: inline-flex;
@@ -12667,22 +12551,22 @@ def generate_html(data):
         {diarium_image_tag}
         <div style="flex: 1; min-width: 0;">
             <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--focus-soft); letter-spacing: -0.025em; margin: 0; line-height: 1.2;">{data.get("date", "")}</h1>
-            <p style="color: var(--muted); font-size: 0.78rem; margin: 0.2rem 0 0;">{data.get("time", "")}</p>
+            <p class="text-caption" style="color: var(--muted);  margin: 0.2rem 0 0;">{data.get("time", "")}</p>
             {context_bar_html}
         </div>
         <div style="text-align: center; flex-shrink: 0; padding: 0.35rem 0;">
             <p style="font-size: 1.6rem; font-weight: 700; color: #a7d8c4; margin: 0; line-height: 1;">{data.get("sleepCalm", 0)}</p>
-            <p style="font-size: 0.65rem; color: rgba(110,231,183,0.4); margin: 0.15rem 0 0; text-transform: uppercase; letter-spacing: 0.05em;">calm</p>
+            <p class="text-micro" style=" color: rgba(110,231,183,0.4); margin: 0.15rem 0 0; text-transform: uppercase; letter-spacing: 0.05em;">calm</p>
         </div>
     </header>
 
     <!-- Controls (collapsible) -->
     <details id="dashboard-controls" style="margin-bottom: 0.75rem;">
-        <summary style="cursor: pointer; font-size: 0.7rem; color: var(--muted); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.3rem;">
-            <span aria-hidden="true" style="display: inline-block; transition: transform 0.15s; font-size: 0.55rem;" class="controls-arrow">▶</span> Controls
+        <summary class="text-caption" style="cursor: pointer;  color: var(--muted); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.3rem;">
+            <span aria-hidden="true" style="display: inline-block; transition: transform 0.15s; " class="text-micro controls-arrow">▶</span> Controls
         </summary>
         <!-- Jump links -->
-        <nav style="display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; font-size: 0.75rem;">
+        <nav class="text-caption" style="display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; ">
             <a href="#actions" style="color: var(--muted);">Actions</a>
             <a href="#daily-report" style="color: var(--muted);">Report</a>
             <a href="#guidance" style="color: var(--muted);">Guidance</a>
@@ -12702,13 +12586,15 @@ def generate_html(data):
                 <button type="button" class="focus-chip" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>Report</button>
             </div>
             <span style="flex: 1;"></span>
-            <button type="button" class="focus-chip" id="low-stim-toggle" style="font-size: 0.68rem; opacity: 0.6;">Low stim</button>
-            <button type="button" class="focus-chip" id="compact-toggle" style="font-size: 0.68rem; opacity: 0.6;">Compact</button>
-            <button type="button" class="focus-chip" id="density-toggle" style="font-size: 0.68rem; opacity: 0.6;">Focus</button>
+            <button type="button" class="text-micro focus-chip" id="expand-all-toggle" style="opacity: 0.6;" onclick="qaToggleExpandAll(this)">▼ Expand</button>
+            <button type="button" class="text-micro focus-chip" id="low-stim-toggle" style=" opacity: 0.6;">Low stim</button>
+            <button type="button" class="text-micro focus-chip" id="compact-toggle" style=" opacity: 0.6;">Compact</button>
+            <button type="button" class="text-micro focus-chip" id="density-toggle" style=" opacity: 0.6;">Focus</button>
             <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
         </div>
         <p id="focus-mode-note" class="focus-note">All sections visible.</p>
         <p id="focus-meta-note" class="focus-note">Style: Standard • Density: Standard.</p>
+        {_controls_action_buttons_html}
     </details>
 
     {'<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(127,29,29,0.12); border: 1px solid rgba(212,160,160,0.2);"><p class="text-xs" style="color: #d4a0a0">Low energy detected — showing essentials only. Tap sections to expand.</p></div>' if _energy_low else ''}
@@ -12751,7 +12637,6 @@ def generate_html(data):
         <div class="mt-3">
         {updates_card_html}
         {updates_insights_html}
-        {completed_updates_html}
         </div>
     </details>
     {_scratch_pad_html("updates", "Updates", effective_today)}
@@ -14406,31 +14291,14 @@ def main():
     _has_tomorrow = bool(str(diarium_display.get("remember_tomorrow", "")).strip() or str(diarium_display.get("tomorrow", "")).strip())
     reflection_saved_today = _ev_refl or _has_tadah or _has_tomorrow
 
-    # Recovery gate signal from latest HRV + sleep (if available)
-    recovery_signal = "unknown"
-    recovery_signal_detail = "No HRV/sleep gate signal yet."
-    hrv_latest_raw = healthfit.get("hrv_latest")
-    hrv_latest = coerce_optional_int(hrv_latest_raw, 1, 200)
-    sleep_hours = extract_healthfit_sleep_hours(healthfit, effective_today)
-
-    if isinstance(hrv_latest, int) and isinstance(sleep_hours, (int, float)):
-        if hrv_latest <= 35 or float(sleep_hours) < 6.5:
-            recovery_signal = "fail"
-            recovery_signal_detail = f"Suggest FAIL gate: HRV {hrv_latest}, sleep {sleep_hours:.1f}h"
-        elif hrv_latest >= 40 and float(sleep_hours) >= 6.5:
-            recovery_signal = "pass"
-            recovery_signal_detail = f"Suggest PASS gate: HRV {hrv_latest}, sleep {sleep_hours:.1f}h"
-        else:
-            recovery_signal = "caution"
-            recovery_signal_detail = f"Borderline gate: HRV {hrv_latest}, sleep {sleep_hours:.1f}h"
-
-    data["workoutChecklistSignals"] = {
-        "healthfit_export_today": healthfit_export_today,
-        "anxiety_saved_today": anxiety_saved_today,
-        "reflection_saved_today": reflection_saved_today,
-        "recovery_signal": recovery_signal,
-        "recovery_signal_detail": recovery_signal_detail,
-    }
+    # Recovery gate signal — delegate to shared function (single source of truth).
+    data["workoutChecklistSignals"] = derive_workout_checklist_signals(
+        cache, date_key=effective_today, ai_day=ai_today,
+    )
+    # Overlay freshness checks computed above.
+    data["workoutChecklistSignals"]["healthfit_export_today"] = healthfit_export_today
+    data["workoutChecklistSignals"]["anxiety_saved_today"] = anxiety_saved_today
+    data["workoutChecklistSignals"]["reflection_saved_today"] = reflection_saved_today
 
     existing_workout_progression = ai_today.get("workout_progression", {}) if isinstance(ai_today.get("workout_progression"), dict) else {}
     workout_type_for_progression = str(get_todays_workout().get("type", "")).strip().lower()
@@ -14483,14 +14351,32 @@ def main():
     print(f"📊 Data from cache: {cache.get('timestamp', 'unknown')}")
 
     # Auto-send to Readwise Reader (if token is configured)
+    # Gate on diarium_fresh so Reader only gets the final version with diary insights
+    diarium_fresh = cache.get("diarium_fresh", False)
+    force_readwise = "--force-readwise" in sys.argv
     if "--no-readwise" not in sys.argv:
-        try:
-            sys.path.insert(0, str(Path.home() / ".claude" / "scripts"))
-            from shared.readwise import send_dashboard_snapshot
-            if send_dashboard_snapshot(OUTPUT_FILE):
-                print("📖 Sent to Readwise Reader")
-        except Exception as exc:
-            print(f"📖 Readwise skip: {exc}")
+        if diarium_fresh or force_readwise:
+            try:
+                sys.path.insert(0, str(Path.home() / ".claude" / "scripts"))
+                from shared.readwise import send_dashboard_snapshot
+                if send_dashboard_snapshot(OUTPUT_FILE):
+                    print("📖 Sent to Readwise Reader")
+                    # Notify only in headless/daemon mode (--no-open) — when the
+                    # browser opens the user already sees the result visually.
+                    if "--no-open" in sys.argv:
+                        try:
+                            subprocess.Popen(
+                                ["osascript", "-e",
+                                 'display notification "Dashboard + Reader updated with diary insights" '
+                                 'with title "📖 Ready in Reader" sound name "Glass"'],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            )
+                        except Exception:
+                            pass
+            except Exception as exc:
+                print(f"📖 Readwise skip: {exc}")
+        else:
+            print("📖 Readwise deferred — diary not yet processed")
 
     # Open browser UNLESS --no-open flag is passed
     if "--no-open" not in sys.argv:
