@@ -1772,6 +1772,43 @@ def _tadah_score_key(text):
     return re.sub(r'[^a-z0-9\s]', '', raw).strip()
 
 
+def _split_tadah_blob(text):
+    """Split a pasted ta-dah blob into probable individual wins."""
+    raw = _strip_completion_hash_artifacts(text)
+    if not raw:
+        return []
+    pieces = []
+    seen = set()
+    for raw_line in str(raw).replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line = re.sub(r'^[\s★☆•\-\*]+', '', str(raw_line or '')).strip()
+        if not line:
+            continue
+        for part in re.split(r'(?<=[.!?])\s+', line):
+            item = re.sub(r'^[\s★☆•\-\*]+', '', str(part or '')).strip()
+            item = re.sub(r'\s+', ' ', item).strip().rstrip('.!?').strip()
+            if not item or len(item) <= 2 or not re.search(r'[A-Za-z0-9]', item):
+                continue
+            key = _tadah_score_key(item)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            pieces.append(item)
+    return pieces
+
+
+def _tadah_is_aggregate_duplicate(candidate, known_items):
+    """Detect a cache blob that is just several journal ta-dahs squashed together."""
+    known_keys = {k for item in known_items if (k := _tadah_score_key(item))}
+    if len(known_keys) < 2:
+        return False
+    candidate_parts = [_tadah_score_key(part) for part in _split_tadah_blob(candidate)]
+    candidate_parts = [part for part in candidate_parts if part]
+    if len(candidate_parts) < 2:
+        return False
+    matched = [part for part in candidate_parts if part in known_keys]
+    return len(matched) >= 2 and len(matched) >= max(2, int(len(candidate_parts) * 0.6))
+
+
 _FUTURE_INTENT_RE = re.compile(
     r'^(?:get|do|sort|check|make sure|try to|need to|set a|write a|plan|look at|start|stop'
     r'|figure out|decide|think about|remember to)\s',
@@ -1918,6 +1955,24 @@ def get_tadah():
                             today_items.append({"text": win, "source": "pieces"})
         except Exception:
             pass
+
+    # Also read today's ta-dahs from journal markdown (user writes here before Diarium syncs)
+    journal_tadah_today = _parse_tadah_from_journal(today)
+    if journal_tadah_today:
+        today_items = [
+            row for row in today_items
+            if not (
+                isinstance(row, dict)
+                and str(row.get("source", "")).strip().lower() == "diary"
+                and _tadah_is_aggregate_duplicate(row.get("text", ""), journal_tadah_today)
+            )
+        ]
+    existing_texts = {_tadah_score_key(i["text"]) for i in today_items if isinstance(i, dict)}
+    for text in journal_tadah_today:
+        k = _tadah_score_key(text)
+        if k and k not in existing_texts:
+            today_items.append({"text": text, "source": "diary"})
+            existing_texts.add(k)
 
     # De-duplicate wording/hash variants ("the", hash suffixes, etc.) before caps/scoring.
     deduped_today_items = []
@@ -4427,7 +4482,7 @@ def generate_html(data):
                                 </select>
                             </label>
                             <label class="text-xs" style="color: #9ca3af">Anxiety relief (0-10)
-                                <input id="qa-wc-anxiety" type="number" min="0" max="10" step="1" value="{wc_yoga_anxiety_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;">
+                                <input id="qa-wc-anxiety" type="number" min="0" max="10" step="1" value="{wc_yoga_anxiety_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;" oninput="qaOnChecklistAnxietyInput(this)" onchange="qaOnChecklistAnxietyInput(this)">
                             </label>
                         </div>
                         <label class="text-xs block" style="color: #9ca3af">Optional note
@@ -4697,7 +4752,7 @@ def generate_html(data):
                 {mood_timeline_html}
             </div>'''
 
-    # === Mindfulness tracking (auto + manual dashboard log) ===
+    # === Mindfulness tracking (auto-detected from Apple Health) ===
     mindfulness_html = ""
     mindfulness = data.get("mindfulness", {}) if isinstance(data.get("mindfulness"), dict) else {}
     if mindfulness:
@@ -4752,9 +4807,7 @@ def generate_html(data):
             else:
                 progression_line = f"Mental-health progression: {float(combined_score_raw):.1f}/10"
 
-        checked_attr = "checked" if mindfulness_done else ""
         if mindfulness_done:
-            # Compact: done confirmation + progression collapsed
             mindfulness_html = f'''
             <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.08); border: 1px solid rgba(147,197,253,0.15);">
                 <details>
@@ -4763,24 +4816,17 @@ def generate_html(data):
                         <span class="text-xs" style="color: #6b7280">({progression_line})</span>
                     </summary>
                     <div class="mt-3">
-                        <label class="flex items-center gap-3 cursor-pointer">
-                            <input id="qa-mindfulness-check" type="checkbox" {checked_attr} onchange="qaToggleMindfulness(this)" class="h-4 w-4">
-                            <span class="text-sm" style="color: #e5e7eb">Log mindfulness</span>
-                        </label>
-                        <p id="qa-mindfulness-meta" class="text-xs mt-2" style="color: {status_color}">{html.escape(status_text)}</p>
+                        <p id="qa-mindfulness-meta" class="text-xs" style="color: {status_color}">{html.escape(status_text)}</p>
+                        <p class="text-xs mt-1" style="color: #6b7280">Auto-detected from Apple Health</p>
                     </div>
                 </details>
             </div>'''
         else:
             mindfulness_html = f'''
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.2);">
-                <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">🧠 Mindfulness</h3>
-                <label class="flex items-center gap-3 cursor-pointer">
-                    <input id="qa-mindfulness-check" type="checkbox" {checked_attr} onchange="qaToggleMindfulness(this)" class="h-4 w-4">
-                    <span class="text-sm" style="color: #e5e7eb">Log mindfulness</span>
-                </label>
-                <p id="qa-mindfulness-meta" class="text-xs mt-2" style="color: {status_color}">{html.escape(status_text)}</p>
-                <p class="text-xs mt-1" style="color: #6b7280">{progression_line}</p>
+                <h3 class="text-lg font-semibold mb-2" style="color: #a8c4e0">🧠 Mindfulness</h3>
+                <p id="qa-mindfulness-meta" class="text-sm" style="color: {status_color}">{html.escape(status_text)}</p>
+                <p class="text-xs mt-1" style="color: #6b7280">Auto-detected from Apple Health</p>
             </div>'''
 
     # === Finch Self-Care Tracker ===
@@ -6860,12 +6906,10 @@ def generate_html(data):
             <button onclick="qaOpenWorkoutChecklist(true)" class="btn btn--blue btn--sm">Open workout checklist</button>
         </div>
         '''
-    qa_quick_done_count = int(bool(qa_mindfulness_done)) + int(bool(qa_quick_workout_done)) + int(bool(qa_quick_mood_done))
-    qa_quick_done_total = 3 if qa_quick_workout_trackable else 2
+    qa_quick_done_count = int(bool(qa_quick_workout_done)) + int(bool(qa_quick_mood_done))
+    qa_quick_done_total = 2 if qa_quick_workout_trackable else 1
     # Neutral framing: show remaining items, not score
     _remaining_checkins = []
-    if not qa_mindfulness_done:
-        _remaining_checkins.append("Mindfulness")
     if qa_quick_workout_trackable and not qa_quick_workout_done:
         _remaining_checkins.append(qa_quick_workout_title)
     if not qa_quick_mood_done:
@@ -6892,7 +6936,7 @@ def generate_html(data):
             </button>
         '''
 
-    qa_quick_mind_checked = "checked" if qa_mindfulness_done else ""
+
     qa_quick_mood_checked = "checked" if qa_quick_mood_done else ""
     qa_checkins_summary = qa_quick_meta
     qa_quick_bar_html = f'''
@@ -6903,10 +6947,6 @@ def generate_html(data):
             </summary>
             <div class="mt-3">
                 <div class="flex flex-wrap gap-2">
-                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #c8e0d4;">
-                        <input id="qa-quick-mindfulness-check" type="checkbox" {qa_quick_mind_checked} onchange="qaQuickToggleMindfulness(this)" class="h-3.5 w-3.5">
-                        🧠 Mindfulness
-                    </label>
                     {qa_quick_workout_html}
                     <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(88,28,135,0.2); border: 1px solid rgba(196,181,253,0.26); color: #d8c8e0;">
                         <input id="qa-quick-mood-check" type="checkbox" {qa_quick_mood_checked} onchange="qaToggleMoodQuick(this)" class="h-3.5 w-3.5">
@@ -7841,6 +7881,9 @@ def generate_html(data):
                 qaApplyNarrativeFromScratch(sectionId, scratchText);
             }}
             textarea.value = "";
+            if (typeof qaPullRenderedSections === "function") {{
+                qaPullRenderedSections("scratch").catch(() => {{}});
+            }}
             if (typeof qaSyncTodayFromApi === "function") {{
                 qaSyncTodayFromApi({{ force: true }}).catch(() => {{}});
             }}
@@ -7913,8 +7956,7 @@ def generate_html(data):
     const QA_SYSTEM_STATUS_INITIAL = {json.dumps(runtime)};
     const QA_SYNC_PAUSE_KEY = "dashboard.live.sync.pause.until.v1";
     const QA_CHECKINS_DISCLOSURE_KEY = "dashboard.checkins.disclosure.v1";
-    let qaMindfulnessSaving = false;
-    let qaMindfulnessDesiredDone = null;
+
     let qaMoodSaving = false;
     let qaMoodEntrySaving = false;
     let qaMoodEntryLastAt = 0;
@@ -7926,6 +7968,8 @@ def generate_html(data):
         : {{}};
     const qaAnxietySeed = Number(QA_ANXIETY_SCORE_INITIAL);
     let qaCurrentAnxietyScore = Number.isFinite(qaAnxietySeed) ? qaAnxietySeed : null;
+    let qaSavedAnxietyScore = Number.isFinite(qaAnxietySeed) ? qaClampAnxietyScore(qaAnxietySeed) : null;
+    let qaAnxietyUserModified = false;
     let qaAnxietySaveTimer = null;
     let qaAnxietySaveInFlight = false;
     let qaAnxietyPendingScore = null;
@@ -8296,11 +8340,28 @@ def generate_html(data):
         qaInjectNarrativeSentence(sentence, {{ replace: false }});
     }}
 
-    function qaApplyTaDahFromScratch(scratchText) {{
+function qaApplyTaDahFromScratch(scratchText) {{
         const listEl = document.getElementById("qa-tadah-list");
         if (!listEl) return;
         const countEl = document.getElementById("qa-tadah-count");
-        const lines = String(scratchText || "").split("\\n").map(l => l.replace(/^[\s\-\*\u2022]+/, "").trim()).filter(Boolean);
+        const lines = [];
+        const seenLower = new Set();
+        String(scratchText || "").split("\\n").forEach(function(rawLine) {{
+            const base = String(rawLine || "").replace(/^[\s\-\*\u2022★☆]+/, "").trim();
+            if (!base) return;
+            base.split(/(?<=[.!?])\s+/).forEach(function(part) {{
+                const cleaned = String(part || "")
+                    .replace(/^[\s\-\*\u2022★☆]+/, "")
+                    .trim()
+                    .replace(/[.!?]+$/, "")
+                    .trim();
+                if (!cleaned || !/[A-Za-z0-9]/.test(cleaned)) return;
+                const cl = cleaned.toLowerCase();
+                if (seenLower.has(cl)) return;
+                seenLower.add(cl);
+                lines.push(cleaned);
+            }});
+        }});
         let added = 0;
         lines.forEach(function(item) {{
             // Dedup: don't add if already in DOM
@@ -8364,6 +8425,9 @@ def generate_html(data):
 
     let qaRenderStatusToken = "";
     let qaRenderStatusInFlight = false;
+    let qaPendingRenderToken = "";
+    let qaRenderEventSource = null;
+    let qaRenderEventRetryTimer = null;
 
     function qaShouldSkipLivePatch(sectionEl) {{
         if (!sectionEl) return true;
@@ -8458,11 +8522,12 @@ def generate_html(data):
 
     async function qaPullRenderedSections(reason = "render_status") {{
         const doc = await qaFetchDashboardHtmlDoc();
-        if (!doc) return false;
+        if (!doc) return null;
         const patched = [
             qaPatchSectionFromDoc(doc, "morning"),
             qaPatchSectionFromDoc(doc, "updates"),
             qaPatchSectionFromDoc(doc, "evening"),
+            qaPatchSectionFromDoc(doc, "review"),
             qaPatchNarrativeFromDoc(doc),
         ].some(Boolean);
         if (patched) {{
@@ -8477,9 +8542,93 @@ def generate_html(data):
         return patched;
     }}
 
+    async function qaApplyRenderTokenUpdate(token, reason = "render_status", options = {{}}) {{
+        const nextToken = String(token || "").trim();
+        if (!nextToken) return false;
+        if (nextToken === qaRenderStatusToken) {{
+            qaPendingRenderToken = "";
+            return false;
+        }}
+        qaPendingRenderToken = nextToken;
+        if (dashboardIsBusyForRefresh() && !Boolean(options.force)) {{
+            return false;
+        }}
+        const patched = await qaPullRenderedSections(reason);
+        if (patched === null) {{
+            return false;
+        }}
+        qaRenderStatusToken = nextToken;
+        if (qaPendingRenderToken === nextToken) {{
+            qaPendingRenderToken = "";
+        }}
+        return true;
+    }}
+
+    function qaShouldUseRenderEvents() {{
+        if (typeof window === "undefined" || typeof EventSource === "undefined") return false;
+        if (QA_IS_FILE_PROTOCOL) return false;
+        try {{
+            return String(qaResolveApiBase() || "") === String(window.location.origin || "");
+        }} catch (_err) {{
+            return false;
+        }}
+    }}
+
+    function qaStopRenderEvents() {{
+        if (qaRenderEventRetryTimer) {{
+            clearTimeout(qaRenderEventRetryTimer);
+            qaRenderEventRetryTimer = null;
+        }}
+        if (qaRenderEventSource) {{
+            try {{ qaRenderEventSource.close(); }} catch (_err) {{}}
+            qaRenderEventSource = null;
+        }}
+    }}
+
+    function qaScheduleRenderEventsRetry(delayMs = 4000) {{
+        if (qaRenderEventRetryTimer || !qaShouldUseRenderEvents()) return;
+        qaRenderEventRetryTimer = setTimeout(() => {{
+            qaRenderEventRetryTimer = null;
+            qaStartRenderEvents();
+        }}, Math.max(1500, Number(delayMs) || 4000));
+    }}
+
+    function qaStartRenderEvents() {{
+        if (!qaShouldUseRenderEvents()) return;
+        if (qaRenderEventSource) return;
+        try {{
+            const apiBase = qaResolveApiBase();
+            const es = new EventSource(`${{apiBase}}/v1/ui/events/render`);
+            qaRenderEventSource = es;
+            es.addEventListener("render", async (event) => {{
+                let payload = null;
+                try {{
+                    payload = JSON.parse(String(event && event.data || "{{}}"));
+                }} catch (_err) {{
+                    payload = null;
+                }}
+                const render = (payload && payload.render && typeof payload.render === "object") ? payload.render : null;
+                const token = String((payload && payload.render_token) || (render && render.render_token) || "").trim();
+                if (!token) return;
+                const applied = await qaApplyRenderTokenUpdate(token, "live");
+                if (applied) {{
+                    qaSyncTodayFromApi({{ force: true }}).catch(() => {{}});
+                }}
+            }});
+            es.onerror = () => {{
+                qaStopRenderEvents();
+                qaScheduleRenderEventsRetry(5000);
+            }};
+        }} catch (_err) {{
+            qaStopRenderEvents();
+            qaScheduleRenderEventsRetry(8000);
+        }}
+    }}
+
     async function qaSyncRenderStatus(options = {{}}) {{
         const force = Boolean(options && options.force);
         if (!force && qaIsLiveSyncPaused()) return;
+        if (!force && qaRenderEventSource && qaRenderEventSource.readyState === 1 /* EventSource.OPEN */) return;
         if (!qaCanRunNetworkPoll({{ force }})) return;
         if (qaRenderStatusInFlight) return;
         qaRenderStatusInFlight = true;
@@ -8489,13 +8638,7 @@ def generate_html(data):
             if (!render) return;
             const token = String(render.render_token || "").trim();
             if (!token) return;
-            if (!qaRenderStatusToken) {{
-                qaRenderStatusToken = token;
-                return;
-            }}
-            if (token === qaRenderStatusToken) return;
-            qaRenderStatusToken = token;
-            await qaPullRenderedSections(force ? "scratch" : "render_status");
+            await qaApplyRenderTokenUpdate(token, force ? "scratch" : "render_status", {{ force }});
         }} catch (_err) {{
             // Best-effort sync only; keep dashboard usable when API/html pull is unavailable.
         }} finally {{
@@ -8514,9 +8657,13 @@ def generate_html(data):
         const liveScore = Number(snapshot.anxiety_reduction_score);
         if (!anxietyBusy && Number.isFinite(liveScore)) {{
             qaApplyAnxietyScore(liveScore);
+            qaSavedAnxietyScore = qaClampAnxietyScore(liveScore);
+            qaAnxietyUserModified = false;
             qaSetAnxietySaveState("synced");
         }} else if (!anxietyBusy) {{
             qaCurrentAnxietyScore = null;
+            qaSavedAnxietyScore = null;
+            qaAnxietyUserModified = false;
         }}
         if (snapshot.workout_checklist && typeof snapshot.workout_checklist === "object") {{
             qaApplyWorkoutChecklistState(snapshot.workout_checklist);
@@ -8545,7 +8692,7 @@ def generate_html(data):
             );
             qaApplyWorkoutState(done, workoutLabel);
         }}
-        if (!qaMindfulnessSaving && snapshot.mindfulness && typeof snapshot.mindfulness === "object") {{
+        if (snapshot.mindfulness && typeof snapshot.mindfulness === "object") {{
             const updated = Object.assign({{}}, snapshot.mindfulness);
             if (snapshot.mental_health_progression && typeof snapshot.mental_health_progression === "object") {{
                 updated.progression = snapshot.mental_health_progression;
@@ -10295,6 +10442,7 @@ def generate_html(data):
     function qaOnAnxietyInput(input, immediate = false) {{
         const slider = input || document.getElementById("qa-anxiety-score");
         if (!slider) return;
+        qaAnxietyUserModified = true;
         const valueLabel = document.getElementById("qa-anxiety-score-val");
         if (valueLabel) valueLabel.textContent = String(slider.value || "0");
         qaApplyAnxietyScore(Number(slider.value || "0"));
@@ -10337,6 +10485,8 @@ def generate_html(data):
                 const savedRaw = Number(result && result.score);
                 const saved = Number.isFinite(savedRaw) ? savedRaw : nextScore;
                 qaApplyAnxietyScore(saved);
+                qaSavedAnxietyScore = qaClampAnxietyScore(saved);
+                qaAnxietyUserModified = false;
                 qaSetAnxietySaveState("synced");
                 if (status) {{
                     status.textContent = `✅ Anxiety relief saved (${{saved}}/10)`;
@@ -10354,12 +10504,25 @@ def generate_html(data):
         await qaFlushAnxietyAutosave({{ immediate: true }});
     }}
 
+    function qaOnChecklistAnxietyInput(input) {{
+        qaAnxietyUserModified = true;
+        const field = input || document.getElementById("qa-wc-anxiety");
+        if (!field) return;
+        const raw = String(field.value || "").trim();
+        if (!raw) return;
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return;
+        qaApplyAnxietyScore(parsed);
+    }}
+
+    function qaClampAnxietyScore(n) {{ return Math.max(0, Math.min(10, Math.round(n))); }}
+
     function qaApplyAnxietyScore(score) {{
         const slider = document.getElementById("qa-anxiety-score");
         const valueLabel = document.getElementById("qa-anxiety-score-val");
         const raw = Number(score);
         if (!Number.isFinite(raw)) return;
-        const rounded = Math.max(0, Math.min(10, Math.round(raw)));
+        const rounded = qaClampAnxietyScore(raw);
         if (slider) slider.value = String(rounded);
         if (valueLabel) valueLabel.textContent = String(rounded);
         const yogaAnxiety = document.getElementById("qa-wc-anxiety");
@@ -10833,127 +10996,11 @@ def generate_html(data):
 
     function qaApplyMindfulnessState(state) {{
         const safeState = (state && typeof state === "object") ? state : {{}};
-        const checkbox = document.getElementById("qa-mindfulness-check");
-        if (checkbox && typeof safeState.done === "boolean") {{
-            checkbox.checked = Boolean(safeState.done);
-        }}
-        const quickCheckbox = document.getElementById("qa-quick-mindfulness-check");
-        if (quickCheckbox && typeof safeState.done === "boolean") {{
-            quickCheckbox.checked = Boolean(safeState.done);
-        }}
         const meta = document.getElementById("qa-mindfulness-meta");
         if (meta) {{
             meta.textContent = qaMindfulnessSummary(safeState);
             meta.style.color = safeState.done ? "#a7d8c4" : "#9ca3af";
         }}
-        qaSetCheckinAkiflowButtonState("mindfulness");
-        qaUpdateQuickDoneMeta();
-    }}
-
-    async function qaToggleMindfulness(input) {{
-        if (!input) return;
-        if (qaMindfulnessSaving) {{
-            input.checked = qaMindfulnessDesiredDone === null ? Boolean(input.checked) : Boolean(qaMindfulnessDesiredDone);
-            return;
-        }}
-        const desired = Boolean(input && input.checked);
-        qaMindfulnessSaving = true;
-        qaMindfulnessDesiredDone = desired;
-        input.disabled = true;
-
-        const status = document.getElementById("qa-status");
-        if (status) {{
-            status.textContent = desired ? "⏳ Saving mindfulness..." : "⏳ Clearing mindfulness...";
-            status.style.color = "#a8c4e0";
-        }}
-
-        const payload = {{
-            done: desired,
-            minutes: QA_MINDFULNESS_TARGET,
-            date: qaEffectiveDateKey(),
-            source: "dashboard_manual",
-        }};
-        try {{
-            let applied = false;
-            let latestState = null;
-
-            const first = await qaPost("/v1/ui/mindfulness/log", payload);
-            if (first && first.mindfulness) {{
-                latestState = Object.assign({{}}, first.mindfulness);
-                if (first.mental_health_progression && typeof first.mental_health_progression === "object") {{
-                    latestState.progression = first.mental_health_progression;
-                }}
-                applied = true;
-            }}
-
-            if (!applied) {{
-                const verifyAfterFirst = await qaVerifyMindfulnessSaved(desired, desired ? QA_MINDFULNESS_TARGET : 0);
-                if (verifyAfterFirst.ok && verifyAfterFirst.state) {{
-                    latestState = verifyAfterFirst.state;
-                    applied = true;
-                }}
-            }}
-
-            if (!applied) {{
-                const retryPayload = Object.assign({{}}, payload, {{ source: "dashboard_manual" }});
-                const retry = await qaPost("/v1/ui/mindfulness/log", retryPayload);
-                if (retry && retry.mindfulness) {{
-                    latestState = Object.assign({{}}, retry.mindfulness);
-                    if (retry.mental_health_progression && typeof retry.mental_health_progression === "object") {{
-                        latestState.progression = retry.mental_health_progression;
-                    }}
-                    applied = true;
-                }} else {{
-                    const verifyAfterRetry = await qaVerifyMindfulnessSaved(desired, desired ? QA_MINDFULNESS_TARGET : 0);
-                    if (verifyAfterRetry.ok && verifyAfterRetry.state) {{
-                        latestState = verifyAfterRetry.state;
-                        applied = true;
-                    }}
-                }}
-            }}
-
-            if (applied && latestState) {{
-                qaApplyMindfulnessState(latestState);
-                if (status) {{
-                    const minutes = Number(latestState.minutes_done || QA_MINDFULNESS_TARGET);
-                    if (desired) {{
-                        status.textContent = "✅ Mindfulness logged";
-                        status.style.color = "#a7d8c4";
-                    }} else {{
-                        status.textContent = "↩️ Mindfulness cleared";
-                        status.style.color = "#9ca3af";
-                    }}
-                }}
-            }} else {{
-                input.checked = !desired;
-                if (status) {{
-                    status.textContent = "❌ Mindfulness save failed. Retry from http://127.0.0.1:8765/dashboard";
-                    status.style.color = "#d4a0a0";
-                }}
-            }}
-        }} catch (err) {{
-            input.checked = !desired;
-            if (status) {{
-                status.textContent = `❌ Mindfulness save failed: ${{(err && err.message) ? err.message : "unknown error"}}`;
-                status.style.color = "#d4a0a0";
-            }}
-        }} finally {{
-            input.disabled = false;
-            qaMindfulnessSaving = false;
-            qaMindfulnessDesiredDone = null;
-        }}
-    }}
-
-    async function qaQuickToggleMindfulness(input) {{
-        if (!input) return;
-        const main = document.getElementById("qa-mindfulness-check");
-        if (main) {{
-            main.checked = Boolean(input.checked);
-            await qaToggleMindfulness(main);
-            input.checked = Boolean(main.checked);
-            return;
-        }}
-        await qaToggleMindfulness(input);
     }}
 
     function qaMoodSummary(state) {{
@@ -11325,7 +11372,7 @@ def generate_html(data):
         const painInput = document.getElementById("qa-wc-pain");
         const energyInput = document.getElementById("qa-wc-energy");
         if (rpeInput) rpeInput.value = Number.isFinite(rpe) ? String(Math.max(1, Math.min(10, Math.round(rpe)))) : "";
-        if (painInput) painInput.value = Number.isFinite(pain) ? String(Math.max(0, Math.min(10, Math.round(pain)))) : "";
+        if (painInput) painInput.value = Number.isFinite(pain) ? String(qaClampAnxietyScore(pain)) : "";
         if (energyInput) energyInput.value = Number.isFinite(energy) ? String(Math.max(1, Math.min(10, Math.round(energy)))) : "";
 
         const feedback = (safeState.session_feedback && typeof safeState.session_feedback === "object") ? safeState.session_feedback : {{}};
@@ -11352,7 +11399,7 @@ def generate_html(data):
         if (noteInput) noteInput.value = String(feedback.session_note || "").slice(0, 280);
         const anxietyVal = Number(feedback.anxiety_reduction_score);
         if (anxietyInput && Number.isFinite(anxietyVal) && !String(anxietyInput.value || "").trim()) {{
-            anxietyInput.value = String(Math.max(0, Math.min(10, Math.round(anxietyVal))));
+            anxietyInput.value = String(qaClampAnxietyScore(anxietyVal));
         }}
         qaApplyYogaFeedbackPrompt({{ autoOpen: false }});
     }}
@@ -11387,6 +11434,7 @@ def generate_html(data):
             const energyAfter = qaParseOptionalIntInput("qa-wc-energy", 1, 10);
             const durationMinutes = qaParseOptionalIntInput("qa-wc-duration", 5, 240);
             const anxietyScore = qaParseOptionalIntInput("qa-wc-anxiety", 0, 10);
+            const shouldSaveAnxiety = anxietyScore !== null && qaAnxietyUserModified;
             const intensitySelect = document.getElementById("qa-wc-intensity");
             const sessionTypeSelect = document.getElementById("qa-wc-session-type");
             const bodyFeelSelect = document.getElementById("qa-wc-body-feel");
@@ -11494,7 +11542,7 @@ def generate_html(data):
             }}
 
             let anxietySaved = false;
-            if (anxietyScore !== null) {{
+            if (shouldSaveAnxiety) {{
                 const anxietyResult = await qaPostWithRetry("/v1/ui/interventions/rating", {{
                     score: anxietyScore,
                     date: qaEffectiveDateKey(),
@@ -11502,6 +11550,8 @@ def generate_html(data):
                 }}, {{ retries: 1, label: "anxiety score" }});
                 if (anxietyResult && Number.isFinite(Number(anxietyResult.score))) {{
                     qaApplyAnxietyScore(Number(anxietyResult.score));
+                    qaSavedAnxietyScore = qaClampAnxietyScore(Number(anxietyResult.score));
+                    qaAnxietyUserModified = false;
                     anxietySaved = true;
                 }}
             }}
@@ -11827,6 +11877,7 @@ def generate_html(data):
     qaUpdateQuickDoneMeta();
     qaApplyLocalCompletionUi();
     qaStartLeaderCoordination();
+    qaStartRenderEvents();
     qaSyncTodayFromApi({{ force: true }});
     setTimeout(() => {{ qaRetryPendingCompletions(); }}, 2000);
     setTimeout(() => {{ qaRetryPendingScratch(); }}, 2200);
@@ -13415,7 +13466,7 @@ def generate_html(data):
                 if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
             }}
             // Small grace period after taps/drags to avoid interrupting interaction.
-            if ((Date.now() - lastInteractionAt) < 6000) return true;
+            if ((Date.now() - lastInteractionAt) < 1800) return true;
             return false;
         }}
 
@@ -13687,8 +13738,8 @@ def generate_html(data):
                 }} else {{
                     qaUpdateSyncPauseUi();
                 }}
-            }}, 30000);
-        }}, 15000);
+            }}, 10000);
+        }}, 5000);
         window.setInterval(() => {{
             if (document.hidden) return;
             qaUpdateSyncPauseUi();

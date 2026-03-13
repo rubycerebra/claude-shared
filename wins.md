@@ -53,15 +53,6 @@ This file captures completed work with evidence. Your brain forgets - this file 
 **Average:** 3.5 per week (on track)
 **Interviews secured:** 1 (Indigo - Thu 22 Jan)
 
-1. **SOAS - College Research Coordinator** (Jan 13)
-   - Evidence: Applied £35-42k, deadline 8 Feb
-   - Status: Submitted
-
-2. **Disney - Acquisitions Coordinator** (Jan 16)
-   - Evidence: Gmail "Your Disney Careers Application Is In!"
-   - Status: ❌ Rejected (21 Jan)
-   - Note: Priority target, matched previous experience
-
 ### System Building (Jan 13)
 
 **Claude Life Assistant Integration System** ✅
@@ -7036,3 +7027,17 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-12] Got over anxiety in the middle of sustained focus (via Pieces)
 - [2026-03-12] Stayed grounded with good Claude boundaries even while in flow (via Pieces)
 - [2026-03-12] Did therapy work, wrote notes, and reached out to Janna (via Pieces)
+- [2026-03-12] Ate well, did your diary and habits, and persevered (via Pieces)
+- [2026-03-12] Multi-hour focused work on the therapy integration project—a substantial build you didn't plan but executed fully (via Pieces)
+- [2026-03-12] Moved through anxiety and found solid ground instead of spiraling (via Pieces)
+- [2026-03-12] Stayed present and kind with people you care about despite emotional difficulty (via Pieces)
+- [2026-03-12] Reached out to Janna to apologize (via Pieces)
+- [2026-03-13] Did therapy and wrote therapy notes (via Pieces)
+- [2026-03-13] Tried to tell Janna you’re sorry (via Pieces)
+- [2026-03-13] Persevered and got over anxiety (via Pieces)
+- [2026-03-13] Got Janna a present and got Mum a present (via Pieces)
+- [2026-03-13] Kept going through anxiety and persevered (via Pieces)
+- [2026-03-13] Got presents for Janna and Mum (via Pieces)
+- [2026-03-13] Got over anxiety and persevered (via Pieces)
+- [2026-03-13] Got Janna and Mum presents (via Pieces)
+- [2026-03-13] Printed things for the girls (via Pieces)

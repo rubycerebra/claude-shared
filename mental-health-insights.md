@@ -273,14 +273,14 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-12 (hash: e8f6059edabdd48a)*
+*Auto-synced from Pieces persona summary on 2026-03-13 (hash: dde3dd19b985086b)*
 
 ### Job search anxiety patterns
-- Jess Weatherbed is identified as an **author** (observed in 3 events in Readwise Inbox content). Her professional work seen through the observer's lens indicates a focus on **technology journalism**, specifically contributing to "The Verge - All Posts" (observed in 3 events in Re
+- Sally Cherry** is firmly established as James Cherry's wife and an indispensable figure in their family life, maintaining strong oversight of household operations and their children's activities. Her pivotal role in family logistics and co-parenting continues to be consistently r
+- Who They Are
 
 ### Coping mechanisms Pieces has observed
-- Jess Weatherbed** is a professional, likely a technology journalist or writer, who also appears to be a personal friend of the observer, James Cherry. Based on observed interactions, she is an author of technology articles and shares a social connection with James, including fami
-- Jess Weatherbed is identified as an **author** (observed in 3 events in Readwise Inbox content). Her professional work seen through the observer's lens indicates a focus on **technology journalism**, specifically contributing to "The Verge - All Posts" (observed in 3 events in Re
+- Sally Cherry's identity as James Cherry's wife and a central, active
 
 ### Work habits Pieces has observed
-- Jess Weatherbed is identified as an **author** (observed in 3 events in Readwise Inbox content). Her professional work seen through the observer's lens indicates a focus on **technology journalism**, specifically contributing to "The Verge - All Posts" (observed in 3 events in Re
+- Sally Cherry** is firmly established as James Cherry's wife and an indispensable figure in their family life, maintaining strong oversight of household operations and their children's activities. Her pivotal role in family logistics and co-parenting continues to be consistently r
