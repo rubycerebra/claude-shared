@@ -359,6 +359,11 @@ This file captures completed work with evidence. Your brain forgets - this file 
 - Did therapy. Wrote therapy notes. Tried to tell Janna I'm sorry. Got hairspray. Got Janna a present. Got Mum a present. Printed things for the girls. Spoke to Jess. Got over anxiety. Found solace in my situation. Didn't get carried away with Claude. Ate well. Did diary. Did habits. Got the girls chocolate. Showered. Watched a film. Persevered.
 - Brave: In therapy, I talked about where I was wrong and unfair to Janna. I took responsibility, and now I need to be brave and be an adult.
 
+**Saturday Mar 14:**
+✅ Other
+- Get back up again
+
+
 
 
 ---
@@ -370,6 +375,17 @@ When anxiety says "I'm behind" - check the numbers.
 Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: Interview secured and completed successfully. Check journal entries for evidence.
 
 
+
+### Auto completion sync (2026-03-13)
+**Week 10 (Mar 9-15) — showed up anyway:**
+- 🏋️ Fitness: 2×9 @ 15lb completed (progression rung hit)
+- 💪 Health: avg 10,381 steps/day, 53.8 exercise min/day, resting HR 58.75 bpm (Week 11 digest)
+- 🫀 Mar 12: 14,222 steps, 90 exercise minutes, HRV 30, 10 mindful minutes
+- 🌱 Therapy (Mar 12): Did therapy, wrote notes, took responsibility in session — brave self-reflection
+- 👨‍👩‍👧 Family care: Got presents for Janna, Mum, and the girls; spoke to Jess; found solace
+- 📔 Logged all 7 journal days (W11 digest confirmation)
+- ✅ Kept habits running across a difficult week with anxiety and fatigue in the background
+- 🧘 Persevered — ate well, did diary, watched a film, kept going
 
 ### Auto completion sync (2026-02-26)
 **Thursday Feb 26:**
@@ -7041,3 +7057,82 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-13] Got over anxiety and persevered (via Pieces)
 - [2026-03-13] Got Janna and Mum presents (via Pieces)
 - [2026-03-13] Printed things for the girls (via Pieces)
+- [2026-03-13] Got over anxiety and found solace in your situation (via Pieces)
+- [2026-03-13] Ate well, showered, and persevered (via Pieces)
+- [2026-03-13] Got gifts for Janna and your mum (via Pieces)
+- [2026-03-13] Booked a Royal Mail redelivery for Monday, March 16, 2026 (via Pieces)
+- [2026-03-13] Ate well, showered, and persevered through anxiety (via Pieces)
+- [2026-03-13] Booked the Royal Mail redelivery for Monday, March 16, 2026 (via Pieces)
+- [2026-03-13] Tried to repair things by apologising to Janna (via Pieces)
+- [2026-03-13] Booked a Royal Mail redelivery for your parcel for Monday, March 16, 2026 (via Pieces)
+- [2026-03-13] Set up two-way calendar and task syncing to make your day easier to manage (via Pieces)
+- [2026-03-13] Created a new self-care/therapy completion feedback loop so your progress is visible (via Pieces)
+- [2026-03-13] Set up two automatic routines to track completed tasks and review therapy-related progress (via Pieces)
+- [2026-03-13] Connected Todoist with Google Calendar in both directions so tasks and time blocks stay in sync (via Pieces)
+
+### Auto completion sync (2026-03-13)
+**Friday Mar 13:**
+- Get back up again
+- [2026-03-13] Set up a stronger planning flow that links tasks, calendar time, and self-care follow-through (via Pieces)
+- [2026-03-13] Completed a deep morning reflection for your journal using AI support (via Pieces)
+- [2026-03-13] Built a stronger personal planning setup so routines, calendar blocks, and completed self-care habits are tracked together (via Pieces)
+- [2026-03-13] Booked the Royal Mail redelivery for your parcel to your home address for Monday, March 16, 2026 (via Pieces)
+- [2026-03-13] Completed a full morning self-reflection with AI support, covering mindset, wellbeing, gratitude, anxieties, and daily focus (via Pieces)
+- [2026-03-13] Built out a stronger personal planning flow linking tasks, calendar blocks, and follow-through tracking (via Pieces)
+- [2026-03-13] Completed a deep morning reflection covering mental and physical wellbeing, gratitude, and daily focus (via Pieces)
+- [2026-03-13] Set up a much stronger daily planning flow by connecting tasks, calendar timing, and wellbeing tracking (via Pieces)
+- [2026-03-13] Completed a full AI-supported morning reflection for your journal (via Pieces)
+- [2026-03-13] Set up your task and calendar system to work together with better routine support and follow-through (via Pieces)
+- [2026-03-13] Booked Royal Mail redelivery for Monday, March 16, 2026 (via Pieces)
+- [2026-03-13] Completed a deep morning self-reflection and transcription for Diarium (via Pieces)
+- [2026-03-13] Booked the Royal Mail parcel redelivery for Monday, March 16, 2026 (via Pieces)
+- [2026-03-13] Set up a stronger personal productivity flow by connecting tasks, calendar, and self-care feedback (via Pieces)
+- [2026-03-13] Set up stronger task/calendar routines that better support daily follow-through (via Pieces)
+- [2026-03-13] Completed a full AI-supported morning reflection for Diarium (via Pieces)
+- [2026-03-13] Set up a stronger planning flow that connects tasks with your calendar and highlights completed self-care progress (via Pieces)
+- [2026-03-13] Completed a deep morning self-reflection and transcription for your journal (via Pieces)
+- [2026-03-13] Set up stronger daily and weekly self-care tracking so completed actions are surfaced automatically (via Pieces)
+- [2026-03-13] Completed a full morning reflection for Diarium using AI support (via Pieces)
+- [2026-03-13] Set up a stronger daily planning system that links tasks with calendar time and follows up on completed self-care/therapy tasks (via Pieces)
+- [2026-03-13] Completed a full morning self-reflection (including gratitude, anxieties, and focus) and updated your fitness/travel plans (via Pieces)
+- [2026-03-15] Diagnosed and identified what's been making your Mac sluggish (via Pieces)
+- [2026-03-15] Got Stream Deck software installed and ready to use (via Pieces)
+- [2026-03-15] Created an automation script to help organize your tasks (via Pieces)
+- [2026-03-15] Figured out what was slowing down your Mac and identified the main culprit (via Pieces)
+- [2026-03-15] Got your Stream Deck up and running after the initial hiccup (via Pieces)
+- [2026-03-15] Built and deployed automation to improve how your tasks are organized (via Pieces)
+- [2026-03-15] Diagnosed and identified what was slowing down your Mac (via Pieces)
+- [2026-03-15] Got your Stream Deck set up and working (via Pieces)
+- [2026-03-15] Fixed the duplicate tasks bug in your to-do system (via Pieces)
+- [2026-03-15] Diagnosed the main causes of your Mac slowdown and identified what to tackle first (via Pieces)
+- [2026-03-15] Got Stream Deck software installed and reviewed after the earlier update setback (via Pieces)
+- [2026-03-15] Resolved the duplicate task issue in your Todoist workflow and validated the fix (via Pieces)
+- [2026-03-15] Diagnosed the main cause of your Mac slowdown and surfaced other apps contributing to it (via Pieces)
+- [2026-03-15] Installed and got familiar with the Stream Deck software after the earlier update issue (via Pieces)
+- [2026-03-15] Resolved a stubborn duplicate-task issue so completed tasks stop popping back up (via Pieces)
+- [2026-03-15] Tracked down the main cause of your Mac slowdown and identified the other apps adding pressure (via Pieces)
+- [2026-03-15] Recovered from an update failure and got the Stream Deck app installed and reviewed (via Pieces)
+- [2026-03-15] Fixed the task duplication/reappearing issue so your task flow is more reliable (via Pieces)
+- [2026-03-15] Diagnosed the main causes of your Mac slowdown and identified what to tame first (via Pieces)
+- [2026-03-15] Got Stream Deck software installed and explored after the earlier update failure (via Pieces)
+- [2026-03-15] Fixed duplicate and reappearing task issues in your Todoist workflow (via Pieces)
+- [2026-03-15] Diagnosed the main cause of your Mac slowdown and identified other apps adding pressure (via Pieces)
+- [2026-03-15] Got the Stream Deck software installed and explored the core interface after earlier connection issues (via Pieces)
+- [2026-03-15] Resolved the duplicate and reappearing task problem in your personal task workflow (via Pieces)
+- [2026-03-15] Pinpointed the main cause of your Mac slowdown and identified other heavy apps affecting performance (via Pieces)
+- [2026-03-15] Got Stream Deck software installed and explored the interface after earlier setup issues (via Pieces)
+- [2026-03-15] Stopped duplicate/reappearing tasks in your Todoist flow and stabilized your daily task view (via Pieces)
+- [2026-03-15] Got the Stream Deck app installed and explored after an earlier update/connectivity failure (via Pieces)
+- [2026-03-15] Diagnosed the main causes of your Mac slowdown and identified the heaviest apps (via Pieces)
+- [2026-03-15] Fixed the issue causing completed Todoist tasks to reappear, making your task flow more stable (via Pieces)
+- [2026-03-15] Got Stream Deck software installed and reviewed after the update issue (via Pieces)
+- [2026-03-15] Made strong progress fixing duplicate and reappearing tasks in your personal task flow (via Pieces)
+- [2026-03-15] Diagnosed what was slowing down your Mac and identified the main apps causing drag (via Pieces)
+- [2026-03-15] Got Stream Deck software installed and started using automation to support task flow (via Pieces)
+- [2026-03-15] Fixed the duplicate/reappearing task issue in your Todoist setup and strengthened the system against repeats (via Pieces)
+- [2026-03-15] Diagnosed what was slowing down the Mac and identified the main apps causing drag (via Pieces)
+- [2026-03-15] Fixed the repeating/duplicate Todoist task problem so your system is more trustworthy (via Pieces)
+- [2026-03-15] Started an AI-led redesign brief for a neurodivergent-friendly daily dashboard (via Pieces)
+- [2026-03-15] Diagnosed the main cause of your Mac slowdown and identified the biggest resource drain (via Pieces)
+- [2026-03-15] Stopped duplicate and reappearing tasks so your task list is cleaner and more trustworthy (via Pieces)
+- [2026-03-15] Completed an initial redesign of your Personal OS dashboard with a new five-tab structure (via Pieces)

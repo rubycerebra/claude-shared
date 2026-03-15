@@ -671,6 +671,20 @@ def _strip_updates_metadata(text):
     return cleaned
 
 
+def _sanitize_diarium_text_field(text):
+    """Defensive cleanup for leaked section markers/tracker lines in dashboard fields."""
+    value = str(text or "").strip()
+    if not value:
+        return ""
+    value = re.sub(r'\n+\s*##\.?\s*$', '', value)
+    value = re.sub(r'(?:^|\n)\s*##\.?\s*(?=\n|$)', '', value)
+    value = re.sub(r'^\s*Tracker\s*:.*$', '', value, flags=re.IGNORECASE | re.MULTILINE)
+    value = re.sub(r'^\s*Rating\s*:.*$', '', value, flags=re.IGNORECASE | re.MULTILINE)
+    value = re.sub(r'^\s*(Morning|Evening)\s*Mood(?:\s*Tag)?\s*:.*$', '', value, flags=re.IGNORECASE | re.MULTILINE)
+    value = re.sub(r'\n{3,}', '\n\n', value).strip()
+    return value
+
+
 def _is_effectively_empty_updates_text(text):
     """Treat punctuation-only/placeholder updates values as empty."""
     raw = str(text or "").strip()
@@ -1367,6 +1381,23 @@ def _count_open_issues_from_jsonl(project_path):
         return None
 
 
+def _count_open_issues(project_path):
+    """Count open beads, preferring SQLite source of truth and falling back to JSONL."""
+    import sqlite3
+
+    db_file = project_path / ".beads" / "beads.db"
+    if db_file.exists():
+        try:
+            conn = sqlite3.connect(str(db_file), timeout=2)
+            row = conn.execute("SELECT COUNT(*) FROM issues WHERE status = 'open'").fetchone()
+            conn.close()
+            if row:
+                return int(row[0] or 0)
+        except Exception:
+            pass
+    return _count_open_issues_from_jsonl(project_path)
+
+
 def _read_open_issues_from_jsonl(project_path, limit=160):
     """Read open beads from SQLite (source of truth), with JSONL fallback."""
     import sqlite3
@@ -1437,8 +1468,8 @@ def _runtime_open_bead_counts():
         if not project_path.exists():
             counts[project] = None
             continue
-        # Prefer JSONL count first for responsiveness.
-        quick = _count_open_issues_from_jsonl(project_path)
+        # Prefer SQLite source of truth; JSONL is only a fallback.
+        quick = _count_open_issues(project_path)
         if isinstance(quick, int):
             counts[project] = quick
             continue
@@ -1674,34 +1705,56 @@ def get_todays_workout():
                 "detail": "Daily calf stretch (3 mins) still applies", "exercises": [], "done": False}
 
 
-def _parse_tadah_from_journal(date_str):
-    """Extract ta-dah items from a journal file by date. Returns list of strings."""
+def _parse_tadah_from_journal(date_str, *, include_history=True):
+    """Extract ta-dah items for a given date. Returns list of strings.
+
+    Merges tadah-history.json (Diarium/daemon sourced) with the journal markdown.
+    Journal remains the richer source when present, but history is the fallback so
+    yesterday's ta-dahs do not disappear when the journal section is sparse.
+    """
+    history_items = []
+    if include_history:
+        history_path = Path.home() / ".claude" / "cache" / "tadah-history.json"
+        if history_path.exists():
+            try:
+                history = json.loads(history_path.read_text())
+                entry = history.get(date_str, {})
+                for row in entry.get("items", []):
+                    text = row.get("text", "") if isinstance(row, dict) else str(row)
+                    text = text.strip().lstrip("-* ").strip()
+                    if text and len(text) > 2 and text.lower() not in ("list", ""):
+                        history_items.append(text)
+            except Exception:
+                pass
+
+    journal_items = []
     journal_file = JOURNAL_DIR / f"{date_str}.md"
-    if not journal_file.exists():
-        return []
-    try:
-        content = journal_file.read_text()
-        # Find ta-dah section (case-insensitive, various formats)
-        match = re.search(r'(?i)(?:ta.?dah|accomplishment).*?\n((?:[-*].*\n)*)', content)
-        if not match:
-            return []
-        items = []
-        for line in match.group(1).strip().split('\n'):
-            line = line.strip().lstrip('-*').strip()
-            if not line or len(line) <= 2:
-                continue
-            # Skip workout detail lines (numbered exercises, reps, weights)
-            if re.match(r'^\d+\.?\s*\*?\*?[A-Z]', line):
-                continue
-            if re.match(r'^\d+\s*(lbs?|kg|reps?|sets?)$', line, re.IGNORECASE):
-                continue
-            # Strip inline markdown headers from ta-dah items (e.g. "Weights! ### Workout B")
-            line = re.sub(r'\s*###?\s*.*$', '', line).strip()
-            if line:
-                items.append(line)
-        return items
-    except Exception:
-        return []
+    if journal_file.exists():
+        try:
+            content = journal_file.read_text()
+            match = re.search(r'(?i)(?:ta.?dah|accomplishment).*?\n((?:[-*].*\n)*)', content)
+            if match:
+                for line in match.group(1).strip().split('\n'):
+                    line = line.strip().lstrip('-*').strip()
+                    if not line or len(line) <= 2:
+                        continue
+                    if re.match(r'^\d+\.?\s*\*?\*?[A-Z]', line):
+                        continue
+                    if re.match(r'^\d+\s*(lbs?|kg|reps?|sets?)$', line, re.IGNORECASE):
+                        continue
+                    line = re.sub(r'\s*###?\s*.*$', '', line).strip()
+                    if line:
+                        journal_items.append(line)
+        except Exception:
+            pass
+
+    seen = {t.lower() for t in journal_items}
+    merged = list(journal_items)
+    for text in history_items:
+        if text.lower() not in seen:
+            merged.append(text)
+            seen.add(text.lower())
+    return merged
 
 
 def _parse_updates_from_journal(date_str):
@@ -1957,7 +2010,7 @@ def get_tadah():
             pass
 
     # Also read today's ta-dahs from journal markdown (user writes here before Diarium syncs)
-    journal_tadah_today = _parse_tadah_from_journal(today)
+    journal_tadah_today = _parse_tadah_from_journal(today, include_history=False)
     if journal_tadah_today:
         today_items = [
             row for row in today_items
@@ -1996,7 +2049,7 @@ def get_tadah():
 
     # Yesterday remains explicit context only (never merged into today's list)
     try:
-        yesterday_tadah = _parse_tadah_from_journal(yesterday)
+        yesterday_tadah = _parse_tadah_from_journal(yesterday, include_history=True)
     except Exception:
         yesterday_tadah = []
 
@@ -6287,68 +6340,100 @@ def generate_html(data):
         {felt_parts}
     </div>'''
 
-    # Beads maintenance tasks (collapsed at bottom)
+    # Open beads snapshot (collapsed at bottom)
     backlog_html = ""
     try:
         import subprocess
         # Optional backlog section should never block dashboard generation.
-        health_path = Path.home() / "Documents/Claude Projects/HEALTH"
-        beads = _read_open_issues_from_jsonl(health_path, limit=200)
-        if not beads:
-            try:
-                result = subprocess.run(
-                    ["bd", "list", "--status=open", "--json"],
-                    cwd=health_path,
-                    capture_output=True,
-                    text=True,
-                    timeout=12,
-                )
-                if result.returncode == 0:
-                    parsed = json.loads(result.stdout or "[]")
-                    if isinstance(parsed, list):
-                        beads = parsed
-            except subprocess.TimeoutExpired:
-                beads = []
-            except Exception:
-                beads = []
+        base = Path.home() / "Documents/Claude Projects"
+        project_defs = [("TODO", base / "TODO"), ("HEALTH", base / "HEALTH"), ("WORK", base / "WORK")]
+        all_beads = []
+        repo_counts = []
 
-        if beads:
-            # Group by priority
-            p1_beads = [b for b in beads if b.get("priority") == 1]
-            p2_beads = [b for b in beads if b.get("priority") == 2]
-            p3_beads = [b for b in beads if b.get("priority") == 3]
+        for repo_name, project_path in project_defs:
+            if not project_path.exists():
+                continue
+            repo_beads = _read_open_issues_from_jsonl(project_path, limit=80)
+            if not repo_beads:
+                try:
+                    result = subprocess.run(
+                        ["bd", "list", "--status=open", "--json"],
+                        cwd=project_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=12,
+                    )
+                    if result.returncode == 0:
+                        parsed = json.loads(result.stdout or "[]")
+                        if isinstance(parsed, list):
+                            repo_beads = parsed
+                except subprocess.TimeoutExpired:
+                    repo_beads = []
+                except Exception:
+                    repo_beads = []
+
+            repo_count = _count_open_issues(project_path)
+            if isinstance(repo_count, int):
+                repo_counts.append(f"{repo_name} {repo_count}")
+
+            for bead in repo_beads:
+                if not isinstance(bead, dict):
+                    continue
+                row = dict(bead)
+                row["_repo"] = repo_name
+                all_beads.append(row)
+
+        if all_beads:
+            def _priority_val(bead):
+                try:
+                    return int(bead.get("priority", 99) or 99)
+                except Exception:
+                    return 99
+
+            def _updated_key(bead):
+                for key in ("updated_at", "updated", "created_at", "created"):
+                    raw = str(bead.get(key, "")).strip()
+                    if raw:
+                        return raw
+                return ""
 
             # Type icons
             type_icons = {"epic": "🎯", "task": "📋", "chore": "🔧", "feature": "✨", "bug": "🐛"}
+            repo_colors = {
+                "TODO": "#c4b5fd",
+                "HEALTH": "#a7d8c4",
+                "WORK": "#93c5fd",
+            }
 
-            if p1_beads or p2_beads or p3_beads:
-                beads_lines = []
+            all_beads.sort(key=lambda bead: _updated_key(bead), reverse=True)
+            all_beads.sort(key=lambda bead: _priority_val(bead))
+            featured = all_beads[:8]
 
-                # P1 (High Priority)
-                if p1_beads:
-                    beads_lines.append('<p class="text-xs font-semibold mt-2 mb-1" style="color: #ef4444">🔥 Priority 1 (High)</p>')
-                    for bead in p1_beads[:5]:
-                        icon = type_icons.get(bead.get("issue_type", "task"), "📋")
-                        beads_lines.append(f'<p class="text-xs py-1" style="color: #9ca3af; border-bottom: 1px solid rgba(75,85,99,0.2)">{icon} {bead["id"]}: {bead["title"]}</p>')
+            beads_lines = []
+            for bead in featured:
+                icon = type_icons.get(bead.get("issue_type", "task"), "📋")
+                repo = str(bead.get("_repo", "")).strip().upper() or "TODO"
+                repo_color = repo_colors.get(repo, "#9ca3af")
+                bead_id = html.escape(str(bead.get("id", "")))
+                title = html.escape(str(bead.get("title", "") or "").strip())
+                beads_lines.append(
+                    f'<div class="text-xs py-1.5" style="color:#9ca3af;border-bottom:1px solid rgba(75,85,99,0.2)">'
+                    f'<span style="display:inline-block;min-width:3.5rem;color:{repo_color};font-weight:600">{repo}</span> '
+                    f'{icon} {bead_id}: {title}</div>'
+                )
 
-                # P2 (Medium Priority)
-                if p2_beads:
-                    beads_lines.append('<p class="text-xs font-semibold mt-3 mb-1" style="color: #d4b896">📌 Priority 2 (Medium)</p>')
-                    for bead in p2_beads[:5]:
-                        icon = type_icons.get(bead.get("issue_type", "task"), "📋")
-                        beads_lines.append(f'<p class="text-xs py-1" style="color: #9ca3af; border-bottom: 1px solid rgba(75,85,99,0.2)">{icon} {bead["id"]}: {bead["title"]}</p>')
-
-                # P3 summary (don't list all)
-                if p3_beads:
-                    beads_lines.append(f'<p class="text-xs mt-3" style="color: #6b7280">💡 {len(p3_beads)} low-priority tasks in backlog</p>')
-
-                total_count = len(p1_beads) + len(p2_beads) + len(p3_beads)
-                backlog_html = f'''
+            hidden_count = max(0, len(all_beads) - len(featured))
+            counts_text = " • ".join(repo_counts)
+            extra_note = f'<p class="text-xs mt-2" style="color:#6b7280">+ {hidden_count} more open beads</p>' if hidden_count else ""
+            counts_note = f'<p class="text-xs mt-1" style="color:#6b7280">{html.escape(counts_text)}</p>' if counts_text else ""
+            backlog_html = f'''
     <details class="card" style="border: 1px solid rgba(75,85,99,0.15)">
-        <summary class="cursor-pointer text-sm" style="color: #6b7280">🎯 Maintenance Tasks ({total_count} open)</summary>
+        <summary class="cursor-pointer text-sm" style="color: #6b7280">🎯 Open Beads ({len(all_beads)} open)</summary>
         <div class="mt-3">
+            {counts_note}
             {"".join(beads_lines)}
-            <p class="text-xs mt-3" style="color: #4b5563">Run <code>bd ready</code> to see what's ready to work on</p>
+            {extra_note}
+            <p class="text-xs mt-3" style="color: #4b5563">Live from bead DBs across TODO / HEALTH / WORK.</p>
         </div>
     </details>'''
     except Exception:
@@ -7330,82 +7415,84 @@ def generate_html(data):
 
         def _render_todoist_rows(tasks, *, card_key):
             _sorted = sorted(tasks, key=_todoist_sort_key)
-            _by_project = {}
-            for _task in _sorted:
-                _pname = _task.get("project_name", "") or "Inbox"
-                _by_project.setdefault(_pname, []).append(_task)
-
             _rows = ""
             _count = 0
-            for proj_name, proj_tasks in _by_project.items():
-                proj_key = proj_name.strip().lower()
-                _pc = _proj_colors.get(proj_key, _proj_default_color)
-                _rows += f'<p class="text-xs font-semibold mb-1 mt-2" style="color: {_pc["color"]}">{html.escape(proj_name)}</p>'
-                for t in proj_tasks:
-                    _tid = html.escape(str(t.get("id", "")), quote=True)
-                    _content = html.escape(str(t.get("content", ""))[:180])
-                    _url = str(t.get("url", "")).strip()
-                    _pri = int(t.get("priority", 1) or 1)
-                    _ps = _pri_styles.get(_pri, _pri_styles[1])
-                    _due_date = str(t.get("due_date", "") or "")
-                    _due_dt = str(t.get("due_datetime", "") or "")
-                    _dur = t.get("duration")
-                    _dur_unit = t.get("duration_unit", "minute")
-                    _labels = [str(lbl).strip() for lbl in (t.get("labels", []) or []) if str(lbl).strip()]
-                    _count += 1
+            for t in _sorted:
+                _tid = html.escape(str(t.get("id", "")), quote=True)
+                _content = html.escape(str(t.get("content", ""))[:180])
+                _url = str(t.get("url", "")).strip()
+                _pri = int(t.get("priority", 1) or 1)
+                _ps = _pri_styles.get(_pri, _pri_styles[1])
+                _due_date = str(t.get("due_date", "") or "")
+                _due_dt = str(t.get("due_datetime", "") or "")
+                _dur = t.get("duration")
+                _dur_unit = t.get("duration_unit", "minute")
+                _labels = [str(lbl).strip() for lbl in (t.get("labels", []) or []) if str(lbl).strip()]
+                _project_name = str(t.get("project_name", "") or "Inbox").strip() or "Inbox"
+                _count += 1
 
-                    _due_html = ""
-                    if _due_dt:
-                        try:
-                            _dt = datetime.fromisoformat(_due_dt.replace("Z", "+00:00"))
-                            _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{_dt.strftime("%H:%M")}</span>'
-                        except Exception:
-                            _due_html = ""
-                    elif _due_date and _due_date != _effective:
-                        _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{html.escape(_due_date)}</span>'
+                _due_html = ""
+                if _due_dt:
+                    try:
+                        _dt = datetime.fromisoformat(_due_dt.replace("Z", "+00:00"))
+                        _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{_dt.strftime("%H:%M")}</span>'
+                    except Exception:
+                        _due_html = ""
+                elif _due_date and _due_date != _effective:
+                    _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{html.escape(_due_date)}</span>'
 
-                    _dur_html = ""
-                    if _dur:
-                        _dur_label = f"{_dur}m" if _dur_unit == "minute" else f"{_dur}d"
-                        _dur_html = f'<span class="inline-pill" style="background:rgba(88,28,135,0.15);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2);">⏱ {_dur_label}</span>'
+                _dur_html = ""
+                if _dur:
+                    _dur_label = f"{_dur}m" if _dur_unit == "minute" else f"{_dur}d"
+                    _dur_html = f'<span class="inline-pill" style="background:rgba(88,28,135,0.15);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2);">⏱ {_dur_label}</span>'
 
-                    _labels_html = ""
-                    for _lbl in _labels[:3]:
-                        _labels_html += f'<span class="inline-pill" style="background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.16);font-weight:500;">{html.escape(str(_lbl))}</span>'
-
-                    _meta_parts = []
-                    if _due_html:
-                        _meta_parts.append(_due_html)
-                    if _dur_html:
-                        _meta_parts.append(_dur_html)
-                    if _labels_html:
-                        _meta_parts.append(_labels_html)
-                    _meta_line = " ".join(_meta_parts)
-
-                    _pri_class = {4: "p1", 3: "p2", 2: "p3"}.get(_pri, "p4")
-
-                    if _url:
-                        _esc_url = html.escape(_url, quote=True)
-                        _content_html = f'<span onclick="window.location.href=\'{_esc_url}\'" style="cursor:pointer;">{_content}</span>'
-                        _open_action_html = (
-                            f'<span onclick="window.location.href=\'{_esc_url}\'" '
-                            f'class="todo-act todo-act--open" title="Open in Todoist">↗</span>'
-                        )
-                    else:
-                        _content_html = _content
-                        _open_action_html = ''
-
-                    _schedule_html = (
-                        '<details data-qa-schedule-wrap="1">'
-                        f'<summary class="todo-act todo-act--schedule" title="Reschedule">📅</summary>'
-                        '<div style="position:absolute;right:0;top:calc(100% + 4px);display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;min-width:220px;padding:6px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary btn--xs">Tomorrow</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary btn--xs">Next week</button>'
-                        f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary btn--xs">No date</button>'
-                        '</div></details>'
+                _project_html = ""
+                if _project_name.lower() != "inbox":
+                    _pc = _proj_colors.get(_project_name.lower(), _proj_default_color)
+                    _project_html = (
+                        f'<span class="inline-pill" style="background:{_pc["bg"]};color:{_pc["color"]};'
+                        f'border:1px solid rgba(148,163,184,0.18);font-weight:600;">{html.escape(_project_name)}</span>'
                     )
 
-                    _rows += f'''
+                _labels_html = ""
+                for _lbl in _labels[:3]:
+                    _labels_html += f'<span class="inline-pill" style="background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.16);font-weight:500;">{html.escape(str(_lbl))}</span>'
+
+                _meta_parts = []
+                if _project_html:
+                    _meta_parts.append(_project_html)
+                if _due_html:
+                    _meta_parts.append(_due_html)
+                if _dur_html:
+                    _meta_parts.append(_dur_html)
+                if _labels_html:
+                    _meta_parts.append(_labels_html)
+                _meta_line = " ".join(_meta_parts)
+
+                _pri_class = {4: "p1", 3: "p2", 2: "p3"}.get(_pri, "p4")
+
+                if _url:
+                    _esc_url = html.escape(_url, quote=True)
+                    _content_html = f'<span onclick="window.location.href=\'{_esc_url}\'" style="cursor:pointer;">{_content}</span>'
+                    _open_action_html = (
+                        f'<span onclick="window.location.href=\'{_esc_url}\'" '
+                        f'class="todo-act todo-act--open" title="Open in Todoist">↗</span>'
+                    )
+                else:
+                    _content_html = _content
+                    _open_action_html = ''
+
+                _schedule_html = (
+                    '<details data-qa-schedule-wrap="1">'
+                    f'<summary class="todo-act todo-act--schedule" title="Reschedule">📅</summary>'
+                    '<div style="position:absolute;right:0;top:calc(100% + 4px);display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;min-width:220px;padding:6px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
+                    f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary btn--xs">Tomorrow</button>'
+                    f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary btn--xs">Next week</button>'
+                    f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary btn--xs">No date</button>'
+                    '</div></details>'
+                )
+
+                _rows += f'''
                 <div class="todo-row todo-row--{_pri_class}" data-todoist-id="{_tid}" data-todoist-card="{html.escape(card_key, quote=True)}">
                     <span onclick="qaTodoistCompleteFromButton(this)" class="todo-check" title="Complete task">&#10003;</span>
                     <div class="todo-body">
@@ -14005,8 +14092,8 @@ def main():
             "intent": ai_today.get("diarium_interpreted", {}).get("intent_core") or diarium_display.get("intent", ""),
             "affirmation": ai_today.get("diarium_interpreted", {}).get("affirmation_core") or diarium_display.get("daily_affirmation", ""),
             "emotional_summary": next((e.get("emotional_summary", "") for e in ai_today.get("entries", []) if e.get("source") == "morning"), ""),
-            "body_check": diarium_display.get("body_check", ""),
-            "letting_go": diarium_display.get("letting_go", ""),
+            "body_check": _sanitize_diarium_text_field(diarium_display.get("body_check", "")),
+            "letting_go": _sanitize_diarium_text_field(diarium_display.get("letting_go", "")),
             "mood_tag": morning_mood_tag,
         },
         "evening": {**_get_evening_data(diarium_display, ai_today), "mood_tag": evening_mood_tag},
