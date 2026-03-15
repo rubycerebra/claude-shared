@@ -3358,6 +3358,39 @@ def generate_html(data):
     )
     _current_hour = datetime.now().hour
 
+    _TRAVEL_EVENT_KEYWORDS = ("bristol", "parkway", "train", "travel", "journey", "leave", "home")
+    _STALE_TRIP_MARKERS = (
+        "suitcase", "bristol", "parkway", "earlier train",
+        "train option", "train options", "after the walk", "get the girls to",
+    )
+    _future_travel_blocks = []
+    for _event in (data.get("calendar_raw", []) if isinstance(data.get("calendar_raw", []), list) else []):
+        if not isinstance(_event, dict):
+            continue
+        _summary = str(_event.get("summary", "") or "").strip()
+        if not _summary:
+            continue
+        _summary_lower = _summary.lower()
+        if not any(_kw in _summary_lower for _kw in _TRAVEL_EVENT_KEYWORDS):
+            continue
+        _start_raw = str(_event.get("start", "") or "").strip()
+        if "T" in _start_raw:
+            try:
+                _start_dt = datetime.fromisoformat(_start_raw.replace("Z", "+00:00"))
+            except Exception:
+                _start_dt = None
+            if _start_dt and _start_dt < datetime.now(_start_dt.tzinfo) - timedelta(hours=2):
+                continue
+        _future_travel_blocks.append(_summary_lower)
+
+    def _is_stale_trip_prep_task(task_text: str) -> bool:
+        _text = str(task_text or "").strip().lower()
+        if not _text:
+            return False
+        if not any(_marker in _text for _marker in _STALE_TRIP_MARKERS):
+            return False
+        return not bool(_future_travel_blocks)
+
     # State-backed carry-forward: keep unresolved action items visible across transient source gaps.
     for persisted in (_persisted_action_rows or {}).values():
         persisted_text = str(persisted.get("text", "")).strip()
@@ -3506,6 +3539,8 @@ def generate_html(data):
                 or (target_date and target_date > _effective_today)
             )
             due_today_flag = bool(item.get("due_today_override"))
+            if _is_stale_trip_prep_task(item.get("task", "")):
+                continue
             if target_date and target_date > _effective_today:
                 due_today_flag = False
             if (_is_future_facing_task(item.get("task", "")) or force_tomorrow_queue) and not due_today_flag:
@@ -4352,11 +4387,16 @@ def generate_html(data):
             confidence_map = {"high": "High confidence", "medium": "Medium confidence", "low": "Low confidence"}
             confidence_text = confidence_map.get(confidence, "Medium confidence")
             source_text = "AI selected" if path_used.startswith("ai") else "Heuristic fallback"
-
             steps_html = ""
             for step in steps[:3]:
                 step_text = str(step).strip()
                 if not step_text:
+                    continue
+                _step_lower = step_text.lower()
+                if (
+                    any(_marker in _step_lower for _marker in _STALE_TRIP_MARKERS)
+                    and not bool(_future_travel_blocks)
+                ):
                     continue
                 steps_html += f'<li class="text-sm mb-1" style="color: #e2e8f0; line-height: 1.45;">{html.escape(step_text)}</li>'
 
@@ -4860,6 +4900,19 @@ def generate_html(data):
             else:
                 progression_line = f"Mental-health progression: {float(combined_score_raw):.1f}/10"
 
+        if mindfulness_auto_from_healthfit and minutes_done > 0:
+            mindfulness_source_line = f"Auto-logged from Apple Health · {minutes_done}m captured"
+        elif mindfulness_auto_from_healthfit:
+            mindfulness_source_line = "Auto-logged from Apple Health"
+        elif mindfulness_auto_from_finch and minutes_done > 0:
+            mindfulness_source_line = f"Auto-logged from Finch · {minutes_done}m captured"
+        elif mindfulness_auto_from_finch:
+            mindfulness_source_line = "Auto-logged from Finch"
+        elif minutes_done > 0:
+            mindfulness_source_line = f"Logged today · {minutes_done}m"
+        else:
+            mindfulness_source_line = "Logged today"
+
         if mindfulness_done:
             mindfulness_html = f'''
             <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.08); border: 1px solid rgba(147,197,253,0.15);">
@@ -4870,7 +4923,7 @@ def generate_html(data):
                     </summary>
                     <div class="mt-3">
                         <p id="qa-mindfulness-meta" class="text-xs" style="color: {status_color}">{html.escape(status_text)}</p>
-                        <p class="text-xs mt-1" style="color: #6b7280">Auto-detected from Apple Health</p>
+                        <p class="text-xs mt-1" style="color: #6b7280">{html.escape(mindfulness_source_line)}</p>
                     </div>
                 </details>
             </div>'''
@@ -4879,7 +4932,7 @@ def generate_html(data):
             <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.2);">
                 <h3 class="text-lg font-semibold mb-2" style="color: #a8c4e0">🧠 Mindfulness</h3>
                 <p id="qa-mindfulness-meta" class="text-sm" style="color: {status_color}">{html.escape(status_text)}</p>
-                <p class="text-xs mt-1" style="color: #6b7280">Auto-detected from Apple Health</p>
+                <p class="text-xs mt-1" style="color: #6b7280">{html.escape(mindfulness_source_line)}</p>
             </div>'''
 
     # === Finch Self-Care Tracker ===
@@ -6253,6 +6306,7 @@ def generate_html(data):
 
     # === How Today Felt (conclusion synthesis) — date-gated to today only ===
     how_felt_html = ""
+    how_felt_body_html = ""
     _how_felt_ai_today = get_ai_day(data.get("aiInsights", {}), get_effective_date())
     _how_felt_is_today = _how_felt_ai_today.get("status") == "success"
     emotional_summary = _pick_primary_summary_for_how_felt(_how_felt_ai_today) if _how_felt_is_today else ""
@@ -6334,6 +6388,7 @@ def generate_html(data):
             felt_parts += f'''
             <p class="text-sm" style="color: #d1d5db">{tone_emojis.get(tone, '🤔')} {tone.replace('_', ' ').title()}</p>'''
 
+        how_felt_body_html = felt_parts
         how_felt_html = f'''
     <div class="card" style="border: 1px solid rgba(196,181,253,0.1)">
         <h3 class="text-lg font-semibold mb-3" style="color: #c4b8e0">💭 How Today Felt</h3>
@@ -7376,6 +7431,7 @@ def generate_html(data):
     _todoist_data = data.get("todoist_tasks", {})
     _todoist_active = isinstance(_todoist_data, dict) and _todoist_data.get("status") == "ok"
     _todoist_card_html = ""
+    _claude_section_html = ""
     if _todoist_active:
         if _todoist_ensure_label is not None:
             try:
@@ -7385,6 +7441,14 @@ def generate_html(data):
 
         _todoist_all = _todoist_data.get("tasks", [])
         _effective = get_effective_date()
+
+        def _todoist_should_hide_task(task_text):
+            _text = str(task_text or "").strip().lower()
+            if not _text:
+                return False
+            if not any(_marker in _text for _marker in _STALE_TRIP_MARKERS):
+                return False
+            return not bool(_future_travel_blocks)
 
         # Priority colors: P1=high/red, P2=medium/yellow, P3=low/green, P4=normal/grey
         # Todoist API values: 4=P1(urgent), 3=P2(high), 2=P3(medium), 1=P4(none)
@@ -7525,6 +7589,8 @@ def generate_html(data):
         for t in _todoist_all:
             if not isinstance(t, dict):
                 continue
+            if _todoist_should_hide_task(t.get("content", "")):
+                continue
             _task_id = str(t.get("id", "") or "").strip()
             if _task_id and _task_id in _bell_linked_todoist_ids:
                 continue
@@ -7541,29 +7607,27 @@ def generate_html(data):
                 _todoist_today.append(t)
 
         _today_rows_html, _today_count = _render_todoist_rows(_todoist_today, card_key="today")
-        _claude_rows_html, _claude_count = _render_todoist_rows(_claude_tasks, card_key="today") if _claude_tasks else ("", 0)
+        _claude_rows_html, _claude_count = _render_todoist_rows(_claude_tasks, card_key="claude") if _claude_tasks else ("", 0)
 
-        _total_visible = _today_count + _claude_count
-        _today_summary_text = f"{_total_visible} {'task' if _total_visible == 1 else 'tasks'}"
+        _today_summary_text = f"{_today_count} {'task' if _today_count == 1 else 'tasks'}"
 
         if _today_count:
             _today_empty_html = ""
         elif _claude_count:
-            _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">No dated Today tasks — Claude-labelled tasks are surfaced below.</p>'
+            _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">No dated Today tasks right now.</p>'
         else:
             _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">Nothing scheduled — <a href="https://app.todoist.com/app/today" style="color: #93c5fd; text-decoration: underline;">open Todoist</a> to plan your day.</p>'
 
-        _claude_section_html = ""
         if _claude_count:
             _claude_task_word = "task" if _claude_count == 1 else "tasks"
             _claude_section_html = (
-                '<div class="rounded-lg mt-3 p-3" style="background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.14);">'
-                '<div class="flex items-center gap-2 mb-2">'
-                '<p class="text-xs font-semibold" style="color:#c4b5fd;margin:0;">🏷️ Claude queue</p>'
+                '<details class="os-surface">'
+                '<summary class="cursor-pointer flex items-center gap-2" style="color:#e5e7eb; list-style:none;">'
+                '<span class="text-sm font-semibold" style="color:#c4b5fd;">🏷️ Claude maintenance queue</span>'
                 f'<span class="inline-pill" style="background:rgba(88,28,135,0.22);color:#ddd6fe;">{_claude_count} {_claude_task_word}</span>'
-                '</div>'
-                f'{_claude_rows_html}'
-                '</div>'
+                '</summary>'
+                f'<div class="mt-3">{_claude_rows_html}</div>'
+                '</details>'
             )
 
         _today_card_html = (
@@ -7574,7 +7638,6 @@ def generate_html(data):
             '</div>'
             f'{_today_empty_html}'
             f'{_today_rows_html}'
-            f'{_claude_section_html}'
             '<div id="qa-todoist-done-section" style="display:none;">'
             '<details style="margin-top:0.75rem;">'
             '<summary class="text-caption" style="color:#6b7280;cursor:pointer;user-select:none;padding:0.35rem 0;">✅ Completed</summary>'
@@ -10621,12 +10684,31 @@ function qaApplyTaDahFromScratch(scratchText) {{
     }}
 
     window.qaOpenWorkoutChecklist = function(scrollTo = false) {{
-        const details = document.getElementById("qa-workout-checklist");
-        if (!details) return;
-        details.open = true;
-        if (scrollTo && typeof details.scrollIntoView === "function") {{
-            details.scrollIntoView({{ behavior: "smooth", block: "center" }});
+        const openDetails = function() {{
+            const details = document.getElementById("qa-workout-checklist");
+            if (!details) return;
+            details.open = true;
+            if (scrollTo && typeof details.scrollIntoView === "function") {{
+                details.scrollIntoView({{ behavior: "smooth", block: "center" }});
+            }}
+            if (typeof details.focus === "function") {{
+                if (!details.hasAttribute("tabindex")) details.setAttribute("tabindex", "-1");
+                try {{
+                    details.focus({{ preventScroll: true }});
+                }} catch (_err) {{
+                    details.focus();
+                }}
+            }}
+        }};
+        if (typeof window.qaOsSetHashState === "function") {{
+            window.qaOsSetHashState(
+                {{ tab: "health", health: "activity" }},
+                scrollTo ? {{ focusTarget: "qa-workout-checklist" }} : {{}},
+            );
+            window.setTimeout(openDetails, scrollTo ? 140 : 80);
+            return;
         }}
+        openDetails();
     }};
 
     function qaWorkoutChecklistFeedbackState() {{
@@ -12019,10 +12101,774 @@ function qaApplyTaDahFromScratch(scratchText) {{
     if system_needs_attention:
         top_status_pills.append('<span class="status-pill-mini">🧰 System attention</span>')
     top_status_pills_html = (
-        f'<div class="top-status-row mt-3">{"".join(top_status_pills)}</div>'
+        f'<div class="top-status-row" style="margin-top:0.5rem;margin-bottom:0.25rem;opacity:0.7">{"".join(top_status_pills)}</div>'
         if top_status_pills else ""
     )
     weekly_nav_link_html = '<a href="#weekly">📅 Weekly</a>' if weekly_digest_html else ""
+
+    # === OS 3.0 tabbed shell (v1) ===
+    def _os3_week_key(date_text):
+        try:
+            iso = datetime.strptime(str(date_text), "%Y-%m-%d").date().isocalendar()
+            return f"{iso[0]}-W{int(iso[1]):02d}"
+        except Exception:
+            iso = datetime.now().date().isocalendar()
+            return f"{iso[0]}-W{int(iso[1]):02d}"
+
+    def _os3_weekly_reflections_path():
+        return Path.home() / ".claude" / "cache" / "dashboard-weekly-reflections.json"
+
+    def _os3_load_weekly_reflection_entry(week_key):
+        target = _os3_weekly_reflections_path()
+        try:
+            if target.exists():
+                payload = json.loads(target.read_text(encoding="utf-8"))
+                if isinstance(payload, dict):
+                    entries = payload.get("entries", {})
+                    if isinstance(entries, dict):
+                        entry = entries.get(week_key, {})
+                        if isinstance(entry, dict):
+                            return entry
+        except Exception:
+            pass
+        return {}
+
+    def _os3_format_saved_at(value):
+        raw = str(value or "").strip()
+        if not raw:
+            return ""
+        try:
+            stamp = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            return stamp.strftime("%b %d · %H:%M")
+        except Exception:
+            return raw[:16]
+
+    def _os3_parse_clock_fragment(fragment):
+        text = str(fragment or "").strip().lower().replace(".", ":")
+        if not text or "all day" in text:
+            return None
+        match = re.search(r"(?<!\d)(\d{1,2})(?::(\d{2}))?\s*(am|pm)(?!\w)", text)
+        if not match:
+            match = re.search(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)", text)
+        if not match:
+            return None
+        hour = int(match.group(1))
+        minute = int(match.group(2) or 0)
+        meridiem = (match.group(3) or "").lower()
+        if meridiem == "pm" and hour != 12:
+            hour += 12
+        elif meridiem == "am" and hour == 12:
+            hour = 0
+        if hour > 23 or minute > 59:
+            return None
+        return hour, minute
+
+    def _os3_parse_calendar_window(time_text):
+        raw = str(time_text or "").strip()
+        if not raw:
+            return None, None, ""
+        if "all day" in raw.lower():
+            return None, None, raw
+        parts = [part for part in re.split(r"\s*(?:–|—|\bto\b)\s*", raw, maxsplit=1) if str(part).strip()]
+        base_date = datetime.now().date()
+        try:
+            base_date = datetime.strptime(get_effective_date(), "%Y-%m-%d").date()
+        except Exception:
+            pass
+        start_bits = _os3_parse_clock_fragment(parts[0] if parts else raw)
+        end_bits = _os3_parse_clock_fragment(parts[1] if len(parts) > 1 else "")
+        start_dt = None
+        end_dt = None
+        if start_bits:
+            start_dt = datetime.combine(base_date, datetime.min.time()).replace(hour=start_bits[0], minute=start_bits[1])
+        if end_bits:
+            end_dt = datetime.combine(base_date, datetime.min.time()).replace(hour=end_bits[0], minute=end_bits[1])
+        if start_dt and end_dt and end_dt <= start_dt:
+            end_dt += timedelta(days=1)
+        if start_dt and not end_dt:
+            end_dt = start_dt + timedelta(hours=1)
+        return start_dt, end_dt, raw
+
+    def _os3_minutes_label(delta_minutes):
+        try:
+            mins = max(0, int(delta_minutes))
+        except Exception:
+            mins = 0
+        if mins >= 60:
+            hours = mins // 60
+            rem = mins % 60
+            return f"{hours}h {rem}m" if rem else f"{hours}h"
+        return f"{mins}m"
+
+    def _os3_progress_bar(value, accent=None):
+        safe_value = max(0, min(100, int(round(float(value or 0)))))
+        accent_style = f"background:{accent};" if accent else ""
+        return (
+            '<div class="os-progress"><span style="width:'
+            + str(safe_value)
+            + '%;'
+            + accent_style
+            + '"></span></div>'
+        )
+
+    os3_week_key = _os3_week_key(get_effective_date())
+    os3_week_label = weekly_current_week or os3_week_key
+    os3_week_entry = _os3_load_weekly_reflection_entry(os3_week_key)
+    os3_week_reflection_text = str(os3_week_entry.get("text", "")).strip()
+    os3_week_reflection_saved_at = _os3_format_saved_at(os3_week_entry.get("updated_at"))
+
+    os3_dimensions = state_vector_payload.get("dimensions", []) if isinstance(state_vector_payload.get("dimensions", []), list) else []
+    os3_dim_lookup = {
+        str(row.get("label", "")).strip().lower(): row
+        for row in os3_dimensions
+        if isinstance(row, dict)
+    }
+    os3_recovery = os3_dim_lookup.get("recovery", {})
+    os3_focus = os3_dim_lookup.get("focus", {})
+    os3_load = os3_dim_lookup.get("load", {})
+    os3_body_battery = int(round(float(os3_recovery.get("score", _sv_overall) or _sv_overall)))
+    os3_focus_score = int(round(float(os3_focus.get("score", _sv_overall) or _sv_overall)))
+    os3_focus_label = "High" if os3_focus_score >= 70 else ("Steady" if os3_focus_score >= 50 else "Low")
+    os3_energy_note = str(os3_recovery.get("summary", "") or state_vector_payload.get("headline", "") or "Take the day one gentle block at a time.").strip()
+    os3_focus_note = str(os3_focus.get("summary", "") or _schedule_insight or "Use the clearest next block first.").strip()
+
+    os3_calendar_rows = []
+    os3_now_dt = datetime.now()
+    for idx, item in enumerate(calendar_events[:6]):
+        if not isinstance(item, dict):
+            continue
+        event_text = str(item.get("event", "")).strip()
+        time_text = str(item.get("time", "")).strip()
+        if not event_text and not time_text:
+            continue
+        start_dt, end_dt, time_label = _os3_parse_calendar_window(time_text)
+        status = "upcoming"
+        if start_dt and end_dt and start_dt <= os3_now_dt < end_dt:
+            status = "now"
+        elif end_dt and end_dt <= os3_now_dt:
+            status = "done"
+        os3_calendar_rows.append({
+            "idx": idx,
+            "event": event_text or "Untitled event",
+            "time": time_label or time_text or "Untimed",
+            "start": start_dt,
+            "end": end_dt,
+            "status": status,
+            "emoji": _pick_content_emoji(event_text or time_text),
+        })
+
+    os3_current_event = next((row for row in os3_calendar_rows if row.get("status") == "now"), None)
+    os3_next_event = next(
+        (
+            row for row in os3_calendar_rows
+            if row.get("start") and row["start"] > os3_now_dt
+        ),
+        None,
+    )
+    os3_next_action = next(
+        (
+            row for row in display_action_items
+            if isinstance(row, dict)
+            and not bool(row.get("done"))
+            and str(row.get("task", "")).strip()
+        ),
+        None,
+    )
+
+    os3_hero_source = "empty"
+    os3_hero_title = "You're clear right now."
+    os3_hero_meta = "No active block detected."
+    os3_hero_subtitle = "Choose the gentlest next useful thing when you're ready."
+    if os3_current_event:
+        os3_hero_source = "calendar"
+        os3_hero_title = str(os3_current_event.get("event", "")).strip() or "Current focus"
+        os3_hero_meta = f"Calendar · {html.escape(str(os3_current_event.get('time', 'Now')))}"
+        if os3_current_event.get("end"):
+            os3_hero_subtitle = f"{_pick_content_emoji(os3_hero_title)} Ends in {_os3_minutes_label((os3_current_event['end'] - os3_now_dt).total_seconds() / 60)}."
+        else:
+            os3_hero_subtitle = "Stay with the current block until it naturally closes."
+    elif os3_next_action:
+        os3_hero_source = "action"
+        os3_hero_title = str(os3_next_action.get("task", "")).strip()
+        os3_hero_meta = "One thing at a time"
+        _os3_action_time = str(os3_next_action.get("time", "")).strip()
+        os3_hero_subtitle = (
+            f"{_pick_content_emoji(os3_hero_title)} {_os3_action_time}"
+            if _os3_action_time else
+            "Use the clearest next action from today's list."
+        )
+    elif os3_next_event:
+        os3_hero_source = "upcoming"
+        os3_hero_title = str(os3_next_event.get("event", "")).strip() or "Next scheduled block"
+        os3_hero_meta = "Next up"
+        os3_hero_subtitle = str(os3_next_event.get("time", "")).strip() or "Scheduled later today."
+
+    os3_focus_support_html = "".join(
+        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#bae6fd">{html.escape(str(step.get("label", "")))}</p><p class="text-sm" style="color:#e5e7eb">{html.escape(str(step.get("text", "")))}</p></div>'
+        for step in (state_vector_payload.get("support_steps", []) if isinstance(state_vector_payload.get("support_steps", []), list) else [])[:3]
+        if isinstance(step, dict) and str(step.get("text", "")).strip()
+    ) or '<div class="os-surface"><p class="text-sm" style="color:#cbd5e1">Single-task the next 20–30 minutes and let the rest wait.</p></div>'
+
+    os3_timeline_html = ""
+    if os3_calendar_rows:
+        for row in os3_calendar_rows:
+            row_status = row.get("status", "upcoming")
+            row_class = "is-now" if row_status == "now" else ("is-done" if row_status == "done" else "")
+            tone = "#b8d8c8" if row_status == "now" else ("#6b7280" if row_status == "done" else "#e5e7eb")
+            subline = ""
+            if row_status == "now" and row.get("end"):
+                subline = f'<p class="text-xs mt-1" style="color:#b8d8c8">Live now · {_os3_minutes_label((row["end"] - os3_now_dt).total_seconds() / 60)} left</p>'
+            os3_timeline_html += (
+                f'<div class="os-timeline-row {row_class}">'
+                f'<div class="os-timeline-dot"></div>'
+                f'<div class="os-surface">'
+                f'<p class="text-xs font-semibold" style="color:#94a3b8">{html.escape(str(row.get("time", "")))}</p>'
+                f'<p class="text-sm font-semibold mt-1" style="color:{tone}">{html.escape(str(row.get("event", "")))}</p>'
+                f'{subline}'
+                f'</div></div>'
+            )
+    else:
+        os3_timeline_html = '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">No schedule blocks surfaced for today.</p></div>'
+
+    os3_quick_actions_html = '''
+        <div class="os-card">
+            <p class="text-sm font-semibold mb-3" style="color:#e5e7eb">Quick actions</p>
+            <div class="os-inline-list">
+                <button type="button" class="row" data-os-nav-action="journal" data-target-sub="day" data-focus-target="journal-mood-card">
+                    <span class="text-sm font-semibold" style="color:#e5e7eb">🙂 Log mood</span>
+                    <span class="text-xs" style="color:#94a3b8">Journal</span>
+                </button>
+                <button type="button" class="row" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
+                    <span class="text-sm font-semibold" style="color:#e5e7eb">✍️ Quick reflection</span>
+                    <span class="text-xs" style="color:#94a3b8">Day notes</span>
+                </button>
+                <button type="button" class="row" data-os-nav-action="health" data-target-sub="overview" data-focus-target="health-selfcare">
+                    <span class="text-sm font-semibold" style="color:#e5e7eb">🧘 Self-care</span>
+                    <span class="text-xs" style="color:#94a3b8">Health</span>
+                </button>
+                <button type="button" class="row" onclick="qaOpenWorkoutChecklist(true)">
+                    <span class="text-sm font-semibold" style="color:#e5e7eb">🏋️ Workout checklist</span>
+                    <span class="text-xs" style="color:#94a3b8">Real action</span>
+                </button>
+            </div>
+        </div>
+    '''
+
+    os3_now_attention_lines = []
+    if bool(data.get("importantThingMissing", False)):
+        os3_now_attention_lines.append("Important thing still needs setting.")
+    if not _diarium_is_fresh:
+        os3_now_attention_lines.append(diarium_fresh_line)
+    if system_needs_attention:
+        os3_now_attention_lines.append(cache_fresh_line)
+    os3_now_attention_html = (
+        '<div class="os-banner" style="border-left:2px solid rgba(251,191,36,0.3)">'
+        + "".join(f'<p class="text-xs" style="color:#cbd5e1">{html.escape(line)}</p>' for line in os3_now_attention_lines[:2])
+        + "</div>"
+    ) if os3_now_attention_lines else ""
+
+    os3_daily_win_rows = []
+    for candidate in list(wins[:3]) + list(tadah_flat[:4]):
+        text = str(candidate or "").strip()
+        if not text:
+            continue
+        if text in os3_daily_win_rows:
+            continue
+        os3_daily_win_rows.append(text)
+        if len(os3_daily_win_rows) >= 4:
+            break
+    os3_daily_wins_html = "".join(
+        f'<div class="row"><div><p class="text-sm font-semibold" style="color:#e5e7eb">{html.escape(item)}</p></div><span class="text-xs" style="color:#a7d8c4">done</span></div>'
+        for item in os3_daily_win_rows
+    ) or '<div class="row"><p class="text-sm" style="color:#94a3b8">Wins will gather here as the day moves.</p></div>'
+
+    os3_review_today_attention_html = (
+        f'<div class="os-banner" style="border-left:2px solid rgba(196,181,253,0.3)"><p class="text-xs" style="color:#cbd5e1">{html.escape(weekly_hint)}</p></div>'
+        if weekly_needs_regeneration else ""
+    )
+
+    os3_review_story_html = f'<p class="text-sm mb-3" style="color:#e5e7eb; line-height:1.65">{html.escape(str(_narrative))}</p>' if str(_narrative or "").strip() else ""
+    os3_compounding_signals_html = "".join(
+        f'<li class="text-sm mb-1" style="color:#dbeafe;line-height:1.5;">{html.escape(str(item))}</li>'
+        for item in (state_vector_payload.get("compounding_signals", []) if isinstance(state_vector_payload.get("compounding_signals", []), list) else [])[:3]
+        if str(item).strip()
+    )
+    os3_review_synthesis_html = f'''
+        <div class="os-card">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 class="text-lg font-semibold" style="color:#c4b8e0">Today&apos;s synthesis</h3>
+                <span class="text-xs" style="color:#94a3b8">Feel + pattern + signal</span>
+            </div>
+            {os3_review_story_html}
+            {how_felt_body_html if how_felt_body_html else '<p class="text-sm" style="color:#cbd5e1">The day will synthesise here once more reflection lands.</p>'}
+            {f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#93c5fd">Signals to carry</p><ul style="margin:0;padding-left:1rem;">{os3_compounding_signals_html}</ul></div>' if os3_compounding_signals_html else ''}
+        </div>
+    '''
+
+    if suggestions_html:
+        os3_review_handoff_html = suggestions_html
+    else:
+        os3_handoff_bits = []
+        if str(tomorrow or "").strip():
+            os3_handoff_bits.append(("Tomorrow", str(tomorrow).strip()))
+        if str(remember_tomorrow_text or "").strip():
+            os3_handoff_bits.append(("Remember", str(remember_tomorrow_text).strip()))
+        if str(carrying or "").strip():
+            os3_handoff_bits.append(("Carry forward", str(carrying).strip()))
+        os3_handoff_rows = "".join(
+            f'<div class="row"><div><p class="text-xs font-semibold mb-1" style="color:#94a3b8">{html.escape(label)}</p><p class="text-sm" style="color:#e5e7eb">{html.escape(text)}</p></div></div>'
+            for label, text in os3_handoff_bits
+        ) or '<div class="row"><p class="text-sm" style="color:#94a3b8">Tomorrow handoff appears here once evening planning lands.</p></div>'
+        os3_review_handoff_html = f'''
+            <div class="os-card">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h3 class="text-lg font-semibold" style="color:#a7d8c4">Tomorrow handoff</h3>
+                    <span class="text-xs" style="color:#94a3b8">Close-down</span>
+                </div>
+                <div class="os-inline-list">{os3_handoff_rows}</div>
+            </div>
+        '''
+
+    def _os3_avg_health(key):
+        values = []
+        for row in health_data[-7:]:
+            if not isinstance(row, dict):
+                continue
+            value = row.get(key)
+            if isinstance(value, (int, float)):
+                values.append(float(value))
+        return round(sum(values) / len(values), 1) if values else None
+
+    os3_avg_sleep = _os3_avg_health("sleep_hours")
+    os3_avg_steps = _os3_avg_health("steps")
+    os3_avg_exercise = _os3_avg_health("exercise")
+    os3_review_week_widgets_html = f'''
+        <div class="os-three-col">
+            <div class="os-card">
+                <p class="text-xs font-semibold mb-2" style="color:#a7d8c4">Recovery</p>
+                <p class="text-2xl font-bold" style="color:#e5e7eb">{os3_body_battery}%</p>
+                <p class="text-xs mt-2" style="color:#94a3b8">{html.escape(str(os3_recovery.get("summary", "Recovery signal from this week.")))}</p>
+            </div>
+            <div class="os-card">
+                <p class="text-xs font-semibold mb-2" style="color:#d4a8b8">Sleep average</p>
+                <p class="text-2xl font-bold" style="color:#e5e7eb">{f"{os3_avg_sleep:.1f}h" if os3_avg_sleep is not None else "n/a"}</p>
+                <p class="text-xs mt-2" style="color:#94a3b8">Last 7 days from health export.</p>
+            </div>
+            <div class="os-card">
+                <p class="text-xs font-semibold mb-2" style="color:#c4b8e0">Focus score</p>
+                <p class="text-2xl font-bold" style="color:#e5e7eb">{os3_focus_score}</p>
+                <p class="text-xs mt-2" style="color:#94a3b8">{html.escape(os3_focus_note)}</p>
+            </div>
+        </div>
+    '''
+
+    os3_review_biometrics_html = ''.join([
+        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Avg steps</p><p class="text-lg font-semibold" style="color:#e5e7eb">{int(os3_avg_steps):,}</p></div>' if os3_avg_steps is not None else "",
+        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Avg exercise</p><p class="text-lg font-semibold" style="color:#e5e7eb">{int(os3_avg_exercise)}m</p></div>' if os3_avg_exercise is not None else "",
+        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Screen time</p><p class="text-lg font-semibold" style="color:#e5e7eb">{html.escape(str((screentime_data.get("summary", {}) if isinstance(screentime_data.get("summary", {}), dict) else {}).get("avg_screen_time_display", "n/a")))}</p></div>' if screentime_html else "",
+    ])
+    os3_review_biometrics_html = (
+        f'<div class="os-two-col">{os3_review_biometrics_html}</div>'
+        if os3_review_biometrics_html else ""
+    )
+
+    os3_weekly_reflection_hint = (
+        f"Autosaved for {html.escape(os3_week_label)} · last update {html.escape(os3_week_reflection_saved_at)}"
+        if os3_week_reflection_saved_at else
+        f"Autosaves internally for {html.escape(os3_week_label)}"
+    )
+    os3_weekly_reflection_html = f'''
+        <div class="os-card">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold" style="color:#f5d0fe">Weekly reflection</h3>
+                    <p class="text-xs mt-1" style="color:#94a3b8">{os3_weekly_reflection_hint}</p>
+                </div>
+                <span class="text-xs" id="qa-weekly-reflection-status" style="color:#94a3b8">Ready</span>
+            </div>
+            <textarea id="qa-weekly-reflection"
+                data-week-key="{html.escape(os3_week_key)}"
+                class="w-full rounded px-3 py-3 text-sm"
+                style="min-height: 8rem; background: rgba(15,23,42,0.66); border: 1px solid rgba(148,163,184,0.22); color: #e5e7eb; resize: vertical;"
+                placeholder="How did this week actually feel? What mattered, what dragged, what should carry forward?">{html.escape(os3_week_reflection_text)}</textarea>
+        </div>
+    '''
+
+    os3_review_compare_html = f'''
+        <details class="os-card"{' open' if weekly_needs_regeneration else ''}>
+            <summary class="cursor-pointer text-sm font-semibold" style="color:#e5e7eb">Previous week comparison</summary>
+            <div class="mt-3 space-y-3">
+                {os3_review_biometrics_html if os3_review_biometrics_html else '<p class="text-sm" style="color:#94a3b8">Compact weekly biometrics will appear here as more data accumulates.</p>'}
+                <p class="text-xs" style="color:#94a3b8">Current report: {weekly_current_link_html}</p>
+                <p class="text-xs" style="color:#94a3b8">Latest generated: {weekly_latest_link_html}</p>
+            </div>
+        </details>
+    '''
+
+    os3_evening_close_markers = [
+        _clean_evening_reflections_text(evening.get("evening_reflections", "")),
+        str(evening.get("brave", "") or "").strip(),
+    ]
+    os3_evening_three_things = evening.get("three_things", []) if isinstance(evening.get("three_things", []), list) else []
+    os3_evening_close_markers.extend(str(item or "").strip() for item in os3_evening_three_things if str(item or "").strip())
+    os3_reflection_saved_today = any(os3_evening_close_markers)
+    os3_mindfulness_minutes_done = int(qa_mindfulness_state.get("minutes_done", 0) or 0)
+    os3_mindfulness_auto_done = bool(qa_mindfulness_state.get("auto_done"))
+    if os3_mindfulness_auto_done and os3_mindfulness_minutes_done > 0:
+        os3_mindfulness_habit_label = f"Mindfulness ({os3_mindfulness_minutes_done}m auto-logged)"
+    elif bool(qa_mindfulness_state.get("done")) and os3_mindfulness_minutes_done > 0:
+        os3_mindfulness_habit_label = f"Mindfulness ({os3_mindfulness_minutes_done}m logged)"
+    else:
+        os3_mindfulness_habit_label = "Mindfulness"
+    os3_health_habit_rows = [
+        ("Mood logged", "done" if qa_mood_state.get("done") else "open", bool(qa_mood_state.get("done"))),
+        (os3_mindfulness_habit_label, "done" if qa_mindfulness_state.get("done") else "pending", bool(qa_mindfulness_state.get("done"))),
+        (qa_quick_workout_title, "done" if qa_quick_workout_done else "pending", bool(qa_quick_workout_done)),
+        ("Close-down reflection", "done" if os3_reflection_saved_today else "pending", bool(os3_reflection_saved_today)),
+    ]
+    os3_health_habits_html = "".join(
+        f'<div class="row"><div><p class="text-sm font-semibold" style="color:#e5e7eb">{html.escape(label)}</p></div><span class="text-xs" style="color:{"#a7d8c4" if done else "#94a3b8"}">{status}</span></div>'
+        for label, status, done in os3_health_habit_rows[:4]
+    )
+    os3_health_snapshot_html = (
+        f'<div class="os-two-col">'
+        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Avg steps</p><p class="text-lg font-semibold" style="color:#e5e7eb">{int(os3_avg_steps):,}</p></div>'
+        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Avg exercise</p><p class="text-lg font-semibold" style="color:#e5e7eb">{int(os3_avg_exercise)}m</p></div>'
+        f'</div>'
+        if os3_avg_steps is not None and os3_avg_exercise is not None else
+        '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Weekly health snapshot appears after the next export sync.</p></div>'
+    )
+
+    os3_integrations_rows = [
+        ("Calendar", "live" if calendar_events else "quiet", f"{len(calendar_events)} item{'s' if len(calendar_events) != 1 else ''} today" if calendar_events else "No events surfaced"),
+        ("Health export", "fresh" if not data.get("healthDataStale", False) else "stale", "Health data available" if health_data else "No recent export"),
+        ("Screen time", "live" if screentime_html else "offline", "Synced" if screentime_html else "Unavailable"),
+        ("ActivityWatch", "live" if aw_status == "success" else "offline", "Focus telemetry available" if aw_status == "success" else "Unavailable"),
+    ]
+    os3_integrations_html = "".join(
+        f'<div class="row"><div><p class="text-sm font-semibold" style="color:#e5e7eb">{html.escape(name)}</p><p class="text-xs mt-1" style="color:#94a3b8">{html.escape(detail)}</p></div><span class="text-xs" style="color:{("#a7d8c4" if state in {"live", "fresh"} else "#d4b896" if state == "stale" else "#94a3b8")}">{html.escape(state)}</span></div>'
+        for name, state, detail in os3_integrations_rows
+    )
+
+    os3_archives_html = f'''
+        <div class="os-inline-list">
+            <a class="row" href="{journal_today}">
+                <div><p class="text-sm font-semibold" style="color:#e5e7eb">Today&apos;s journal</p><p class="text-xs mt-1" style="color:#94a3b8">{html.escape(get_effective_date())}</p></div>
+                <span class="text-xs" style="color:#a8c4e0">open</span>
+            </a>
+            <div class="row">
+                <div><p class="text-sm font-semibold" style="color:#e5e7eb">Current weekly report</p><p class="text-xs mt-1" style="color:#94a3b8">{weekly_current_link_html}</p></div>
+            </div>
+            <div class="row">
+                <div><p class="text-sm font-semibold" style="color:#e5e7eb">Latest weekly report</p><p class="text-xs mt-1" style="color:#94a3b8">{weekly_latest_link_html}</p></div>
+            </div>
+        </div>
+    '''
+
+    os3_more_system_html = f'''
+        <section id="system" class="os-card">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold" style="color:#e5e7eb">System</h3>
+                    <p class="text-xs mt-1" style="color:#94a3b8">Full status lives here unless attention is needed elsewhere.</p>
+                </div>
+                <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
+            </div>
+            <div id="qa-status-cards-section" data-static-cards="{status_static_card_count}"{status_cards_section_hidden_attr}>
+                {important_thing_warning_html}
+                <div id="qa-freshness-watch-wrap"{freshness_watch_hidden_attr}>{freshness_watch_html}</div>
+                {stale_notice_html}
+                <div id="qa-ideas-status-wrap"{ideas_status_hidden_attr}>{ideas_status_html}</div>
+                <div id="qa-section-freshness-wrap"{section_freshness_hidden_attr}>{section_freshness_html}</div>
+            </div>
+            <div class="mt-3">
+                {system_status_html}
+                {('<div style="margin-top:0.75rem;">' + backlog_html + '</div>') if backlog_html else ''}
+            </div>
+        </section>
+    '''
+
+    os3_review_today_panel_html = f'''
+        {os3_review_today_attention_html}
+        <section id="review" class="os-card">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold" style="color:#a7d8c4">Wins &amp; Ta-Dah</h3>
+                    <p class="text-xs mt-1" style="color:#94a3b8">{len(tadah_flat)} captured today</p>
+                </div>
+                <a href="{journal_today}" class="text-xs" style="color:#a7d8c4">Open journal</a>
+            </div>
+            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
+            {yesterday_tadah_html}
+            {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color:#6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
+        </section>
+        {os3_review_synthesis_html}
+        {os3_review_handoff_html}
+    '''
+
+    os3_review_week_panel_html = f'''
+        <section id="weekly" class="os-main-stack">
+            {os3_review_week_widgets_html}
+            {weekly_digest_html if weekly_digest_html else ''}
+            {os3_weekly_reflection_html}
+            {os3_review_compare_html}
+            {(f'<details id="daily-report" class="os-card"><summary class="cursor-pointer text-sm font-semibold" style="color:#e5e7eb">Detailed daily report</summary><div class="mt-3">{daily_report_html}</div></details>') if daily_report_html else ''}
+        </section>
+    '''
+
+    os3_shell_html = f'''
+        <div class="os-topbar">
+            <div class="os-brand">
+                <span class="os-brand-dot"></span>
+                <span>OS 3.0</span>
+            </div>
+            <nav class="os-global-nav" aria-label="OS tabs">
+                <button type="button" class="os-tab-btn" data-os-tab-btn="now">Now</button>
+                <button type="button" class="os-tab-btn" data-os-tab-btn="journal">Journal</button>
+                <button type="button" class="os-tab-btn" data-os-tab-btn="review">Review</button>
+                <button type="button" class="os-tab-btn" data-os-tab-btn="health">Health</button>
+                <button type="button" class="os-tab-btn" data-os-tab-btn="more">More</button>
+            </nav>
+            <div class="os-chip-row">{backend_status_pills_html}</div>
+        </div>
+        {top_status_pills_html}
+
+        <section data-os-tab="now" class="os-tab-panel">
+            {os3_now_attention_html}
+            <div data-os-now-main class="os-layout">
+                <div class="os-main-stack">
+            <section id="os-now-hero" class="os-card os-hero" tabindex="-1">
+                        <div class="os-hero-grid">
+                            <div>
+                                <div class="os-chip-row mb-3">
+                                    <span class="os-chip" style="background:rgba(167,216,196,0.12);border:1px solid rgba(167,216,196,0.3);color:#b8d8c8;">Current focus</span>
+                                    <span class="os-chip" style="background:rgba(196,181,253,0.12);border:1px solid rgba(196,181,253,0.24);color:#c4b8e0;">{html.escape(os3_hero_source.title())}</span>
+                                </div>
+                                <h2 class="text-2xl font-bold mb-2" style="color:#f8fafc">What do I do now?</h2>
+                                <p class="text-lg font-semibold" style="color:#e5e7eb">{html.escape(os3_hero_title)}</p>
+                                <p class="text-sm mt-2" style="color:#94a3b8">{os3_hero_meta}</p>
+                                <p class="text-sm mt-2" style="color:#cbd5e1">{html.escape(os3_hero_subtitle)}</p>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn--primary" data-os-focus-enter="true" style="min-width: 11rem;">Enter Focus Mode</button>
+                            </div>
+                        </div>
+                    </section>
+                    <section id="schedule" class="os-card">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <h3 class="text-lg font-semibold" style="color:#e5e7eb">Today&apos;s schedule</h3>
+                                <p class="text-xs mt-1" style="color:#94a3b8">Calm timeline for what&apos;s live and next.</p>
+                            </div>
+                        </div>
+                        <div class="os-timeline">{os3_timeline_html}</div>
+                    </section>
+                    <section id="actions">{action_items_html}</section>
+                    {(f'<section id="guidance" class="os-card"><details><summary class="cursor-pointer text-sm font-semibold" style="color:#cbd5e1">Guidance</summary><div class="mt-3">{guidance_section_html}</div></details></section>') if guidance_section_html else ''}
+                </div>
+                <aside class="os-side-stack">
+                    {os3_quick_actions_html}
+                    <section class="os-card">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p class="text-sm font-semibold" style="color:#e5e7eb">Energy</p>
+                                <p class="text-xs mt-1" style="color:#94a3b8">{html.escape(str(os3_load.get("summary", "") or "Pace according to load and recovery."))}</p>
+                            </div>
+                            <span class="text-lg font-bold" style="color:#b8d8c8">{os3_body_battery}%</span>
+                        </div>
+                        {_os3_progress_bar(os3_body_battery)}
+                        <p class="text-xs mt-3" style="color:#cbd5e1">{html.escape(os3_energy_note)}</p>
+                    </section>
+                    <section class="os-card">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p class="text-sm font-semibold" style="color:#e5e7eb">Daily wins</p>
+                                <p class="text-xs mt-1" style="color:#94a3b8">Celebrate progress without extra admin.</p>
+                            </div>
+                            <span class="text-sm font-semibold" style="color:#a7d8c4">{len(tadah_flat)}</span>
+                        </div>
+                        <div class="os-inline-list">{os3_daily_wins_html}</div>
+                        <div class="mt-3">{tadah_scratch_html}</div>
+                    </section>
+                </aside>
+            </div>
+            <section id="os-focus-view-panel" class="os-focus-view os-card" data-os-focus-view hidden tabindex="-1">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <p class="text-xs font-semibold mb-1" style="color:#b8d8c8">Focus mode</p>
+                        <h3 id="os-focus-heading" class="text-2xl font-bold" style="color:#f8fafc" tabindex="-1">{html.escape(os3_hero_title)}</h3>
+                        <p class="text-sm mt-2" style="color:#94a3b8">{os3_hero_meta}</p>
+                    </div>
+                    <button type="button" class="btn btn--secondary" data-os-focus-exit="true">Back to Now</button>
+                </div>
+                <p class="text-sm mb-4" style="color:#cbd5e1">{html.escape(os3_hero_subtitle)}</p>
+                <div class="os-three-col">{os3_focus_support_html}</div>
+            </section>
+        </section>
+
+        <section data-os-tab="journal" class="os-tab-panel" hidden>
+            <div class="os-card mb-4">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                        <h2 class="text-xl font-semibold" style="color:#e5e7eb">Journal</h2>
+                        <p class="text-xs mt-1" style="color:#94a3b8">Morning, Day, and Evening live together with quick switching.</p>
+                    </div>
+                    <div class="os-subnav">
+                        <button type="button" class="os-subtab-btn" data-os-journal-btn="morning">Morning</button>
+                        <button type="button" class="os-subtab-btn" data-os-journal-btn="day">Day</button>
+                        <button type="button" class="os-subtab-btn" data-os-journal-btn="evening">Evening</button>
+                    </div>
+                </div>
+                <div id="journal-mood-card">{mood_tracking_html if mood_tracking_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Mood check-ins appear here.</p></div>'}</div>
+            </div>
+            <section id="morning" class="os-subpanel" data-os-journal-panel="morning">
+                <div class="os-card">{morning_mood_pill_html}{morning_card_html}{morning_insights_html}{_scratch_pad_html("morning", "Morning", effective_today)}</div>
+            </section>
+            <section id="updates" class="os-subpanel" data-os-journal-panel="day" hidden>
+                <div class="os-card">{updates_card_html}{updates_insights_html}{_scratch_pad_html("updates", "Updates", effective_today)}</div>
+            </section>
+            <section id="evening" class="os-subpanel" data-os-journal-panel="evening" hidden>
+                <div class="os-card">{evening_mood_pill_html}{evening_card_html}{evening_insights_html}{_scratch_pad_html("evening", "Evening", effective_today)}</div>
+            </section>
+        </section>
+
+        <section data-os-tab="review" class="os-tab-panel" hidden>
+            <div class="os-card mb-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-xl font-semibold" style="color:#e5e7eb">Review</h2>
+                        <p class="text-xs mt-1" style="color:#94a3b8">Today first, then the week when you want the wider pattern.</p>
+                    </div>
+                    <div class="os-subnav">
+                        <button type="button" class="os-subtab-btn" data-os-review-btn="today">Today</button>
+                        <button type="button" class="os-subtab-btn" data-os-review-btn="week">Week</button>
+                    </div>
+                </div>
+            </div>
+            <div class="os-subpanel" data-os-review-panel="today">{os3_review_today_panel_html}</div>
+            <div class="os-subpanel" data-os-review-panel="week" hidden>{os3_review_week_panel_html}</div>
+        </section>
+
+        <section id="health" data-os-tab="health" class="os-tab-panel" hidden>
+            <div class="os-card mb-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-xl font-semibold" style="color:#e5e7eb">Health</h2>
+                        <p class="text-xs mt-1" style="color:#94a3b8">Body state, habits, and actionable wellbeing in one calmer place.</p>
+                    </div>
+                    <div class="os-subnav">
+                        <button type="button" class="os-subtab-btn" data-os-health-btn="overview">Overview</button>
+                        <button type="button" class="os-subtab-btn" data-os-health-btn="activity">Activity</button>
+                        <button type="button" class="os-subtab-btn" data-os-health-btn="vitals">Vitals</button>
+                    </div>
+                </div>
+            </div>
+            <div class="os-subpanel" data-os-health-panel="overview">
+                <div class="os-two-col mb-4">
+                    <section class="os-card">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p class="text-sm font-semibold" style="color:#e5e7eb">Body Battery</p>
+                                <p class="text-xs mt-1" style="color:#94a3b8">{html.escape(str(os3_recovery.get("summary", "") or "Derived from recovery state."))}</p>
+                            </div>
+                            <span class="text-2xl font-bold" style="color:#b8d8c8">{os3_body_battery}%</span>
+                        </div>
+                        {_os3_progress_bar(os3_body_battery)}
+                    </section>
+                    <section class="os-card">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p class="text-sm font-semibold" style="color:#e5e7eb">Focus Potential</p>
+                                <p class="text-xs mt-1" style="color:#94a3b8">{html.escape(os3_focus_note)}</p>
+                            </div>
+                            <span class="text-2xl font-bold" style="color:#f9c0d0">{html.escape(os3_focus_label)}</span>
+                        </div>
+                        {_os3_progress_bar(os3_focus_score, "linear-gradient(90deg, rgba(249,192,208,0.95), rgba(196,181,253,0.92))")}
+                    </section>
+                </div>
+                <div class="os-layout">
+                    <div class="os-main-stack">
+                        <section id="health-selfcare" class="os-card">{mindfulness_html if mindfulness_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Mindfulness tools appear here.</p></div>'}</section>
+                        <section class="os-card">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <h3 class="text-lg font-semibold" style="color:#e5e7eb">Today&apos;s active habits</h3>
+                                    <p class="text-xs mt-1" style="color:#94a3b8">Only the habits that matter today.</p>
+                                </div>
+                            </div>
+                            <div class="os-inline-list">{os3_health_habits_html}</div>
+                        </section>
+                    </div>
+                    <aside class="os-side-stack">
+                        <section class="os-card">
+                            <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Weekly snapshot</h3>
+                            {os3_health_snapshot_html}
+                        </section>
+                        <section class="os-card">
+                            <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Quick launchers</h3>
+                            <div class="os-inline-list">
+                                <button type="button" class="row" onclick="qaOpenWorkoutChecklist(true)">
+                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Open workout checklist</span>
+                                    <span class="text-xs" style="color:#94a3b8">action</span>
+                                </button>
+                                <button type="button" class="row" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
+                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Log quick reflection</span>
+                                    <span class="text-xs" style="color:#94a3b8">deep-link</span>
+                                </button>
+                                <button type="button" class="row" data-os-nav-action="health" data-target-sub="activity" data-focus-target="health-digital">
+                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Review digital activity</span>
+                                    <span class="text-xs" style="color:#94a3b8">deep-link</span>
+                                </button>
+                            </div>
+                        </section>
+                    </aside>
+                </div>
+            </div>
+            <div class="os-subpanel" data-os-health-panel="activity" hidden>
+                <div class="os-main-stack">
+                    <section class="os-card">{workout_html}{fitness_html}</section>
+                    <section id="health-digital" class="os-card">
+                        <div class="os-main-stack">
+                            {screentime_html if screentime_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Screen time data unavailable right now.</p></div>'}
+                            {activitywatch_html if activitywatch_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">ActivityWatch focus telemetry unavailable right now.</p></div>'}
+                        </div>
+                    </section>
+                </div>
+            </div>
+            <div class="os-subpanel" data-os-health-panel="vitals" hidden>
+                <div class="os-main-stack">
+                    <section class="os-card">{health_html if health_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Vitals will appear after the next health export.</p></div>'}</section>
+                    {correlation_html if correlation_html else ''}
+                    {mood_correlation_html if mood_correlation_html else ''}
+                </div>
+            </div>
+        </section>
+
+        <section data-os-tab="more" class="os-tab-panel" hidden>
+            <div class="os-main-stack">
+                <details class="os-card">
+                    <summary class="cursor-pointer text-sm font-semibold" style="color:#e5e7eb">Therapy</summary>
+                    <div class="mt-3">
+                        {therapy_notes_html if therapy_notes_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Therapy homework or summaries will surface here when available.</p></div>'}
+                    </div>
+                </details>
+                <section class="os-card">
+                    <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Library &amp; media</h3>
+                    {film_html if film_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Film and media picks appear here when fresh.</p></div>'}
+                </section>
+                <section class="os-card">
+                    <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Archives</h3>
+                    {os3_archives_html}
+                </section>
+                {(f'<section class="os-card"><h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Maintenance</h3>{_claude_section_html}</section>') if _claude_section_html else ''}
+                <section class="os-card">
+                    <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Integrations</h3>
+                    <div class="os-inline-list">{os3_integrations_html}</div>
+                </section>
+                {os3_more_system_html}
+            </div>
+        </section>
+    '''
 
     # Persist nudge fatigue log
     _nudge_save()
@@ -12136,12 +12982,15 @@ function qaApplyTaDahFromScratch(scratchText) {{
         a {{ color: inherit; text-decoration: none; }}
         a:hover {{ color: var(--focus); }}
         .dashboard-shell {{
-            max-width: 820px;
+            max-width: 1340px;
             margin: 0 auto;
             padding: 1.25rem 1rem 3rem;
         }}
         @media (min-width: 768px) {{
-            .dashboard-shell {{ padding: 1.75rem 1.5rem 3.5rem; }}
+            .dashboard-shell {{ padding: 1.75rem 2rem 3.5rem; }}
+        }}
+        @media (min-width: 1200px) {{
+            .dashboard-shell {{ padding: 2rem 2.5rem 4rem; }}
         }}
         .card {{
             background: var(--bg-primary);
@@ -12663,9 +13512,227 @@ function qaApplyTaDahFromScratch(scratchText) {{
         details > summary {{ list-style: none; }}
         details > summary::-webkit-details-marker {{ display: none; }}
         #dashboard-controls[open] .controls-arrow {{ transform: rotate(90deg); }}
+        .os-topbar {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.9rem;
+            margin-bottom: 1.25rem;
+            padding: 0.75rem 1.15rem;
+            border-radius: 1.1rem;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(18px) saturate(1.2);
+            -webkit-backdrop-filter: blur(18px) saturate(1.2);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }}
+        .os-brand {{
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            color: var(--focus-soft);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }}
+        .os-brand-dot {{
+            width: 0.65rem;
+            height: 0.65rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #45CC90, #c4b5fd);
+            box-shadow: 0 0 12px rgba(69, 204, 144, 0.35);
+        }}
+        .os-global-nav,
+        .os-subnav {{
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }}
+        .os-tab-btn,
+        .os-subtab-btn {{
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            background: transparent;
+            color: #94a3b8;
+            border-radius: 999px;
+            padding: 0.42rem 0.82rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }}
+        @media (hover: hover) {{
+            .os-tab-btn:hover,
+            .os-subtab-btn:hover {{
+                color: #cbd5e1;
+                background: rgba(148, 163, 184, 0.08);
+            }}
+        }}
+        .os-tab-btn.is-active,
+        .os-subtab-btn.is-active {{
+            color: #e5e7eb;
+            border-color: rgba(69, 204, 144, 0.35);
+            background: rgba(69, 204, 144, 0.1);
+            box-shadow: 0 0 0 1px rgba(69, 204, 144, 0.08) inset;
+        }}
+        .os-tab-panel[hidden],
+        .os-subpanel[hidden],
+        .os-focus-view[hidden] {{
+            display: none !important;
+        }}
+        .os-layout {{
+            display: grid;
+            grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.95fr);
+            gap: 1rem;
+            align-items: start;
+        }}
+        .os-main-stack,
+        .os-side-stack {{
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }}
+        .os-card {{
+            border-radius: 1rem;
+            border: 1px solid rgba(148, 163, 184, 0.09);
+            background: rgba(15, 23, 42, 0.58);
+            padding: 1.1rem 1.15rem;
+            transition: border-color 0.15s ease;
+        }}
+        @media (hover: hover) {{
+            .os-card:hover {{
+                border-color: rgba(148, 163, 184, 0.16);
+            }}
+        }}
+        .os-hero {{
+            border-color: rgba(69, 204, 144, 0.2);
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.65));
+            box-shadow: 0 2px 20px rgba(69, 204, 144, 0.06);
+            backdrop-filter: blur(12px) saturate(1.15);
+            -webkit-backdrop-filter: blur(12px) saturate(1.15);
+        }}
+        .os-hero-grid {{
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) auto;
+            gap: 1rem;
+            align-items: center;
+        }}
+        .os-timeline {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }}
+        .os-timeline-row {{
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr);
+            gap: 0.8rem;
+            align-items: start;
+        }}
+        .os-timeline-dot {{
+            width: 0.8rem;
+            height: 0.8rem;
+            border-radius: 999px;
+            margin-top: 0.32rem;
+            border: 2px solid rgba(148, 163, 184, 0.32);
+            background: rgba(15, 23, 42, 0.85);
+        }}
+        .os-timeline-row.is-now .os-timeline-dot {{
+            background: #b8d8c8;
+            border-color: rgba(184, 216, 200, 0.8);
+            box-shadow: 0 0 16px rgba(184, 216, 200, 0.35);
+        }}
+        .os-timeline-row.is-done .os-timeline-dot {{
+            opacity: 0.6;
+        }}
+        .os-chip-row {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+        }}
+        .os-chip {{
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }}
+        .os-banner {{
+            border-radius: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.08);
+            padding: 0.55rem 0.85rem;
+            margin-bottom: 0.75rem;
+            background: rgba(30, 41, 59, 0.35);
+            font-size: 0.88rem;
+        }}
+        .os-inline-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
+        }}
+        .os-inline-list .row {{
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.9rem;
+            padding: 0.6rem 0.8rem;
+            border-radius: 0.75rem;
+            background: rgba(15, 23, 42, 0.32);
+            border: 1px solid rgba(148, 163, 184, 0.07);
+            transition: background 0.12s ease;
+        }}
+        @media (hover: hover) {{
+            .os-inline-list .row:hover {{
+                background: rgba(15, 23, 42, 0.45);
+            }}
+        }}
+        .os-progress {{
+            width: 100%;
+            height: 0.5rem;
+            border-radius: 999px;
+            background: rgba(51, 65, 85, 0.72);
+            overflow: hidden;
+        }}
+        .os-progress > span {{
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(69,204,144,0.85), rgba(196,181,253,0.85));
+        }}
+        .os-two-col {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }}
+        .os-three-col {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.85rem;
+        }}
+        .os-surface {{
+            border-radius: 0.85rem;
+            border: 1px solid rgba(148, 163, 184, 0.07);
+            background: rgba(15, 23, 42, 0.35);
+            padding: 0.85rem;
+        }}
+        @media (max-width: 960px) {{
+            .os-layout,
+            .os-two-col,
+            .os-three-col,
+            .os-hero-grid {{
+                grid-template-columns: 1fr;
+            }}
+            .os-topbar {{
+                align-items: flex-start;
+                flex-direction: column;
+            }}
+        }}
         @media (max-width: 640px) {{
             html {{ font-size: 16px; }}
-            .dashboard-shell {{ padding-top: 0.72rem; }}
+            .dashboard-shell {{ padding: 0.65rem 0.75rem 2rem; }}
             #diarium-header-image {{ width: 72px !important; height: 72px !important; }}
             .quick-nav a:nth-of-type(n+7) {{ display: none; }}
             .settings-stack {{ margin-bottom: 0.55rem; }}
@@ -12678,6 +13745,46 @@ function qaApplyTaDahFromScratch(scratchText) {{
             }}
             .top-status-row {{ gap: 0.28rem; }}
             .status-pill-mini {{ font-size: 0.68rem; padding: 0.16rem 0.42rem; }}
+            .os-topbar {{
+                padding: 0.65rem 0.75rem;
+                gap: 0.55rem;
+                border-radius: 0.85rem;
+                margin-bottom: 0.85rem;
+            }}
+            .os-brand {{
+                font-size: 0.9rem;
+            }}
+            .os-global-nav {{
+                width: 100%;
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.35rem;
+            }}
+            .os-tab-btn {{
+                width: 100%;
+                justify-content: center;
+                text-align: center;
+                padding: 0.38rem 0.5rem;
+                font-size: 0.78rem;
+            }}
+            .os-chip-row {{
+                width: 100%;
+            }}
+            .os-card,
+            .os-hero {{
+                padding: 0.85rem 0.8rem;
+                border-radius: 0.85rem;
+            }}
+            .os-hero-grid {{
+                gap: 0.75rem;
+            }}
+            .os-banner {{
+                padding: 0.45rem 0.7rem;
+                font-size: 0.82rem;
+            }}
+            .os-inline-list .row {{
+                padding: 0.5rem 0.65rem;
+            }}
         }}
     </style>
 </head>
@@ -12697,175 +13804,24 @@ function qaApplyTaDahFromScratch(scratchText) {{
         </div>
     </header>
 
-    <!-- Controls (collapsible) -->
-    <details id="dashboard-controls" style="margin-bottom: 0.75rem;">
-        <summary class="text-caption" style="cursor: pointer;  color: var(--muted); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.3rem;">
-            <span aria-hidden="true" style="display: inline-block; transition: transform 0.15s; " class="text-micro controls-arrow">▶</span> Controls
-        </summary>
-        <!-- Jump links -->
-        <nav class="text-caption" style="display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; ">
-            <a href="#actions" style="color: var(--muted);">Actions</a>
-            <a href="#daily-report" style="color: var(--muted);">Report</a>
-            <a href="#guidance" style="color: var(--muted);">Guidance</a>
-            <a href="#morning" style="color: var(--muted);">Morning</a>
-            <a href="#evening" style="color: var(--muted);">Evening</a>
-            <a href="#review" style="color: var(--muted);">Review</a>
-            <a href="#health" style="color: var(--muted);">Health</a>
-        </nav>
-
-        <!-- Focus mode pills (inline) -->
-        <div style="display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
-            <div class="focus-chips" style="display: flex; gap: 0.25rem;">
-                <button type="button" class="focus-chip is-active" data-focus-btn="all">All</button>
-                <button type="button" class="focus-chip" data-focus-btn="morning">Morning</button>
-                <button type="button" class="focus-chip" data-focus-btn="day">Day</button>
-                <button type="button" class="focus-chip" data-focus-btn="evening">Evening</button>
-                <button type="button" class="focus-chip" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>Report</button>
-            </div>
-            <span style="flex: 1;"></span>
-            <button type="button" class="text-micro focus-chip" id="expand-all-toggle" style="opacity: 0.6;" onclick="qaToggleExpandAll(this)">▼ Expand</button>
-            <button type="button" class="text-micro focus-chip" id="low-stim-toggle" style=" opacity: 0.6;">Low stim</button>
-            <button type="button" class="text-micro focus-chip" id="compact-toggle" style=" opacity: 0.6;">Compact</button>
-            <button type="button" class="text-micro focus-chip" id="density-toggle" style=" opacity: 0.6;">Focus</button>
-            <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
+    <div id="dashboard-controls" hidden style="display:none;">
+        <div class="focus-chips" aria-hidden="true">
+            <button type="button" data-focus-btn="all">All</button>
+            <button type="button" data-focus-btn="morning">Morning</button>
+            <button type="button" data-focus-btn="day">Day</button>
+            <button type="button" data-focus-btn="evening">Evening</button>
+            <button type="button" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>Report</button>
         </div>
-        <p id="focus-mode-note" class="focus-note">All sections visible.</p>
-        <p id="focus-meta-note" class="focus-note">Style: Standard • Density: Standard.</p>
-        {_controls_action_buttons_html}
-    </details>
-
-    {'<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(127,29,29,0.12); border: 1px solid rgba(212,160,160,0.2);"><p class="text-xs" style="color: #d4a0a0">Low energy detected — showing essentials only. Tap sections to expand.</p></div>' if _energy_low else ''}
+        <button type="button" id="expand-all-toggle">Expand</button>
+        <button type="button" id="low-stim-toggle">Low stim</button>
+        <button type="button" id="compact-toggle">Compact</button>
+        <button type="button" id="density-toggle">Focus</button>
+        <p id="focus-mode-note">All sections visible.</p>
+        <p id="focus-meta-note">Style: Standard • Density: Standard.</p>
+    </div>
 
     {_auth_alert_html}
-
-    <!-- 1. TRIAGE: Actions + Calendar + Daily Report -->
-    <section id="actions" class="dashboard-section" data-focus="always morning day evening" data-density-keep>{action_items_html}</section>
-
-    <section id="schedule" class="dashboard-section" data-focus="always morning day evening" data-density-keep>
-    <div class="card">
-        <span class="section-label" style="margin:0;padding:0;">🗓 Today's Schedule</span>
-        <div class="mt-3 space-y-2" id="qa-calendar-body">{calendar_html}</div>
-    </div>
-    </section>
-
-    {(f'<section id="daily-report" class="dashboard-section" data-focus="always morning day evening report"{daily_report_section_hidden_attr}><details class="card"><summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Daily Report</span></summary><div class="mt-3">{daily_report_html}</div></details></section>') if daily_report_html else ''}
-
-    <!-- 2. COACHING: Guidance + State Vector -->
-    {(f'<section id="guidance" class="dashboard-section" data-focus="morning day evening"><details class="card"><summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Guidance</span></summary><div class="mt-3">{guidance_section_html}</div></details></section>') if guidance_section_html else ''}
-
-    {(f'<section class="dashboard-section" data-focus="morning day evening">{support_section_html}</section>') if support_section_html else ''}
-
-    <!-- 3. JOURNAL: chronological (morning → updates → evening) -->
-    <section id="morning" class="dashboard-section" data-focus="morning"{' data-density-keep' if is_morning else ''}>
-    <details class="card mb-4"{' open' if is_morning and not _energy_low else ''}>
-        <summary class="cursor-pointer"><span class="section-label section-label-morning" style="margin:0;padding:0;">Morning</span></summary>
-        <div class="mt-3">
-        {morning_mood_pill_html}
-        {morning_card_html}
-        </div>
-    </details>
-    {morning_insights_html}
-    {_scratch_pad_html("morning", "Morning", effective_today)}
-    </section>
-
-    <section id="updates" class="dashboard-section" data-focus="day"{' data-density-keep' if not is_morning and not is_evening else ''}>
-    <details class="card mb-4"{' open' if not is_morning and not is_evening and not _energy_low else ''}>
-        <summary class="cursor-pointer"><span class="section-label section-label-day" style="margin:0;padding:0;">Updates</span></summary>
-        <div class="mt-3">
-        {updates_card_html}
-        {updates_insights_html}
-        </div>
-    </details>
-    {_scratch_pad_html("updates", "Updates", effective_today)}
-    </section>
-
-    <section id="evening" class="dashboard-section" data-focus="evening"{' data-density-keep' if is_evening else ''}>
-    <details class="card mb-4"{' open' if is_evening and not _energy_low else ''}>
-        <summary class="cursor-pointer"><span class="section-label section-label-evening" style="margin:0;padding:0;">Evening</span></summary>
-        <div class="mt-3">
-        {evening_mood_pill_html}
-        {evening_card_html}
-        </div>
-    </details>
-    {evening_insights_html}
-    {_scratch_pad_html("evening", "Evening", effective_today)}
-    </section>
-
-    <!-- 4. INTERACTIVE: Mood + Ta-Dah scratch -->
-    <section class="dashboard-section" data-focus="always morning day evening" data-density-keep>{mood_tracking_html}</section>
-    {tadah_scratch_html}
-
-    <!-- 5. REVIEW: Ta-Dah + Weekly -->
-    <section id="review" class="dashboard-section" data-focus="day evening">
-    <details class="card mb-4">
-        <summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Ta-Dah</span> <span class="text-xs" style="color:#94a3b8">{len(tadah_flat)}</span></summary>
-        <div class="mt-3">
-            <h3 class="text-sm font-semibold mb-3"><a href="{journal_today}" style="color: #a7d8c4">Ta-Dah (<span id="qa-tadah-count">{len(tadah_flat)}</span>)</a></h3>
-            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
-            {yesterday_tadah_html}
-            {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color: #6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
-        </div>
-    </details>
-    </section>
-
-    {(f'<section id="day-narrative" class="dashboard-section" data-focus="day evening">{_pieces_day_html}</section>') if _pieces_day_html else ''}
-
-    <section id="weekly" class="dashboard-section" data-focus="day evening">{weekly_digest_html}</section>
-
-    <!-- 6. SYSTEM: Freshness warnings (collapsed) -->
-    <section id="qa-status-cards-section" class="dashboard-section" data-focus="always" data-static-cards="{status_static_card_count}"{status_cards_section_hidden_attr}>
-        {important_thing_warning_html}
-        <div id="qa-freshness-watch-wrap"{freshness_watch_hidden_attr}>{freshness_watch_html}</div>
-        {stale_notice_html}
-        <div id="qa-ideas-status-wrap"{ideas_status_hidden_attr}>{ideas_status_html}</div>
-        <div id="qa-section-freshness-wrap"{section_freshness_hidden_attr}>{section_freshness_html}</div>
-    </section>
-
-    <!-- Health & Wellbeing (consolidated) -->
-    <section id="health" class="dashboard-section" data-focus="day evening">
-    <details class="card">
-        <summary class="cursor-pointer"><span class="section-label" style="margin:0;padding:0;">Health &amp; Wellbeing</span></summary>
-        <div class="mt-3">
-        {workout_html}{fitness_html}
-        {('<div style="border-top: 1px solid var(--panel-border); margin: 0.75rem 0; padding-top: 0.75rem;">' + mindfulness_html + '</div>') if mindfulness_html else ''}
-        {('<div style="border-top: 1px solid var(--panel-border); margin: 0.75rem 0; padding-top: 0.75rem;"><div class="grid grid-cols-1 md:grid-cols-2 gap-4">' + '<div>' + (health_html if health_html else '') + '</div>' + '<div>' + (habits_html if habits_html else '') + '</div>' + '</div></div>') if (health_html or habits_html) else ''}
-        {('<details style="border-top: 1px solid var(--panel-border); margin-top: 0.75rem; padding-top: 0.75rem;"><summary class="text-sm cursor-pointer" style="color: var(--muted)">Self-care details</summary><div style="margin-top: 0.5rem;">' + finch_html + '</div></details>') if finch_html else ''}
-        </div>
-    </details>
-    </section>
-
-    <!-- Film -->
-    <section id="film" class="dashboard-section" data-focus="always">{film_html}</section>
-
-    <!-- Patterns & Correlations (collapsed) -->
-    <section class="dashboard-section" data-focus="day evening">
-    {('<details class="card"><summary class="cursor-pointer text-sm font-semibold" style="color: var(--muted)">Patterns &amp; correlations</summary><div style="margin-top: 0.75rem;">' + correlation_html + mood_correlation_html + '</div></details>') if (correlation_html or mood_correlation_html) else ''}
-    </section>
-
-    <!-- Digital Activity (collapsed) -->
-    <section class="dashboard-section" data-focus="day evening">
-        {('<details class="card"><summary class="cursor-pointer text-sm" style="color: var(--muted)">' + html.escape(screentime_summary_label) + '</summary><div class="mt-3">' + screentime_html + '</div></details>') if screentime_html else ''}
-        {('<details class="card"><summary class="cursor-pointer text-sm" style="color: var(--muted)">' + html.escape(activitywatch_summary_label) + '</summary><div class="mt-3">' + activitywatch_html + '</div></details>') if activitywatch_html else ''}
-    </section>
-
-    <!-- Pieces Workstream -->
-    <section id="pieces" class="dashboard-section" data-focus="day evening">{pieces_card_html if pieces_card_html else ''}</section>
-
-    <!-- Therapy Notes -->
-    <section class="dashboard-section" data-focus="all">{therapy_notes_html}</section>
-
-    <!-- Jobs section removed — freelance-first, no active job search (2026-03-10) -->
-
-    <!-- System -->
-    <section id="system" class="dashboard-section" data-focus="all">
-    <details class="card">
-        <summary class="cursor-pointer text-sm" style="color: var(--muted)">System &amp; maintenance</summary>
-        <div style="margin-top: 0.75rem;">
-            {system_status_html}
-            {('<div style="margin-top: 0.75rem;">' + backlog_html + '</div>') if backlog_html else ''}
-        </div>
-    </details>
-    </section>
+    {os3_shell_html}
 
     <div id="cmd-palette" class="focus-hidden" style="position: fixed; inset: 0; z-index: 1000; background: rgba(2,6,23,0.72);">
         <div style="max-width: 680px; margin: 8vh auto 0; padding: 0 1rem;">
@@ -13895,6 +14851,283 @@ function qaApplyTaDahFromScratch(scratchText) {{
         setInterval(checkBedtime, 5 * 60 * 1000);
     }})();
 
+    (function() {{
+        const STORAGE_KEY = "dashboard.os3.state.v1";
+        const tabButtons = Array.from(document.querySelectorAll("[data-os-tab-btn]"));
+        const tabPanels = Array.from(document.querySelectorAll("[data-os-tab]"));
+        const journalButtons = Array.from(document.querySelectorAll("[data-os-journal-btn]"));
+        const journalPanels = Array.from(document.querySelectorAll("[data-os-journal-panel]"));
+        const reviewButtons = Array.from(document.querySelectorAll("[data-os-review-btn]"));
+        const reviewPanels = Array.from(document.querySelectorAll("[data-os-review-panel]"));
+        const healthButtons = Array.from(document.querySelectorAll("[data-os-health-btn]"));
+        const healthPanels = Array.from(document.querySelectorAll("[data-os-health-panel]"));
+        const nowMain = document.querySelector("[data-os-now-main]");
+        const focusView = document.querySelector("[data-os-focus-view]");
+        const focusEnterButtons = Array.from(document.querySelectorAll("[data-os-focus-enter]"));
+        const focusExitButtons = Array.from(document.querySelectorAll("[data-os-focus-exit]"));
+
+        function defaultJournal() {{
+            const hour = new Date().getHours();
+            if (hour < 12) return "morning";
+            if (hour >= 18) return "evening";
+            return "day";
+        }}
+
+        function readStoredState() {{
+            try {{
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return {{}};
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === "object" ? parsed : {{}};
+            }} catch (_err) {{
+                return {{}};
+            }}
+        }}
+
+        function normaliseState(input) {{
+            const stored = readStoredState();
+            const source = Object.assign({{}}, stored, input || {{}});
+            const allowedTabs = ["now", "journal", "review", "health", "more"];
+            const allowedJournal = ["morning", "day", "evening"];
+            const allowedReview = ["today", "week"];
+            const allowedHealth = ["overview", "activity", "vitals"];
+            const tab = allowedTabs.includes(String(source.tab || "").toLowerCase()) ? String(source.tab).toLowerCase() : "now";
+            const journal = allowedJournal.includes(String(source.journal || "").toLowerCase()) ? String(source.journal).toLowerCase() : defaultJournal();
+            const review = allowedReview.includes(String(source.review || "").toLowerCase()) ? String(source.review).toLowerCase() : "today";
+            const health = allowedHealth.includes(String(source.health || "").toLowerCase()) ? String(source.health).toLowerCase() : "overview";
+            const focus = String(source.focus || "").toLowerCase() === "active" ? "active" : "";
+            return {{ tab, journal, review, health, focus }};
+        }}
+
+        function parseHashState() {{
+            const raw = String(window.location.hash || "").replace(/^#/, "");
+            if (!raw) return {{}};
+            const params = new URLSearchParams(raw);
+            const next = {{}};
+            ["tab", "journal", "review", "health", "focus"].forEach((key) => {{
+                const value = params.get(key);
+                if (value) next[key] = value;
+            }});
+            return next;
+        }}
+
+        function persistState(state) {{
+            try {{
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({{
+                    tab: state.tab,
+                    journal: state.journal,
+                    review: state.review,
+                    health: state.health,
+                }}));
+            }} catch (_err) {{}}
+        }}
+
+        function stateToHash(state) {{
+            const params = new URLSearchParams();
+            params.set("tab", state.tab);
+            if (state.tab === "journal") params.set("journal", state.journal);
+            if (state.tab === "review") params.set("review", state.review);
+            if (state.tab === "health") params.set("health", state.health);
+            if (state.tab === "now" && state.focus === "active") params.set("focus", "active");
+            return params.toString();
+        }}
+
+        function focusTarget(targetId) {{
+            if (!targetId) return;
+            window.setTimeout(() => {{
+                const node = document.getElementById(targetId);
+                if (!node) return;
+                try {{
+                    node.scrollIntoView({{ block: "center", behavior: "smooth" }});
+                }} catch (_err) {{
+                    node.scrollIntoView();
+                }}
+                if (typeof node.focus === "function") {{
+                    if (!node.hasAttribute("tabindex") && !/^(TEXTAREA|INPUT)$/.test(String(node.tagName || ""))) {{
+                        node.setAttribute("tabindex", "-1");
+                    }}
+                    try {{
+                        node.focus({{ preventScroll: true }});
+                    }} catch (_err) {{
+                        node.focus();
+                    }}
+                }}
+            }}, 60);
+        }}
+
+        function render(state, options = {{}}) {{
+            const safe = normaliseState(state);
+            persistState(safe);
+
+            tabButtons.forEach((button) => {{
+                const isActive = button.dataset.osTabBtn === safe.tab;
+                button.classList.toggle("is-active", isActive);
+            }});
+            tabPanels.forEach((panel) => {{
+                const visible = panel.dataset.osTab === safe.tab;
+                panel.hidden = !visible;
+            }});
+
+            journalButtons.forEach((button) => {{
+                button.classList.toggle("is-active", button.dataset.osJournalBtn === safe.journal);
+            }});
+            journalPanels.forEach((panel) => {{
+                panel.hidden = panel.dataset.osJournalPanel !== safe.journal;
+            }});
+
+            reviewButtons.forEach((button) => {{
+                button.classList.toggle("is-active", button.dataset.osReviewBtn === safe.review);
+            }});
+            reviewPanels.forEach((panel) => {{
+                panel.hidden = panel.dataset.osReviewPanel !== safe.review;
+            }});
+
+            healthButtons.forEach((button) => {{
+                button.classList.toggle("is-active", button.dataset.osHealthBtn === safe.health);
+            }});
+            healthPanels.forEach((panel) => {{
+                panel.hidden = panel.dataset.osHealthPanel !== safe.health;
+            }});
+
+            const focusActive = safe.tab === "now" && safe.focus === "active";
+            if (nowMain) nowMain.hidden = focusActive;
+            if (focusView) focusView.hidden = !focusActive;
+
+            if (options.focusTarget) {{
+                focusTarget(options.focusTarget);
+            }} else if (focusActive) {{
+                focusTarget("os-focus-view-panel");
+            }}
+            return safe;
+        }}
+
+        function applyState(partial, options = {{}}) {{
+            const current = normaliseState(parseHashState());
+            const next = normaliseState(Object.assign({{}}, current, partial || {{}}));
+            if (next.tab !== "now") next.focus = "";
+            const nextHash = stateToHash(next);
+            const currentHash = String(window.location.hash || "").replace(/^#/, "");
+            if (currentHash === nextHash) {{
+                render(next, options);
+                return;
+            }}
+            if (options.replace) {{
+                const url = window.location.pathname + window.location.search + "#" + nextHash;
+                window.history.replaceState(null, "", url);
+                render(next, options);
+                return;
+            }}
+            window.location.hash = nextHash;
+            render(next, options);
+        }}
+
+        function syncFromHash(options = {{}}) {{
+            const safe = normaliseState(parseHashState());
+            render(safe, options);
+        }}
+
+        window.qaOsSetHashState = function qaOsSetHashState(partial, options = {{}}) {{
+            applyState(partial, options);
+        }};
+
+        tabButtons.forEach((button) => {{
+            button.addEventListener("click", () => {{
+                applyState({{ tab: button.dataset.osTabBtn }});
+            }});
+        }});
+        journalButtons.forEach((button) => {{
+            button.addEventListener("click", () => {{
+                applyState({{ tab: "journal", journal: button.dataset.osJournalBtn }});
+            }});
+        }});
+        reviewButtons.forEach((button) => {{
+            button.addEventListener("click", () => {{
+                applyState({{ tab: "review", review: button.dataset.osReviewBtn }});
+            }});
+        }});
+        healthButtons.forEach((button) => {{
+            button.addEventListener("click", () => {{
+                applyState({{ tab: "health", health: button.dataset.osHealthBtn }});
+            }});
+        }});
+        focusEnterButtons.forEach((button) => {{
+            button.addEventListener("click", () => applyState({{ tab: "now", focus: "active" }}, {{ focusTarget: "os-focus-heading" }}));
+        }});
+        focusExitButtons.forEach((button) => {{
+            button.addEventListener("click", () => applyState({{ tab: "now", focus: "" }}, {{ focusTarget: "os-now-hero" }}));
+        }});
+        document.querySelectorAll("[data-os-nav-action]").forEach((button) => {{
+            button.addEventListener("click", () => {{
+                const tab = String(button.dataset.osNavAction || "").toLowerCase();
+                const focusId = String(button.dataset.focusTarget || "").trim();
+                if (tab === "journal") {{
+                    applyState({{ tab: "journal", journal: String(button.dataset.targetSub || "day").toLowerCase() }}, {{ focusTarget: focusId }});
+                    return;
+                }}
+                if (tab === "health") {{
+                    applyState({{ tab: "health", health: String(button.dataset.targetSub || "overview").toLowerCase() }}, {{ focusTarget: focusId }});
+                    return;
+                }}
+                if (tab === "review") {{
+                    applyState({{ tab: "review", review: String(button.dataset.targetSub || "today").toLowerCase() }}, {{ focusTarget: focusId }});
+                }}
+            }});
+        }});
+
+        window.addEventListener("hashchange", () => syncFromHash());
+        if (String(window.location.hash || "").replace(/^#/, "").trim()) {{
+            syncFromHash();
+        }} else {{
+            applyState(normaliseState({{}}), {{ replace: true }});
+        }}
+
+        const weekReflection = document.getElementById("qa-weekly-reflection");
+        const weekReflectionStatus = document.getElementById("qa-weekly-reflection-status");
+        let weekReflectionTimer = null;
+        let weekReflectionLastSent = String((weekReflection && weekReflection.value) || "");
+
+        async function saveWeeklyReflection(value) {{
+            if (!weekReflection) return null;
+            const payload = {{
+                week_key: String(weekReflection.dataset.weekKey || ""),
+                text: String(value || ""),
+            }};
+            const result = await window.qaPostWithRetry("/v1/ui/review/weekly-reflection", payload, {{ retries: 1, label: "weekly reflection" }});
+            return result;
+        }}
+
+        if (weekReflection) {{
+            weekReflection.addEventListener("input", () => {{
+                if (weekReflectionStatus) {{
+                    weekReflectionStatus.textContent = "Typing…";
+                    weekReflectionStatus.style.color = "#d4b896";
+                }}
+                if (weekReflectionTimer) window.clearTimeout(weekReflectionTimer);
+                weekReflectionTimer = window.setTimeout(async () => {{
+                    const nextValue = String(weekReflection.value || "");
+                    if (nextValue === weekReflectionLastSent) {{
+                        if (weekReflectionStatus) {{
+                            weekReflectionStatus.textContent = "Saved";
+                            weekReflectionStatus.style.color = "#a7d8c4";
+                        }}
+                        return;
+                    }}
+                    const result = await saveWeeklyReflection(nextValue);
+                    if (result && result.status === "ok") {{
+                        weekReflectionLastSent = nextValue;
+                        if (weekReflectionStatus) {{
+                            weekReflectionStatus.textContent = "Autosaved";
+                            weekReflectionStatus.style.color = "#a7d8c4";
+                        }}
+                    }} else if (weekReflectionStatus) {{
+                        weekReflectionStatus.textContent = "Save failed";
+                        weekReflectionStatus.style.color = "#d4a0a0";
+                    }}
+                }}, 700);
+            }});
+        }}
+    }})();
+
     </script>
     </main>
 </body>
@@ -14297,6 +15530,7 @@ def main():
     auto_source = ""
     habit_name = ""
     latest_completed = ""
+    auto_minutes_done = None
 
     if not auto_done and healthfit.get("status") == "success":
         for entry in healthfit.get("mindfulness", []):
@@ -14316,6 +15550,18 @@ def main():
             latest_completed = effective_today
             if not habit_name:
                 habit_name = str(entry.get("data_source") or "Mindfulness").strip()
+            auto_duration_raw = entry.get("minutes")
+            if auto_duration_raw in {None, ""}:
+                auto_duration_raw = entry.get("duration_minutes")
+            if auto_duration_raw in {None, ""}:
+                auto_duration_raw = entry.get("duration")
+            try:
+                auto_minutes_done = int(round(float(auto_duration_raw)))
+            except Exception:
+                try:
+                    auto_minutes_done = parse_duration_mins(str(auto_duration_raw or ""))
+                except Exception:
+                    auto_minutes_done = None
             break
 
     done = manual_done if manual_done is not None else auto_done
@@ -14327,11 +15573,13 @@ def main():
     if minutes_target <= 0:
         minutes_target = 20
 
-    minutes_done_raw = ai_mindfulness.get("minutes_done", minutes_target if done else 0)
+    minutes_done_raw = ai_mindfulness.get("minutes_done", auto_minutes_done if auto_done else (minutes_target if done else 0))
     try:
         minutes_done = int(minutes_done_raw)
     except Exception:
         minutes_done = minutes_target if done else 0
+    if done and minutes_done <= 0 and isinstance(auto_minutes_done, int) and auto_minutes_done > 0:
+        minutes_done = auto_minutes_done
     if done and minutes_done <= 0:
         minutes_done = minutes_target
 

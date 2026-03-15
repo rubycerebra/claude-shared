@@ -16,10 +16,10 @@ This file is updated from the dashboard compounding layer so future sessions/QMD
 
 ## Prioritise next
 - Move forward — seen 4 days, prevents decay.
-- Do good things for my family — seen 5 days, admin is a domain with recent follow-through.
 - Check therapy notes from today's session — seen 5 days, health is a domain with recent follow-through.
+- Do good things for my family — seen 5 days, admin is a domain with recent follow-through.
 
 ## Conversation recall cues
 - Move forward — seen 4 days, prevents decay.
-- Do good things for my family — seen 5 days, admin is a domain with recent follow-through.
+- Check therapy notes from today's session — seen 5 days, health is a domain with recent follow-through.
 - Move forward keeps resurfacing and needs a real close-loop move.

@@ -273,17 +273,15 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-14 (hash: 3e5ba03225dd1e8b)*
+*Auto-synced from Pieces persona summary on 2026-03-15 (hash: 6022cc448dce995d)*
 
 ### Job search anxiety patterns
-- James V consistently functions as the digital persona representing James Cherry within his productivity ecosystem, primarily as the named user in the Todoist application and the conceptual architect behind his comprehensive task management and data infrastructure. The direct corr
+- David Petty** is a keen film enthusiast and critic whose primary activities, as observed in James Cherry's workstream, revolve around in-depth discussions and reviews of films and related media. Based on 15 total observed interactions (10 new events), he consistently participates
 - What They Work On
 
 ### Coping mechanisms Pieces has observed
-- James V consistently functions as the digital persona representing James Cherry within his productivity ecosystem, primarily as the named user in the Todoist application and the conceptual architect behind his comprehensive task management and data infrastructure. The direct corr
+- David Petty remains identifiable as a professional whose visible activities in the observer's context are exclusively within film-related discussions. His phone number, +44 7745 519009, has been consistently observed in multiple WhatsApp chat transcripts (observed in 8 previous W
 - What They Work On
 
 ### Work habits Pieces has observed
-- James V** is the meticulously architected digital persona at the core of James Cherry's comprehensive personal and professional task management and digital self-optimization ecosystem. Based on 912 observed interactions (69 new), James V's identity as a systematic and efficiency-
-- James V consistently functions as the digital persona representing James Cherry within his productivity ecosystem, primarily as the named user in the Todoist application and the conceptual architect behind his comprehensive task management and data infrastructure. The direct corr
-- James V's primary focus remains intensely on the migration, optimiza
+- David Petty remains identifiable as a professional whose visible activities in the observer's context are exclusively within film-related discussions. His phone number, +44 7745 519009, has been consistently observed in multiple WhatsApp chat transcripts (observed in 8 previous W
