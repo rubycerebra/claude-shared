@@ -7219,7 +7219,19 @@ def generate_html(data):
         '''
 
     qa_evening_unlock_hidden_attr = "" if is_evening else ' hidden="hidden"'
-    qa_anxiety_visible = is_evening or qa_mindfulness_done or qa_workout_signals_state.get("anxiety_saved_today", False)
+    # Context-aware anxiety relief: show when anxiety detected, not just evening
+    _anxiety_in_tone = tone in {"anxious", "frustrated"}
+    _anxiety_in_signals = "anxiety" in support_triggers
+    _hl_for_hrv = data.get("health_live", {}) if isinstance(data.get("health_live"), dict) else {}
+    _hrv_low = isinstance(_hl_for_hrv.get("hrv_latest"), (int, float)) and _hl_for_hrv["hrv_latest"] < 30
+    qa_anxiety_visible = (
+        is_evening
+        or qa_mindfulness_done
+        or qa_workout_signals_state.get("anxiety_saved_today", False)
+        or _anxiety_in_tone
+        or _anxiety_in_signals
+        or _hrv_low
+    )
     qa_anxiety_hidden_attr = "" if qa_anxiety_visible else ' hidden="hidden"'
     qa_anxiety_relief_html = f'''
     <div id="qa-anxiety-relief-wrap" class="card rounded-xl mb-4"{qa_anxiety_hidden_attr} style="background: rgba(120,53,15,0.10); border: 1px solid rgba(251,191,36,0.15); padding: 0.85rem 1rem;">
@@ -7427,19 +7439,19 @@ def generate_html(data):
     _bell_items = _merge_bell_render_items(_raw_bell_items)
     notifications_bell_html = ""
 
+    _EMOJI_LEADING_RE = re.compile(r'^[🀀-🫿☀-➿️\s]+')
+    _COACHING_STARTS = ("did you", "when you felt", "did the", "have you noticed",
+                        "what did you learn", "how did it feel", "was there a moment",
+                        "looking back", "reflecting on")
+
     def _is_coaching_question(text):
         """Detect reflective/coaching questions that aren't actionable tasks."""
-        t = str(text or "").strip().lower()
-        if not t:
+        t = _EMOJI_LEADING_RE.sub('', str(text or "").strip().lower()).strip()
+        if not t or len(t) < 50:
             return False
-        # Questions that start with reflective prompts
-        _question_starts = ("did you", "when you felt", "did the", "have you noticed",
-                           "what did you learn", "how did it feel", "was there a moment",
-                           "looking back", "reflecting on")
-        if any(t.startswith(qs) for qs in _question_starts) and t.endswith("?") and len(t) > 50:
+        if any(t.startswith(qs) for qs in _COACHING_STARTS):
             return True
-        # Long text ending with '?' that contains reflective language
-        if t.endswith("?") and len(t) > 80 and any(kw in t for kw in ("cycle", "pattern", "repeat", "differ", "recall", "actively")):
+        if "?" in t and len(t) > 80 and any(kw in t for kw in ("cycle", "pattern", "repeat", "differ", "recall", "actively")):
             return True
         return False
 
@@ -7579,6 +7591,7 @@ def generate_html(data):
     _todoist_active = isinstance(_todoist_data, dict) and _todoist_data.get("status") == "ok"
     _todoist_card_html = ""
     _claude_section_html = ""
+    _todoist_hero_task = None
     if _todoist_active:
         if _todoist_ensure_label is not None:
             try:
@@ -7761,6 +7774,8 @@ def generate_html(data):
 
         _today_rows_html, _today_count = _render_todoist_rows(_todoist_today, card_key="today")
         _claude_rows_html, _claude_count = _render_todoist_rows(_claude_tasks, card_key="claude") if _claude_tasks else ("", 0)
+
+        _todoist_hero_task = min(_todoist_today, key=_todoist_sort_key) if _todoist_today else None
 
         _today_summary_text = f"{_today_count} {'task' if _today_count == 1 else 'tasks'}"
 
@@ -12450,7 +12465,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 _sleep_h = int(_sleep_match.group(1)) + int(_sleep_match.group(2)) / 60
     os3_sleep_display = f"{float(_sleep_h):.1f}h" if isinstance(_sleep_h, (int, float)) else "—"
     os3_hrv_display = str(int(_hl.get("hrv_latest", 0) or _hf.get("hrv_latest", 0))) if (_hl.get("hrv_latest") or _hf.get("hrv_latest")) else "—"
-    os3_steps_display = f"{int(_hf_latest.get('steps', 0)):,}" if isinstance(_hf_latest.get("steps"), (int, float)) else "—"
+    _hl_steps = _hl.get("steps")  # health_live first (today's actual steps)
+    _steps_val = _hl_steps if isinstance(_hl_steps, (int, float)) else _hf_latest.get("steps")
+    os3_steps_display = f"{int(_steps_val):,}" if isinstance(_steps_val, (int, float)) else "—"
 
     os3_calendar_rows = []
     os3_now_dt = datetime.now()
@@ -12548,6 +12565,17 @@ function qaApplyTaDahFromScratch(scratchText) {{
             f"{_os3_action_time}{_os3_energy_note_hero}"
             if _os3_action_time else
             f"{_os3_energy_note_hero}".strip()
+        )
+    elif _todoist_hero_task:
+        os3_hero_source = "todoist"
+        os3_hero_title = str(_todoist_hero_task.get("content", "")).strip()[:80]
+        _tht_pri = int(_todoist_hero_task.get("priority", 1) or 1)
+        _tht_pri_label = {4: "P1", 3: "P2", 2: "P3"}.get(_tht_pri, "")
+        os3_hero_meta = f"Todoist{(' · ' + _tht_pri_label) if _tht_pri_label else ''}"
+        _tht_due_time = str(_todoist_hero_task.get("due_datetime", "") or "").strip()
+        os3_hero_subtitle = (
+            f"{_tht_due_time[11:16]}{_os3_energy_note_hero}" if len(_tht_due_time) >= 16 else
+            f"Next on your list.{_os3_energy_note_hero}"
         )
     elif os3_next_event:
         os3_hero_source = "upcoming"
@@ -12852,9 +12880,20 @@ function qaApplyTaDahFromScratch(scratchText) {{
     _spark_hrv = [float(d.get("hrv", 0)) for d in _hf_daily[:7] if isinstance(d, dict) and isinstance(d.get("hrv"), (int, float)) and d.get("hrv", 0) > 0]
     _spark_steps.reverse()
     _spark_hrv.reverse()
+    _hf_sleep_list = data.get("healthfit", {}).get("sleep", []) if isinstance(data.get("healthfit", {}), dict) else []
+    _spark_sleep = []
+    for _sl in _hf_sleep_list[:7]:
+        if not isinstance(_sl, dict):
+            continue
+        _asleep_raw = str(_sl.get("asleep", ""))
+        _sm = re.match(r"(\d+)h:(\d+)m", _asleep_raw)
+        if _sm:
+            _spark_sleep.append(int(_sm.group(1)) + int(_sm.group(2)) / 60)
+    _spark_sleep.reverse()
     os3_health_sparklines_html = (
         _build_sparkline_bars(_spark_steps, "Steps", "rgba(125,211,252,0.6)", max_val=20000)
         + _build_sparkline_bars(_spark_hrv, "HRV", "rgba(167,216,196,0.6)", max_val=120)
+        + _build_sparkline_bars(_spark_sleep, "Sleep", "rgba(196,181,253,0.6)", max_val=10)
     )
 
     os3_integrations_rows = [
@@ -12940,7 +12979,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
                     {yesterday_tadah_html}
                 </section>
-                {qa_anxiety_relief_html if is_evening else ''}
+                {qa_anxiety_relief_html if qa_anxiety_visible else ''}
                 {os3_review_handoff_html if is_evening else ''}
             </aside>
         </div>
@@ -13002,6 +13041,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <section id="actions">{action_items_html}</section>
                 </div>
                 <aside class="os-side-stack">
+                    {qa_anxiety_relief_html if qa_anxiety_visible and not is_evening else ''}
                     {(f'<section id="guidance" class="os-card" style="border-left:3px solid rgba(224,187,228,0.35);"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
                     {os3_quick_actions_html}
                     <section class="os-card">
