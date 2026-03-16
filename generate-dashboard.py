@@ -3932,7 +3932,10 @@ def generate_html(data):
                     lead = lead[:92].rsplit(' ', 1)[0] + '…'
                 emoji = _pick_insight_emoji(text)
                 html += f'''
-                <p class="text-sm mb-1" style="color: #e5e7eb; line-height: 1.45;">{emoji} {lead}</p>'''
+                <div style="display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.35rem;">
+                    <div style="width:1.5rem;height:1.5rem;border-radius:0.45rem;background:{config['bg']};display:flex;align-items:center;justify-content:center;font-size:0.7rem;flex-shrink:0;margin-top:0.15rem;">{emoji}</div>
+                    <p class="text-sm" style="color: #e5e7eb; line-height: 1.45;">{lead}</p>
+                </div>'''
 
             html += '''
             </div>'''
@@ -6154,8 +6157,8 @@ def generate_html(data):
                 continue
             if g_text:
                 guidance_items_html += f'''
-                <div class="flex items-start gap-2 mb-3">
-                    <span class="text-lg">{g_emoji}</span>
+                <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.5rem 0.65rem;border-radius:0.65rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);margin-bottom:0.4rem;">
+                    <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(196,184,224,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;margin-top:0.1rem;">{g_emoji}</div>
                     <p class="text-sm" style="color: #e5e7eb; line-height: 1.6">{g_text}</p>
                 </div>'''
         if guidance_items_html or state_of_day_html:
@@ -12844,18 +12847,14 @@ function qaApplyTaDahFromScratch(scratchText) {{
                             <span class="text-xs rounded-full px-2 py-1" style="background:rgba(255,209,220,0.1);color:#FFD1DC;">👟 {os3_steps_display}</span>
                         </div>
                     </section>
-                    <section class="os-card">
-                        <div class="flex items-center gap-3 mb-3">
-                            <span style="font-size:1.3rem;">🏆</span>
-                            <p class="text-sm font-bold" style="color:#B5FFD9">Wins today</p>
-                            <span class="text-lg font-black" style="color:#B5FFD9">{len(tadah_flat)}</span>
+                    {f'''<section class="os-card">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span style="font-size:1.1rem;">🏆</span>
+                            <p class="text-xs font-bold uppercase" style="color:#B5FFD9;letter-spacing:0.08em;">Wins · {len(tadah_flat)}</p>
                         </div>
-                        <div class="flex flex-wrap gap-1">
-                            {"".join(f'<div style="width:1.5rem;height:1.5rem;border-radius:999px;background:rgba(181,255,217,0.25);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#B5FFD9;">✓</div>' for _ in range(min(len(tadah_flat), 10)))}
-                            {"".join(f'<div style="width:1.5rem;height:1.5rem;border-radius:999px;border:1px dashed rgba(148,163,184,0.3);"></div>' for _ in range(max(0, 5 - len(tadah_flat))))}
-                        </div>
-                        <div class="mt-3">{tadah_scratch_html}</div>
-                    </section>
+                        {"".join(f'<p class="text-xs mb-1" style="color:#d1d5db;">✓ {html.escape(item[:50])}</p>' for item in tadah_flat[:4])}
+                        <div class="mt-2">{tadah_scratch_html}</div>
+                    </section>''' if tadah_flat else f'<section class="os-card"><div class="mt-2">{tadah_scratch_html}</div></section>'}
                 </aside>
             </div>
             <section id="os-focus-view-panel" class="os-focus-view os-card" data-os-focus-view hidden tabindex="-1">
@@ -12977,12 +12976,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 </div>
                 <div class="os-layout">
                     <div class="os-main-stack">
-                        <section id="health-selfcare" class="os-card">{mindfulness_html if mindfulness_html else ''}</section>
                         <section class="os-card">
-                            <div class="flex items-center justify-between gap-3 mb-3">
-                                <div>
-                                    <h3 class="text-lg font-semibold" style="color:#7dd3fc">Today&apos;s active habits</h3>
-                                </div>
+                            <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.85rem;">
+                                <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(125,211,252,0.12);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">✅</div>
+                                <h3 class="text-base font-semibold" style="color:#7dd3fc">Today&apos;s active habits</h3>
                             </div>
                             <div class="os-inline-list">{os3_health_habits_html}</div>
                         </section>
@@ -13043,24 +13040,36 @@ function qaApplyTaDahFromScratch(scratchText) {{
             <div class="os-layout">
                 <div class="os-main-stack">
                     <details class="os-card">
-                        <summary class="cursor-pointer text-sm font-semibold" style="color:#f5d0fe">Therapy</summary>
+                        <summary class="cursor-pointer" style="display:flex;align-items:center;gap:0.65rem;">
+                            <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(245,208,254,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🧠</div>
+                            <span class="text-sm font-semibold" style="color:#f5d0fe">Therapy</span>
+                        </summary>
                         <div class="mt-3">
                             {therapy_notes_html if therapy_notes_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Therapy homework or summaries will surface here when available.</p></div>'}
                         </div>
                     </details>
                     <section class="os-card">
-                        <h3 class="text-sm font-semibold mb-2" style="color:#c4b8e0">Library &amp; media</h3>
+                        <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;">
+                            <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(196,184,224,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🎬</div>
+                            <h3 class="text-sm font-semibold" style="color:#c4b8e0">Library &amp; media</h3>
+                        </div>
                         {film_html if film_html else ''}
                     </section>
                     <section class="os-card">
-                        <h3 class="text-sm font-semibold mb-2" style="color:#93c5fd">Archives</h3>
+                        <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;">
+                            <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(147,197,253,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">📦</div>
+                            <h3 class="text-sm font-semibold" style="color:#93c5fd">Archives</h3>
+                        </div>
                         {os3_archives_html}
                     </section>
                 </div>
                 <aside class="os-side-stack">
-                    {(f'<section class="os-card"><h3 class="text-sm font-semibold mb-2" style="color:#d4a8b8">Maintenance</h3>{_claude_section_html}</section>') if _claude_section_html else ''}
+                    {(f'<section class="os-card"><div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;"><div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(212,168,184,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔧</div><h3 class="text-sm font-semibold" style="color:#d4a8b8">Maintenance</h3></div>{_claude_section_html}</section>') if _claude_section_html else ''}
                     <section class="os-card">
-                        <h3 class="text-sm font-semibold mb-2" style="color:#a7d8c4">Integrations</h3>
+                        <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;">
+                            <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(167,216,196,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔌</div>
+                            <h3 class="text-sm font-semibold" style="color:#a7d8c4">Integrations</h3>
+                        </div>
                         <div class="os-inline-list">{os3_integrations_html}</div>
                     </section>
                     {os3_more_system_html}
