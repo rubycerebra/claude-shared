@@ -407,6 +407,10 @@ if parser:
             new_diarium['tomorrow_status'] = tomorrow_status
             new_diarium['remember_tomorrow_status'] = remember_status
 
+            # Only carry forward tomorrow fields within the same effective day —
+            # cross-day carry-forward produces stale "Tomorrow" text on the dashboard.
+            _same_effective_day = bool(source_date and existing_source_date and source_date == existing_source_date)
+
             for field, status, raw_key, status_key, last_key, source_field in (
                 ('tomorrow', tomorrow_status, 'tomorrow_raw', 'tomorrow_status', 'tomorrow_last_nonempty', 'whats_tomorrow'),
                 ('remember_tomorrow', remember_status, 'remember_tomorrow_raw', 'remember_tomorrow_status', 'remember_tomorrow_last_nonempty', 'remember_tomorrow'),
@@ -414,11 +418,16 @@ if parser:
                 incoming = str(sections.get(source_field, '') or '').strip()
                 existing_val = str(existing_diarium.get(field, '') or '').strip()
                 existing_last = existing_diarium.get(last_key)
-                if status == 'ABSENT' and existing_val:
+                if status == 'ABSENT' and existing_val and _same_effective_day:
                     new_diarium[field] = existing_diarium.get(field, '')
                     if raw_key in existing_diarium:
                         new_diarium[raw_key] = existing_diarium[raw_key]
                     new_diarium[status_key] = str(existing_diarium.get(status_key, 'PRESENT_VALUE') or 'PRESENT_VALUE')
+                    if existing_last:
+                        new_diarium[last_key] = existing_last
+                elif status == 'ABSENT' and existing_val and not _same_effective_day:
+                    new_diarium[field] = ''
+                    new_diarium[status_key] = 'ABSENT'
                     if existing_last:
                         new_diarium[last_key] = existing_last
                 elif status == 'PRESENT_EMPTY':

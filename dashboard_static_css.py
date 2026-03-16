@@ -268,6 +268,43 @@ COMPONENT_CSS = """
 .todo-act--open { color: var(--color-day); border-color: rgba(147,197,253,0.2); }
 .todo-act--open:hover { background: rgba(30,64,175,0.15); }
 
+/* ── Schedule popup ── */
+.todo-schedule-popup {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 248px;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
+  z-index: 8;
+}
+.todo-schedule-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+.todo-schedule-quick .btn { text-align: center; justify-content: center; }
+.todo-schedule-divider { height: 1px; background: var(--border-default); margin: 8px 0; }
+.todo-schedule-timeblock { display: flex; flex-direction: column; gap: 6px; }
+.todo-schedule-timeblock-row { display: flex; gap: 6px; align-items: center; }
+.todo-schedule-time,
+.todo-schedule-duration {
+  flex: 1;
+  height: 26px;
+  padding: 0 6px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: rgba(15,23,42,0.7);
+  color: var(--text-primary);
+  -webkit-appearance: none;
+}
+.todo-schedule-time:focus,
+.todo-schedule-duration:focus { border-color: var(--semantic-purple-border); outline: none; }
+
 /* ── Pills / Badges ── */
 .pill {
   display: inline-flex;

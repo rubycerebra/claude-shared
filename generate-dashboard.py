@@ -2733,6 +2733,17 @@ def generate_html(data):
     film_data = data.get("film_data", {}) if isinstance(data.get("film_data"), dict) else {}
     if film_data.get("status") == "success" and not (film_data.get("stale") and film_data.get("export_age_days", 0) > 180):
         import html as _html
+        def _truncate_headline(text, max_len=120):
+            """Truncate to first sentence or max_len, whichever is shorter."""
+            s = str(text or "").strip()
+            for sep in ['. ', ' — ', ' - ', '; ']:
+                if sep in s:
+                    s = s[:s.index(sep) + len(sep.rstrip())]
+                    break
+            if len(s) > max_len:
+                s = s[:max_len - 3] + "..."
+            return s
+
         def _format_lb_rating(raw_rating):
             if raw_rating in (None, ""):
                 return ""
@@ -2825,26 +2836,48 @@ def generate_html(data):
             _disc_film_parts = _disc_suggestion.split(" \u2014 ", 1)
             _disc_film = _disc_film_parts[0].strip()
             _disc_reason = _disc_film_parts[1].strip() if len(_disc_film_parts) > 1 else ""
-            _disc_reason_html = f'<p class="text-xs mt-1" style="color:#9ca3af">{_html.escape(_disc_reason)}</p>' if _disc_reason else ""
+            _disc_reason_short = _truncate_headline(_disc_reason, max_len=120)
+            _disc_reason_html2 = f'<p style="font-size:0.72rem;color:#9ca3af;margin:0.2rem 0 0 0;line-height:1.4;">{_html.escape(_disc_reason_short)}</p>' if _disc_reason_short else ""
             discovery_html = (
-                '<div class="mt-3 rounded px-3 py-2" style="background:rgba(6,78,59,0.15);border:1px solid rgba(52,211,153,0.2)">'
-                '<p class="text-xs font-semibold mb-1" style="color:#a7d8c4">\U0001f50d Discovery</p>'
-                f'<p class="text-sm" style="color:#b8d8c8">{_html.escape(_disc_film)}</p>'
-                f'{_disc_reason_html}'
+                '<div style="margin-top:0.65rem;background:rgba(6,78,59,0.12);border:1px solid rgba(52,211,153,0.15);border-radius:0.5rem;padding:0.55rem 0.7rem;">'
+                '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;color:#a7d8c4;font-weight:700;margin:0 0 0.2rem 0;">\U0001f50d Discovery</p>'
+                f'<p style="font-size:0.85rem;color:#b8d8c8;font-weight:600;margin:0;">{_html.escape(_disc_film)}</p>'
+                f'{_disc_reason_html2}'
                 '</div>'
             )
 
-        # Recently watched
+        # Recently watched — horizontal card strip
         watched_items_html = ""
         for item in recent_watched:
             title = _html.escape(str(item.get("title", "")))
             year = _html.escape(str(item.get("year", "")))
-            date = _html.escape(str(item.get("date", "")))
+            date = _html.escape(str(item.get("date", ""))[-5:])  # just MM-DD
             rating_label = _format_lb_rating(item.get("rating"))
-            rating_html = f'<span class="text-xs" style="color:#d4b896">{_html.escape(rating_label)}</span>' if rating_label else ""
-            date_html = f'<span class="text-xs" style="color:#4b5563">{date}</span>' if date else ""
-            meta_html = f'<span class="ml-auto flex items-center gap-2">{rating_html}{date_html}</span>' if (rating_html or date_html) else ""
-            watched_items_html += f'<div class="flex items-center gap-2 mb-1"><span style="color:#c4b8e0">🎬</span><span class="text-sm" style="color:#e5e7eb">{title} <span style="color:#6b7280">({year})</span></span>{meta_html}</div>'
+            star_dots = ""
+            if rating_label:
+                try:
+                    rv = float(str(item.get("rating", 0)))
+                    if rv <= 0:
+                        raise ValueError("no rating")
+                    full = int(rv)
+                    half = rv - full >= 0.5
+                    star_dots = (
+                        '<div style="margin-top:0.3rem;display:flex;gap:2px;">'
+                        + ''.join(f'<span style="width:6px;height:6px;border-radius:50%;background:#d4b896;display:inline-block;"></span>' for _ in range(full))
+                        + ('<span style="width:6px;height:6px;border-radius:50%;background:linear-gradient(90deg,#d4b896 50%,rgba(212,184,150,0.2) 50%);display:inline-block;"></span>' if half else '')
+                        + '</div>'
+                    )
+                except Exception:
+                    star_dots = f'<div style="margin-top:0.3rem;font-size:0.65rem;color:#d4b896;">{_html.escape(rating_label)}</div>'
+            date_line = f'<p style="font-size:0.65rem;color:#4b5563;margin:0.15rem 0 0 0;">{date}</p>' if date else ""
+            watched_items_html += (
+                f'<div style="min-width:110px;max-width:140px;background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.1);'
+                f'border-radius:0.65rem;padding:0.6rem 0.7rem;flex-shrink:0;">'
+                f'<p style="font-size:0.78rem;color:#e5e7eb;font-weight:600;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{title}</p>'
+                f'<p style="font-size:0.65rem;color:#6b7280;margin:0.1rem 0 0 0;">{year}</p>'
+                f'{star_dots}{date_line}'
+                f'</div>'
+            )
 
         # Watchlist recently added
         watchlist_items_html = ""
@@ -2885,10 +2918,11 @@ def generate_html(data):
                 primary_url = str(film_primary.get("url", "")).strip()
                 primary_reason = str(film_primary.get("reason", "")).strip()
                 primary_link = (
-                    f'<a href="{_html.escape(primary_url)}" style="color:#d4a8b8;text-decoration:none">{_html.escape(primary_title)}</a>'
+                    f'<a href="{_html.escape(primary_url)}" style="color:#f3e8ff;text-decoration:none">{_html.escape(primary_title)}</a>'
                     if primary_url else _html.escape(primary_title)
                 )
                 primary_pick_summary_html = f" · Tonight: {_html.escape(primary_title)}"
+                _short_headline = _truncate_headline(profile_headline)
                 alternate_rows_html = ""
                 for alt in film_alternates[:2]:
                     alt_title = str(alt.get("title", "")).strip()
@@ -2898,35 +2932,37 @@ def generate_html(data):
                     alt_url = str(alt.get("url", "")).strip()
                     alt_reason = str(alt.get("reason", "")).strip()
                     alt_link = (
-                        f'<a href="{_html.escape(alt_url)}" style="color:#cbd5e1;text-decoration:none">{_html.escape(alt_title)}</a>'
+                        f'<a href="{_html.escape(alt_url)}" style="color:#e5e7eb;text-decoration:none">{_html.escape(alt_title)}</a>'
                         if alt_url else _html.escape(alt_title)
                     )
-                    alt_reason_html = (
-                        f'<span class="text-xs" style="color:#94a3b8">{_html.escape(alt_reason)}</span>'
+                    alt_reason_line = (
+                        f'<p style="font-size:0.7rem;color:#94a3b8;margin:0.15rem 0 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(alt_reason)}</p>'
                         if alt_reason else ""
                     )
                     alternate_rows_html += (
-                        f'<div class="flex items-start gap-2 mb-1">'
-                        f'<span style="color:#cbd5e1">•</span>'
-                        f'<div class="min-w-0"><p class="text-sm" style="color:#cbd5e1">{alt_link} '
-                        f'<span style="color:#6b7280">({_html.escape(alt_year)})</span></p>{alt_reason_html}</div>'
+                        f'<div style="flex:1;min-width:0;background:rgba(15,23,42,0.4);border:1px solid rgba(196,181,253,0.1);'
+                        f'border-radius:0.5rem;padding:0.5rem 0.65rem;">'
+                        f'<p style="font-size:0.8rem;color:#e5e7eb;font-weight:600;margin:0;">{alt_link} '
+                        f'<span style="color:#6b7280;font-weight:400;">({_html.escape(alt_year)})</span></p>'
+                        f'{alt_reason_line}'
                         f'</div>'
                     )
                 alternates_html = ""
                 if alternate_rows_html:
                     alternates_html = (
-                        '<div class="mt-3">'
-                        '<p class="text-xs font-semibold mb-2" style="color:#cbd5e1">Back-up picks</p>'
+                        '<div style="display:flex;gap:0.5rem;margin-top:0.75rem;">'
                         f'{alternate_rows_html}'
                         '</div>'
                     )
                 primary_pick_html = f'''
-            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
-              <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">🍿 Tonight&apos;s watch {source_badge}</p>
-              <p class="text-sm font-semibold" style="color:#f3e8ff">{primary_link} <span style="color:#94a3b8">({_html.escape(primary_year)})</span></p>
-              <p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(profile_headline)}</p>
-              {profile_reason_html}
-              {(f'<p class="text-xs mt-2" style="color:#cbd5e1">{_html.escape(primary_reason)}</p>') if primary_reason else ''}
+            <div style="background:linear-gradient(135deg, rgba(88,28,135,0.3) 0%, rgba(30,27,75,0.45) 100%);border:1px solid rgba(196,181,253,0.18);border-radius:0.85rem;padding:1.1rem 1.25rem;margin-bottom:0.75rem;position:relative;overflow:hidden;">
+              <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle, rgba(196,181,253,0.06) 0%, transparent 70%);pointer-events:none;"></div>
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                <span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:#d4a8b8;font-weight:700;">Tonight&apos;s watch</span>
+                {source_badge}
+              </div>
+              <p style="font-size:1.15rem;font-weight:700;color:#f3e8ff;margin:0;line-height:1.3;">{primary_link} <span style="font-size:0.85rem;color:#94a3b8;font-weight:400;">({_html.escape(primary_year)})</span></p>
+              <p style="font-size:0.82rem;color:#cbd5e1;margin:0.5rem 0 0 0;line-height:1.45;opacity:0.9;">{_html.escape(_short_headline)}</p>
               {alternates_html}
               {discovery_html}
             </div>
@@ -2945,17 +2981,18 @@ def generate_html(data):
         elif primary_title:
             # Heuristic pick — no AI override available
             source_badge = (
-                '<span class="ml-2 rounded px-1.5 py-0.5 text-xs" '
-                'style="background:rgba(88,28,135,0.18);color:#c4b8e0;border:1px solid rgba(196,181,253,0.18)">heuristic</span>'
+                '<span style="font-size:0.6rem;padding:0.15rem 0.4rem;border-radius:0.25rem;'
+                'background:rgba(88,28,135,0.18);color:#c4b8e0;border:1px solid rgba(196,181,253,0.18)">heuristic</span>'
             )
             primary_year = str(film_primary.get("year", "")).strip()
             primary_url = str(film_primary.get("url", "")).strip()
             primary_reason = str(film_primary.get("reason", "")).strip()
             primary_link = (
-                f'<a href="{_html.escape(primary_url)}" style="color:#d4a8b8;text-decoration:none">{_html.escape(primary_title)}</a>'
+                f'<a href="{_html.escape(primary_url)}" style="color:#f3e8ff;text-decoration:none">{_html.escape(primary_title)}</a>'
                 if primary_url else _html.escape(primary_title)
             )
             profile_headline = str(film_profile.get("headline", "")).strip()
+            _short_headline = _truncate_headline(profile_headline)
             primary_pick_summary_html = f" · Tonight: {_html.escape(primary_title)}"
             alternate_rows_html = ""
             for alt in film_alternates[:2]:
@@ -2966,34 +3003,37 @@ def generate_html(data):
                 alt_url = str(alt.get("url", "")).strip()
                 alt_reason = str(alt.get("reason", "")).strip()
                 alt_link = (
-                    f'<a href="{_html.escape(alt_url)}" style="color:#cbd5e1;text-decoration:none">{_html.escape(alt_title)}</a>'
+                    f'<a href="{_html.escape(alt_url)}" style="color:#e5e7eb;text-decoration:none">{_html.escape(alt_title)}</a>'
                     if alt_url else _html.escape(alt_title)
                 )
-                alt_reason_html = (
-                    f'<span class="text-xs" style="color:#94a3b8">{_html.escape(alt_reason)}</span>'
+                alt_reason_line = (
+                    f'<p style="font-size:0.7rem;color:#94a3b8;margin:0.15rem 0 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(alt_reason)}</p>'
                     if alt_reason else ""
                 )
                 alternate_rows_html += (
-                    f'<div class="flex items-start gap-2 mb-1">'
-                    f'<span style="color:#cbd5e1">•</span>'
-                    f'<div class="min-w-0"><p class="text-sm" style="color:#cbd5e1">{alt_link} '
-                    f'<span style="color:#6b7280">({_html.escape(alt_year)})</span></p>{alt_reason_html}</div>'
+                    f'<div style="flex:1;min-width:0;background:rgba(15,23,42,0.4);border:1px solid rgba(196,181,253,0.1);'
+                    f'border-radius:0.5rem;padding:0.5rem 0.65rem;">'
+                    f'<p style="font-size:0.8rem;color:#e5e7eb;font-weight:600;margin:0;">{alt_link} '
+                    f'<span style="color:#6b7280;font-weight:400;">({_html.escape(alt_year)})</span></p>'
+                    f'{alt_reason_line}'
                     f'</div>'
                 )
             alternates_html = ""
             if alternate_rows_html:
                 alternates_html = (
-                    '<div class="mt-3">'
-                    '<p class="text-xs font-semibold mb-2" style="color:#cbd5e1">Back-up picks</p>'
+                    '<div style="display:flex;gap:0.5rem;margin-top:0.75rem;">'
                     f'{alternate_rows_html}'
                     '</div>'
                 )
             primary_pick_html = f'''
-            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
-              <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">🍿 Tonight&apos;s watch {source_badge}</p>
-              <p class="text-sm font-semibold" style="color:#f3e8ff">{primary_link} <span style="color:#94a3b8">({_html.escape(primary_year)})</span></p>
-              {(f'<p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(profile_headline)}</p>') if profile_headline else ''}
-              {(f'<p class="text-xs mt-2" style="color:#cbd5e1">{_html.escape(primary_reason)}</p>') if primary_reason else ''}
+            <div style="background:linear-gradient(135deg, rgba(88,28,135,0.3) 0%, rgba(30,27,75,0.45) 100%);border:1px solid rgba(196,181,253,0.18);border-radius:0.85rem;padding:1.1rem 1.25rem;margin-bottom:0.75rem;position:relative;overflow:hidden;">
+              <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle, rgba(196,181,253,0.06) 0%, transparent 70%);pointer-events:none;"></div>
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                <span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:#d4a8b8;font-weight:700;">Tonight&apos;s watch</span>
+                {source_badge}
+              </div>
+              <p style="font-size:1.15rem;font-weight:700;color:#f3e8ff;margin:0;line-height:1.3;">{primary_link} <span style="font-size:0.85rem;color:#94a3b8;font-weight:400;">({_html.escape(primary_year)})</span></p>
+              {(f'<p style="font-size:0.82rem;color:#cbd5e1;margin:0.5rem 0 0 0;line-height:1.45;opacity:0.9;">{_html.escape(_short_headline)}</p>') if _short_headline else ''}
               {alternates_html}
               {discovery_html}
             </div>
@@ -3008,32 +3048,42 @@ def generate_html(data):
             '''
 
         watched_note_html = (
-            f'<p class="text-xs mb-2" style="color:#9ca3af">{_html.escape(recent_watch_note)}</p>'
+            f'<p style="font-size:0.7rem;color:#9ca3af;margin:0 0 0.5rem 0;">{_html.escape(recent_watch_note)}</p>'
             if recent_watch_note else ""
         )
         watched_block = (
-            f'<div class="mt-3"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">Recently watched</p>'
-            f'{watched_note_html}{watched_items_html}</div>'
+            f'<div style="margin-top:0.75rem;">'
+            f'<p style="font-size:0.7rem;font-weight:600;color:#c4b8e0;margin:0 0 0.5rem 0;text-transform:uppercase;letter-spacing:0.05em;">Recently watched</p>'
+            f'{watched_note_html}'
+            f'<div style="display:flex;gap:0.5rem;overflow-x:auto;padding-bottom:0.25rem;">{watched_items_html}</div>'
+            f'</div>'
         ) if watched_items_html else ""
         wl_block = (
-            '<details class="mt-3 rounded-lg px-3 py-2" '
-            'style="background:rgba(15,23,42,0.36);border:1px solid rgba(249,168,212,0.18)">'
-            '<summary class="text-xs font-semibold cursor-pointer" style="color:#d4a8b8">'
+            '<details style="margin-top:0.65rem;background:rgba(15,23,42,0.3);border:1px solid rgba(249,168,212,0.12);border-radius:0.5rem;padding:0.5rem 0.7rem;">'
+            '<summary class="cursor-pointer" style="font-size:0.7rem;font-weight:600;color:#d4a8b8;">'
             f'📋 Watchlist adds ({len(recent_watchlist)})</summary>'
-            f'<div class="mt-2">{watchlist_items_html}</div>'
+            f'<div style="margin-top:0.4rem;">{watchlist_items_html}</div>'
             '</details>'
         ) if watchlist_items_html else ""
 
-        film_html = f'''<details class="card rounded-xl p-5 mb-4" style="background:rgba(88,28,135,0.12);border:1px solid rgba(196,181,253,0.18)">
-  <summary class="cursor-pointer flex items-center gap-2">
-    <span class="text-lg font-semibold" style="color:#c4b8e0">🎬 Film</span>
-    <span class="text-sm ml-2" style="color:#9ca3af">{watched_summary} · {wl_str} watchlist{latest_summary_html}{primary_pick_summary_html}</span>
+        _summary_parts = []
+        if primary_pick_summary_html:
+            _summary_parts.append(primary_pick_summary_html.lstrip(" ·").strip())
+        if latest_summary_html and not primary_pick_summary_html:
+            _summary_parts.append(latest_summary_html.lstrip(" ·").strip())
+        _summary_parts.append(f"{wl_str} on watchlist")
+        _summary_right = " · ".join(_summary_parts)
+
+        film_html = f'''<details open class="card rounded-xl mb-4" style="background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.14);padding:1.1rem 1.25rem;">
+  <summary class="cursor-pointer" style="display:flex;align-items:center;gap:0.65rem;">
+    <span style="font-size:1.1rem;font-weight:700;color:#c4b8e0;">🎬 Film</span>
+    <span style="font-size:0.8rem;color:#94a3b8;margin-left:auto;">{_summary_right}</span>
   </summary>
-  <div class="mt-3">
+  <div style="margin-top:0.85rem;">
     {primary_pick_html}
     {watched_block}
     {wl_block}
-    <p class="text-xs mt-3" style="color:#4b5563"><a href="https://letterboxd.com/{_html.escape(lb_username)}/" style="color:#6b7280">@{_html.escape(lb_username)}</a> · synced {fetched_at}</p>
+    <p style="font-size:0.65rem;margin-top:0.75rem;color:#4b5563;"><a href="https://letterboxd.com/{_html.escape(lb_username)}/" style="color:#6b7280;">@{_html.escape(lb_username)}</a> · synced {fetched_at}</p>
   </div>
 </details>'''
 
@@ -3802,7 +3852,10 @@ def generate_html(data):
             action_items_list_html = items_html
 
     # Inject therapy action items (day before = send to Samantha, day of = review your brief)
+    # Date-guard: suppress stale therapy briefs from a previous day.
     _therapy_brief_data = data.get("therapy_brief", {})
+    if isinstance(_therapy_brief_data, dict) and str(_therapy_brief_data.get("date", "")).strip() != get_effective_date():
+        _therapy_brief_data = {}
     if isinstance(_therapy_brief_data, dict):
         _tb_status = _therapy_brief_data.get("status", "")
         _therapy_action = ""
@@ -4645,13 +4698,17 @@ def generate_html(data):
             except (ValueError, IndexError):
                 return 0
 
-        # Recent workouts (last 7 days)
+        # Recent workouts (last 7 days), deduplicated by date+type+duration
         recent = []
+        _recent_seen = set()
         for w in hf_workouts:
             try:
                 w_date = datetime.strptime(w.get("date", ""), "%d/%m/%Y")
                 if (datetime.now() - w_date).days <= 7:
-                    recent.append(w)
+                    _dedup_key = (w.get("date", ""), w.get("type", "").lower(), parse_duration_mins(w.get("duration", "")))
+                    if _dedup_key not in _recent_seen:
+                        _recent_seen.add(_dedup_key)
+                        recent.append(w)
             except (ValueError, TypeError):
                 pass
 
@@ -5861,8 +5918,8 @@ def generate_html(data):
                 <p class="text-sm" style="color: #e5e7eb">{tomorrow_emoji} {tomorrow_short}</p>
             </div>'''
 
-    # Carrying forward + energy from daemon cache only (no journal file parsing)
-    carrying = data.get("evening", {}).get("carrying_forward", "") or data.get("aiInsights", {}).get("carrying_forward", "")
+    # Carrying forward from evening data only (no stale AI insights fallback)
+    carrying = data.get("evening", {}).get("carrying_forward", "")
     energy = ""
 
     # Evening realities from ai_insights (mirrors morning intentions)
@@ -7369,6 +7426,23 @@ def generate_html(data):
 
     _bell_items = _merge_bell_render_items(_raw_bell_items)
     notifications_bell_html = ""
+
+    def _is_coaching_question(text):
+        """Detect reflective/coaching questions that aren't actionable tasks."""
+        t = str(text or "").strip().lower()
+        if not t:
+            return False
+        # Questions that start with reflective prompts
+        _question_starts = ("did you", "when you felt", "did the", "have you noticed",
+                           "what did you learn", "how did it feel", "was there a moment",
+                           "looking back", "reflecting on")
+        if any(t.startswith(qs) for qs in _question_starts) and t.endswith("?") and len(t) > 50:
+            return True
+        # Long text ending with '?' that contains reflective language
+        if t.endswith("?") and len(t) > 80 and any(kw in t for kw in ("cycle", "pattern", "repeat", "differ", "recall", "actively")):
+            return True
+        return False
+
     if _bell_items:
         _bell_rows = []
         _bell_linked_count = 0
@@ -7380,6 +7454,9 @@ def generate_html(data):
             _item_id = str(_item.get("item_id", "")).strip()
             if not _display_text or not _item_type or not _item_id:
                 continue
+            # Skip coaching questions — they're reflective prompts, not actionable
+            if _is_coaching_question(_display_text):
+                continue
             _icon = str(_item.get("icon", "🔔")).strip() or "🔔"
             _ctx = str(_item.get("context", "")).strip()
             _todoist_task_id = str(_item.get("todoist_task_id", "")).strip()
@@ -7390,7 +7467,15 @@ def generate_html(data):
             _matched_existing = bool(_item.get("matched_existing", False))
             _esc_type = html.escape(_item_type)
             _esc_id = html.escape(_item_id)
-            _ctx_html = f'<p class="text-caption" style="margin:0.2rem 0 0;color:#94a3b8;line-height:1.35">{html.escape(_ctx)}</p>' if _ctx else ""
+            # Truncate context to first sentence — full paragraphs are too verbose
+            _ctx_short = _ctx
+            if _ctx_short and len(_ctx_short) > 100:
+                _sentence_end = re.search(r'[.;!?]\s', _ctx_short[:120])
+                if _sentence_end:
+                    _ctx_short = _ctx_short[:_sentence_end.end()].strip()
+                else:
+                    _ctx_short = _ctx_short[:100].rsplit(' ', 1)[0] + '…'
+            _ctx_html = f'<p class="text-caption" style="margin:0.2rem 0 0;color:#94a3b8;line-height:1.35">{html.escape(_ctx_short)}</p>' if _ctx_short else ""
 
             if _todoist_task_id:
                 _bell_linked_count += 1
@@ -7423,7 +7508,11 @@ def generate_html(data):
             elif _sync_state == "matched_existing" or _matched_existing:
                 _sync_note_parts.append("Already in Todoist.")
             elif _sync_state == "sync_error":
-                _sync_note_parts.append(_sync_message or "Todoist sync issue.")
+                # Sanitise raw HTTP error bodies — show a short note, not JSON dumps
+                _clean_sync_msg = _sync_message or ""
+                if "HTTP" in _clean_sync_msg or "{" in _clean_sync_msg or len(_clean_sync_msg) > 120:
+                    _clean_sync_msg = "Todoist sync issue"
+                _sync_note_parts.append(_clean_sync_msg or "Todoist sync issue.")
             elif _sync_state == "disabled":
                 _sync_note_parts.append("Todoist disabled.")
             elif _todoist_task_id:
@@ -7452,8 +7541,11 @@ def generate_html(data):
             _created_count = int(_dashboard_bell_payload.get("created_count") or 0)
             _error_count = int(_dashboard_bell_payload.get("error_count") or 0)
             _bell_summary_parts = []
-            if _bell_linked_count:
+            # Only show Todoist count if it differs from total (avoids "4 4 in Todoist")
+            if _bell_linked_count and _bell_linked_count < _bell_count:
                 _bell_summary_parts.append(f'{_bell_linked_count} in Todoist')
+            elif _bell_linked_count:
+                _bell_summary_parts.append('in Todoist')
             if _created_count:
                 _bell_summary_parts.append(f'{_created_count} new')
             if _error_count:
@@ -7595,11 +7687,25 @@ def generate_html(data):
 
                 _schedule_html = (
                     '<details data-qa-schedule-wrap="1">'
-                    f'<summary class="todo-act todo-act--schedule" title="Reschedule">📅</summary>'
-                    '<div style="position:absolute;right:0;top:calc(100% + 4px);display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;min-width:220px;padding:6px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-md);box-shadow:var(--shadow-elevated);z-index:8;">'
-                    f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary btn--xs">Tomorrow</button>'
-                    f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary btn--xs">Next week</button>'
-                    f'<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary btn--xs">No date</button>'
+                    '<summary class="todo-act todo-act--schedule" title="Reschedule">📅</summary>'
+                    '<div class="todo-schedule-popup">'
+                    '<div class="todo-schedule-quick">'
+                    '<button type="button" onclick="qaTodoistScheduleFromButton(this, \'tomorrow\')" class="btn btn--secondary btn--xs">Tomorrow</button>'
+                    '<button type="button" onclick="qaTodoistScheduleFromButton(this, \'next_week\')" class="btn btn--secondary btn--xs">Next week</button>'
+                    '<button type="button" onclick="qaTodoistScheduleFromButton(this, \'no_date\')" class="btn btn--secondary btn--xs">No date</button>'
+                    '</div>'
+                    '<div class="todo-schedule-divider"></div>'
+                    '<div class="todo-schedule-timeblock">'
+                    '<div class="todo-schedule-timeblock-row">'
+                    '<input type="time" class="todo-schedule-time" value="14:00">'
+                    '<select class="todo-schedule-duration">'
+                    '<option value="15">15m</option><option value="30" selected>30m</option>'
+                    '<option value="45">45m</option><option value="60">1h</option>'
+                    '<option value="90">1.5h</option><option value="120">2h</option>'
+                    '</select>'
+                    '<button type="button" onclick="qaTodoistTimeblockFromButton(this)" class="btn btn--secondary btn--xs" style="white-space:nowrap;">⏱ Block</button>'
+                    '</div>'
+                    '</div>'
                     '</div></details>'
                 )
 
@@ -7663,7 +7769,7 @@ def generate_html(data):
         elif _claude_count:
             _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">No dated Today tasks right now.</p>'
         else:
-            _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">Nothing scheduled — <a href="https://app.todoist.com/app/today" style="color: #93c5fd; text-decoration: underline;">open Todoist</a> to plan your day.</p>'
+            _today_empty_html = '<p class="text-sm mb-3" style="color: #9ca3af">Nothing scheduled — <a href="https://app.todoist.com/app/today" style="color: #B5FFD9; text-decoration: underline;">open Todoist</a> to plan your day.</p>'
 
         if _claude_count:
             _claude_task_word = "task" if _claude_count == 1 else "tasks"
@@ -7677,22 +7783,34 @@ def generate_html(data):
                 '</details>'
             )
 
-        _today_card_html = (
-            '<div class="card rounded-xl mb-4" style="background: rgba(30,58,138,0.12); border: 1px solid rgba(147,197,253,0.2); padding: 0.85rem 1.15rem 1.15rem;">'
-            '<div class="flex items-center justify-between gap-3 mb-1.5" style="flex-wrap:wrap;">'
-            f'<h3 class="font-semibold" style="color: #93c5fd; font-size: 0.95rem; margin: 0;">📋 Today <span class="text-xs font-normal" style="color: #94a3b8">{html.escape(_today_summary_text)}</span></h3>'
-            f'<a href="https://app.todoist.com/app/today" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;">{_TODOIST_ICON_SVG}</a>'
-            '</div>'
+        # Auto-collapse Todoist list when >5 tasks to avoid dominating the Now tab
+        _today_collapse = _today_count > 5
+        _today_inner = (
             f'{_today_empty_html}'
             f'{_today_rows_html}'
             '<div id="qa-todoist-done-section" style="display:none;">'
             '<details style="margin-top:0.75rem;">'
             '<summary class="text-caption" style="color:#6b7280;cursor:pointer;user-select:none;padding:0.35rem 0;">✅ Completed</summary>'
             '<div id="qa-todoist-done-list" style="margin-top:0.35rem;"></div>'
-            '</details>'
-            '</div>'
-            '</div>'
+            '</details></div>'
         )
+        _today_card_style = 'background: rgba(30,58,138,0.12); border: 1px solid rgba(147,197,253,0.2); padding: 0.85rem 1.15rem 1.15rem;'
+        _today_title_html = f'<h3 class="font-semibold" style="color: #B5FFD9; font-size: 0.95rem; margin: 0;">📋 Today <span class="text-xs font-normal" style="color: #94a3b8">{html.escape(_today_summary_text)}</span></h3>'
+        _today_link_html = f'<a href="https://app.todoist.com/app/today" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;">{_TODOIST_ICON_SVG}</a>'
+        if _today_collapse:
+            _today_card_html = (
+                f'<details class="card rounded-xl mb-4" style="{_today_card_style}">'
+                f'<summary class="flex items-center justify-between gap-3" style="cursor:pointer;flex-wrap:wrap;">{_today_title_html}{_today_link_html}</summary>'
+                f'<div style="margin-top:0.65rem;">{_today_inner}</div>'
+                '</details>'
+            )
+        else:
+            _today_card_html = (
+                f'<div class="card rounded-xl mb-4" style="{_today_card_style}">'
+                f'<div class="flex items-center justify-between gap-3 mb-1.5" style="flex-wrap:wrap;">{_today_title_html}{_today_link_html}</div>'
+                f'{_today_inner}'
+                '</div>'
+            )
 
         _todoist_card_html = (
             f"{notifications_bell_html}\n"
@@ -10386,6 +10504,43 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
     }}
 
+    async function qaTodoistTimeblockFromButton(button) {{
+        const popup = button.closest(".todo-schedule-popup");
+        if (!popup) return;
+        const timeInput = popup.querySelector(".todo-schedule-time");
+        const durationSelect = popup.querySelector(".todo-schedule-duration");
+        const time = timeInput ? timeInput.value : "";
+        const duration = durationSelect ? parseInt(durationSelect.value, 10) : 30;
+        if (!time) return;
+        const row = qaTodoistRowForButton(button);
+        const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+        if (!taskId) return;
+        qaTodoistSetRowBusy(row, true);
+        const result = await qaPostWithRetry("/v1/ui/todoist/reschedule", {{
+            task_id: taskId,
+            when: "timeblock",
+            time,
+            duration,
+        }}, {{ retries: 1, label: "Todoist timeblock" }});
+        const status = document.getElementById("qa-status");
+        if (result && result.status === "ok") {{
+            // Keep in list (timeblock = today), just close popup and confirm
+            const details = button.closest("details");
+            if (details) details.removeAttribute("open");
+            qaTodoistSetRowBusy(row, false);
+            if (status) {{
+                status.textContent = `⏱ Timeblocked at ${{time}} (${{duration}}m)`;
+                status.style.color = "#c4b8e0";
+            }}
+            return;
+        }}
+        qaTodoistSetRowBusy(row, false);
+        if (status) {{
+            status.textContent = "❌ Couldn't timeblock task.";
+            status.style.color = "#d4a0a0";
+        }}
+    }}
+
     async function qaTodoistUncompleteFromRow(row) {{
         const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
         if (!taskId) return;
@@ -12345,7 +12500,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
     _support_mode = str(_support_meta.get("mode", "")).strip().lower()
     _support_mode_colors = {
         "steady": ("rgba(167,216,196,0.12)", "rgba(167,216,196,0.3)", "#b8d8c8"),
-        "progress": ("rgba(147,197,253,0.12)", "rgba(147,197,253,0.3)", "#93c5fd"),
+        "progress": ("rgba(224,187,228,0.12)", "rgba(224,187,228,0.3)", "#E0BBE4"),
         "ease": ("rgba(249,192,208,0.12)", "rgba(249,192,208,0.3)", "#f9c0d0"),
     }
     _sm_bg, _sm_border, _sm_color = _support_mode_colors.get(_support_mode, ("rgba(148,163,184,0.12)", "rgba(148,163,184,0.2)", "#94a3b8"))
@@ -12508,7 +12663,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
     elif not os3_review_story_html:
         _synth_sections.append('<p class="text-sm" style="color:#cbd5e1">Waiting for diary data.</p>')
     if os3_compounding_signals_html:
-        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#93c5fd">Signals to carry</p><div style="display:flex;flex-wrap:wrap;">{os3_compounding_signals_html}</div></div>')
+        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#E0BBE4">Signals to carry</p><div style="display:flex;flex-wrap:wrap;">{os3_compounding_signals_html}</div></div>')
 
     os3_review_synthesis_html = f'''
         <div class="os-card">
@@ -12586,7 +12741,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
 
     _bio_items = []
     if os3_avg_steps is not None:
-        _bio_items.append(("👟", "Avg steps", f"{int(os3_avg_steps):,}", "rgba(125,211,252,0.12)", "#7dd3fc"))
+        _bio_items.append(("👟", "Avg steps", f"{int(os3_avg_steps):,}", "rgba(255,209,220,0.12)", "#FFD1DC"))
     if os3_avg_exercise is not None:
         _bio_items.append(("🏃", "Avg exercise", f"{int(os3_avg_exercise)}m", "rgba(181,255,217,0.12)", "#a7d8c4"))
     if screentime_html:
@@ -12650,9 +12805,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
     else:
         os3_mindfulness_habit_label = "Mindfulness"
     os3_health_habit_rows = [
-        ("Mood logged", "done" if qa_mood_state.get("done") else "open", bool(qa_mood_state.get("done")), "😊", "rgba(224,187,228,0.15)", "#E0BBE4"),
+        ("Mood logged", "done" if qa_mood_state.get("done") else "pending", bool(qa_mood_state.get("done")), "😊", "rgba(224,187,228,0.15)", "#E0BBE4"),
         (os3_mindfulness_habit_label, "done" if qa_mindfulness_state.get("done") else "pending", bool(qa_mindfulness_state.get("done")), "🧘", "rgba(255,209,220,0.15)", "#FFD1DC"),
-        (qa_quick_workout_title, "done" if qa_quick_workout_done else "pending", bool(qa_quick_workout_done), "🏋️", "rgba(125,211,252,0.15)", "#7dd3fc"),
+        (qa_quick_workout_title, "done" if qa_quick_workout_done else "pending", bool(qa_quick_workout_done), "🏋️", "rgba(255,209,220,0.15)", "#FFD1DC"),
         ("Close-down reflection", "done" if os3_reflection_saved_today else "pending", bool(os3_reflection_saved_today), "🌙", "rgba(196,181,253,0.15)", "#c4b5fd"),
     ]
     os3_health_habits_html = "".join(
@@ -12770,7 +12925,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
 
     os3_review_today_panel_html = f'''
         {os3_review_today_attention_html}
-        {(f'<section id="daily-report" class="os-card" style="border-left:3px solid rgba(125,211,252,0.5);margin-bottom:1rem;"><div class="flex items-center gap-3 mb-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#7dd3fc;"></div><h3 class="text-base font-bold" style="color:#7dd3fc">Today\'s Story</h3></div><div>{daily_report_html}</div></section>') if daily_report_html else ''}
+        {(f'<section id="daily-report" class="os-card" style="border-left:3px solid rgba(224,187,228,0.5);margin-bottom:1rem;"><div class="flex items-center gap-3 mb-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#E0BBE4;"></div><h3 class="text-base font-bold" style="color:#E0BBE4">Today\'s Story</h3></div><div>{daily_report_html}</div></section>') if daily_report_html else ''}
         <div class="os-layout">
             <div class="os-main-stack">
                 {os3_review_synthesis_html}
@@ -12832,14 +12987,14 @@ function qaApplyTaDahFromScratch(scratchText) {{
                                 <p class="text-xs mt-1" style="color:#94a3b8">{os3_hero_meta}</p>
                             </div>
                             <div style="flex-shrink:0;">
-                                <button type="button" class="btn btn--primary" data-os-focus-enter="true">Focus</button>
+                                <button type="button" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.5rem;background:rgba(181,255,217,0.9);color:#0a0a0c;border:none;border-radius:0.75rem;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s ease;box-shadow:0 0 12px rgba(181,255,217,0.15);" data-os-focus-enter="true">⚡ Focus</button>
                             </div>
                         </div>
                     </section>
-                    <section id="schedule" class="os-card">
+                    <section id="schedule" class="os-card" style="border-left:3px solid rgba(181,255,217,0.35);">
                         <div class="flex items-center justify-between gap-3 mb-3">
                             <div>
-                                <div class="flex items-center gap-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#93c5fd;"></div><h3 class="text-base font-bold" style="color:#93c5fd">Today&apos;s schedule</h3></div>
+                                <div class="flex items-center gap-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#B5FFD9;"></div><h3 class="text-base font-bold" style="color:#B5FFD9">Today&apos;s schedule</h3></div>
                             </div>
                         </div>
                         <div class="os-timeline">{os3_timeline_html}</div>
@@ -12847,7 +13002,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <section id="actions">{action_items_html}</section>
                 </div>
                 <aside class="os-side-stack">
-                    {(f'<section id="guidance" class="os-card"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
+                    {(f'<section id="guidance" class="os-card" style="border-left:3px solid rgba(224,187,228,0.35);"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
                     {os3_quick_actions_html}
                     <section class="os-card">
                         <div class="flex items-center gap-3 mb-2">
@@ -12918,7 +13073,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 <div class="os-card" style="margin-top:0.75rem;">{_scratch_pad_html("morning", "Morning", effective_today)}</div>
             </section>
             <section id="updates" class="os-subpanel" data-os-journal-panel="day" hidden>
-                {f'<div class="os-card" style="border-left:3px solid #93c5fd;margin-top:0.75rem;">{updates_insights_html}</div>' if updates_insights_html else ''}
+                {f'<div class="os-card" style="border-left:3px solid #E0BBE4;margin-top:0.75rem;">{updates_insights_html}</div>' if updates_insights_html else ''}
                 <div class="os-card" style="margin-top:0.75rem;">
                     <details>
                         <summary class="flex items-center gap-2 cursor-pointer" style="color:#94a3b8">
@@ -12967,7 +13122,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             <div class="os-card mb-3">
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-lg font-semibold" style="color:#7dd3fc">Health</h2>
+                        <h2 class="text-lg font-semibold" style="color:#FFD1DC">Health</h2>
                     </div>
                     <div class="os-subnav">
                         <button type="button" class="os-subtab-btn" data-os-health-btn="overview">Overview</button>
@@ -12996,20 +13151,20 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <div class="os-main-stack">
                         <section class="os-card">
                             <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.85rem;">
-                                <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(125,211,252,0.12);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">✅</div>
-                                <h3 class="text-base font-semibold" style="color:#7dd3fc">Today&apos;s active habits</h3>
+                                <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(255,209,220,0.12);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">✅</div>
+                                <h3 class="text-base font-semibold" style="color:#FFD1DC">Today&apos;s active habits</h3>
                             </div>
                             <div class="os-inline-list">{os3_health_habits_html}</div>
                         </section>
                     </div>
                     <aside class="os-side-stack">
                         <section class="os-card">
-                            <h3 class="text-sm font-semibold mb-3" style="color:#93c5fd">Weekly snapshot</h3>
+                            <h3 class="text-sm font-semibold mb-3" style="color:#b8d8c8">Weekly snapshot</h3>
                             {os3_health_snapshot_html}
                             {os3_health_sparklines_html}
                         </section>
                         <section class="os-card">
-                            <h3 class="text-sm font-semibold mb-3" style="color:#93c5fd">Quick launchers</h3>
+                            <h3 class="text-sm font-semibold mb-3" style="color:#b8d8c8">Quick launchers</h3>
                             <div style="display:flex;flex-direction:column;gap:0.5rem;">
                                 <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.15);cursor:pointer;transition:all 0.15s ease;text-align:left;" onclick="qaOpenWorkoutChecklist(true)">
                                     <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(125,211,252,0.15);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">🏋️</div>
@@ -13076,7 +13231,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <section class="os-card">
                         <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;">
                             <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(147,197,253,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">📦</div>
-                            <h3 class="text-sm font-semibold" style="color:#93c5fd">Archives</h3>
+                            <h3 class="text-sm font-semibold" style="color:#b8d8c8">Archives</h3>
                         </div>
                         {os3_archives_html}
                     </section>
@@ -13379,7 +13534,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .settings-inline-label,
         .focus-label {{
-            color: #7dd3fc;
+            color: #B5FFD9;
             font-size: 0.72rem;
             font-weight: 700;
             letter-spacing: 0.02em;
@@ -13502,7 +13657,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             padding-bottom: 0.2rem;
         }}
         .status-legend-summary {{
-            color: #7dd3fc;
+            color: #b8d8c8;
             font-size: 0.72rem;
             font-weight: 700;
             letter-spacing: 0.02em;
@@ -13518,7 +13673,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             background: rgba(2,132,199,0.12);
         }}
         .status-caret {{
-            color: #7dd3fc;
+            color: #b8d8c8;
             display: inline-block;
             transform: rotate(0deg);
             transition: transform 0.15s ease;
@@ -13747,7 +13902,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             margin-bottom: 1.25rem;
             padding: 0.75rem 1.15rem;
             border-radius: 1.1rem;
-            border: 1px solid rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.18);
             background: rgba(15, 23, 42, 0.65);
             backdrop-filter: blur(18px) saturate(1.2);
             -webkit-backdrop-filter: blur(18px) saturate(1.2);
@@ -13793,6 +13948,11 @@ function qaApplyTaDahFromScratch(scratchText) {{
         .os-focus-view[hidden] {{
             display: none !important;
         }}
+        .os-focus-view {{
+            border-left: 4px solid rgba(181, 255, 217, 0.6);
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(6, 95, 70, 0.12));
+            box-shadow: 0 4px 30px rgba(181, 255, 217, 0.08);
+        }}
         .os-layout {{
             display: grid;
             grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
@@ -13815,7 +13975,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-card {{
             border-radius: 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(148, 163, 184, 0.14);
             background: var(--surface);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
@@ -13825,13 +13985,14 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         @media (hover: hover) {{
             .os-card:hover {{
-                border-color: rgba(148, 163, 184, 0.16);
+                border-color: rgba(148, 163, 184, 0.28);
             }}
         }}
         .os-hero {{
-            border-color: rgba(69, 204, 144, 0.2);
+            border-color: rgba(181, 255, 217, 0.25);
+            border-left: 4px solid rgba(181, 255, 217, 0.7);
             background: linear-gradient(145deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.65));
-            box-shadow: 0 2px 20px rgba(69, 204, 144, 0.06);
+            box-shadow: 0 2px 20px rgba(69, 204, 144, 0.08);
             backdrop-filter: blur(12px) saturate(1.15);
             -webkit-backdrop-filter: blur(12px) saturate(1.15);
         }}
@@ -13879,7 +14040,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         .os-timeline-row.is-now {{
             background: rgba(181, 255, 217, 0.04);
             border-radius: 0.5rem;
-            border: 1px solid rgba(181, 255, 217, 0.1);
+            border: 1px solid rgba(181, 255, 217, 0.22);
         }}
         .os-timeline-row.is-done {{
             opacity: 0.45;
@@ -13968,7 +14129,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-surface {{
             border-radius: 0.85rem;
-            border: 1px solid rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.16);
             background: rgba(30, 41, 59, 0.4);
             padding: 0.85rem;
         }}
@@ -14442,6 +14603,39 @@ function qaApplyTaDahFromScratch(scratchText) {{
             window.qaTodoistSetRowBusy(row, false);
             if (status) {{
                 status.textContent = "❌ Couldn't schedule Todoist task.";
+                status.style.color = "#d4a0a0";
+            }}
+            return result;
+        }};
+    }}
+    if (typeof window.qaTodoistTimeblockFromButton !== "function") {{
+        window.qaTodoistTimeblockFromButton = async function qaTodoistTimeblockFromButton(button) {{
+            const popup = button.closest(".todo-schedule-popup");
+            if (!popup) return null;
+            const timeInput = popup.querySelector(".todo-schedule-time");
+            const durationSelect = popup.querySelector(".todo-schedule-duration");
+            const time = timeInput ? timeInput.value : "";
+            const duration = durationSelect ? parseInt(durationSelect.value, 10) : 30;
+            if (!time) return null;
+            const row = window.qaTodoistRowForButton(button);
+            const taskId = String((row && row.dataset && row.dataset.todoistId) || "").trim();
+            const status = document.getElementById("qa-status");
+            if (!taskId) return null;
+            window.qaTodoistSetRowBusy(row, true);
+            const result = await window.qaPostWithRetry("/v1/ui/todoist/reschedule", {{ task_id: taskId, when: "timeblock", time, duration }}, {{ retries: 1, label: "Todoist timeblock" }});
+            if (result && result.status === "ok") {{
+                const details = button.closest("details");
+                if (details) details.removeAttribute("open");
+                window.qaTodoistSetRowBusy(row, false);
+                if (status) {{
+                    status.textContent = `⏱ Timeblocked at ${{time}} (${{duration}}m)`;
+                    status.style.color = "#c4b8e0";
+                }}
+                return result;
+            }}
+            window.qaTodoistSetRowBusy(row, false);
+            if (status) {{
+                status.textContent = "❌ Couldn't timeblock task.";
                 status.style.color = "#d4a0a0";
             }}
             return result;
@@ -15481,6 +15675,8 @@ def main():
     }
 
     mood_log_payload = cache.get("moodLog", {}) if isinstance(cache.get("moodLog", {}), dict) else {}
+    if str(mood_log_payload.get("date", "")).strip() != effective_today:
+        mood_log_payload = {}
     mood_log_entries = _sanitize_mood_entries_for_today(
         mood_log_payload.get("entries", []),
         now_dt=now,
@@ -15705,9 +15901,14 @@ def main():
                     time_str = "TBD"
 
             event_type = "work" if "WT" in cal_name else "event" if cal_name == "Events" else "task"
+            # Strip redundant time from event title (e.g. "Email · 10:00" → "Email" when time is "10:00")
+            _clean_summary = summary
+            if time_str and time_str != "All day" and time_str != "TBD":
+                _clean_summary = re.sub(rf'\s*[·\-–—]\s*{re.escape(time_str)}\s*$', '', _clean_summary).strip()
+                _clean_summary = re.sub(rf'^\s*{re.escape(time_str)}\s*[·\-–—]\s*', '', _clean_summary).strip()
             data["calendar"].append({
                 "time": time_str,
-                "event": summary,
+                "event": _clean_summary or summary,
                 "type": event_type
             })
 
