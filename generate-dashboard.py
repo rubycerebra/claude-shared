@@ -4843,25 +4843,37 @@ def generate_html(data):
     # Also preserve the old check-in status for the quick-action checkbox
     mood_done = bool(mood_tracking.get("done_today")) if mood_tracking else False
 
+    _mood_current_label = html.escape(str(mood_entries[-1].get("label", "")).title()) if mood_entries else ""
+    _mood_label_pill = f'<span style="font-size:0.75rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:999px;background:rgba(181,255,217,0.08);color:#B5FFD9;">{_mood_current_label}</span>' if _mood_current_label else ''
     mood_tracking_html = f'''
-            <div class="card rounded-xl p-5 mb-4 mood-card" style="background: rgba(88,28,135,0.1); border: 1px solid rgba(196,181,253,0.2);">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span style="font-size: 1.2rem;">\U0001f3ad</span>
-                    <span class="text-lg font-semibold" style="color: #c4b8e0">Mood</span>
-                    {current_mood_display}
+            <div class="os-card mood-card" style="background:linear-gradient(135deg, rgba(88,28,135,0.08), rgba(30,28,45,0.6));border:1px solid rgba(196,181,253,0.15);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(196,181,253,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;">🎭</div>
+                        <span class="text-base font-semibold" style="color:#c4b8e0">How are you feeling?</span>
+                    </div>
+                    {_mood_label_pill}
                 </div>
                 <p id="qa-mood-meta" class="text-sm" style="color: {"#a7d8c4" if mood_done else "#9ca3af"}; margin-bottom: 8px; display: none;"></p>
                 <div class="mood-selector">
-                    <div class="mood-emojis">
-                        <button class="mood-btn" data-mood="\U0001f60a" data-label="happy" onclick="qaMoodSelect(this)" title="happy">\U0001f60a</button>
-                        <button class="mood-btn" data-mood="\U0001f60c" data-label="calm" onclick="qaMoodSelect(this)" title="calm">\U0001f60c</button>
-                        <button class="mood-btn" data-mood="\U0001f610" data-label="neutral" onclick="qaMoodSelect(this)" title="neutral">\U0001f610</button>
-                        <button class="mood-btn" data-mood="\U0001f61f" data-label="worried" onclick="qaMoodSelect(this)" title="worried">\U0001f61f</button>
-                        <button class="mood-btn" data-mood="\U0001f630" data-label="anxious" onclick="qaMoodSelect(this)" title="anxious">\U0001f630</button>
-                        <button class="mood-btn" data-mood="\U0001f624" data-label="frustrated" onclick="qaMoodSelect(this)" title="frustrated">\U0001f624</button>
-                        <button class="mood-btn" data-mood="\U0001f614" data-label="sad" onclick="qaMoodSelect(this)" title="sad">\U0001f614</button>
+                    <div style="padding:0.5rem 0 0.75rem;">
+                        <div style="height:0.45rem;width:100%;border-radius:999px;background:linear-gradient(90deg, rgba(255,209,220,0.5), rgba(224,187,228,0.4), rgba(181,255,217,0.5));margin-bottom:0.75rem;"></div>
+                        <div class="mood-emojis" style="display:flex;justify-content:space-between;gap:0;margin:0;padding:0 0.15rem;">
+                            <button class="mood-btn" data-mood="\U0001f614" data-label="sad" onclick="qaMoodSelect(this)" title="sad">\U0001f614</button>
+                            <button class="mood-btn" data-mood="\U0001f624" data-label="frustrated" onclick="qaMoodSelect(this)" title="frustrated">\U0001f624</button>
+                            <button class="mood-btn" data-mood="\U0001f630" data-label="anxious" onclick="qaMoodSelect(this)" title="anxious">\U0001f630</button>
+                            <button class="mood-btn" data-mood="\U0001f61f" data-label="worried" onclick="qaMoodSelect(this)" title="worried">\U0001f61f</button>
+                            <button class="mood-btn" data-mood="\U0001f610" data-label="neutral" onclick="qaMoodSelect(this)" title="neutral">\U0001f610</button>
+                            <button class="mood-btn" data-mood="\U0001f60c" data-label="calm" onclick="qaMoodSelect(this)" title="calm">\U0001f60c</button>
+                            <button class="mood-btn" data-mood="\U0001f60a" data-label="happy" onclick="qaMoodSelect(this)" title="happy">\U0001f60a</button>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:0.4rem;padding:0 0.15rem;font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#64748b;">
+                            <span>Restless</span>
+                            <span>Neutral</span>
+                            <span>Joyful</span>
+                        </div>
                     </div>
-                    <div class="mood-context-btns">
+                    <div class="mood-context-btns" style="margin-top:0.25rem;">
                         <button class="mood-ctx active" data-ctx="morning" onclick="qaMoodCtx(this)">Morning</button>
                         <button class="mood-ctx" data-ctx="general" onclick="qaMoodCtx(this)">Now</button>
                         <button class="mood-ctx" data-ctx="evening" onclick="qaMoodCtx(this)">Evening</button>
@@ -4954,10 +4966,37 @@ def generate_html(data):
             </div>'''
         else:
             mindfulness_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.2);">
-                <h3 class="text-lg font-semibold mb-2" style="color: #a8c4e0">🧠 Mindfulness</h3>
-                <p id="qa-mindfulness-meta" class="text-sm" style="color: {status_color}">{html.escape(status_text)}</p>
-                <p class="text-xs mt-1" style="color: #6b7280">{html.escape(mindfulness_source_line)}</p>
+            <div class="os-card" style="background:rgba(30,64,175,0.08);border:1px solid rgba(147,197,253,0.15);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(196,181,253,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;">🧘</div>
+                        <h3 class="text-base font-semibold" style="color:#a8c4e0">Zen Flow</h3>
+                    </div>
+                    <span class="text-xs" style="color:#94a3b8">{html.escape(status_text)}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:0.65rem;">
+                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
+                        <span style="font-size:1.5rem;">🌬️</span>
+                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">Breathing</p>
+                        <p style="font-size:0.6rem;color:#64748b;">5 mins</p>
+                    </div>
+                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
+                        <span style="font-size:1.5rem;">🌿</span>
+                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">Nature</p>
+                        <p style="font-size:0.6rem;color:#64748b;">10 mins</p>
+                    </div>
+                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
+                        <span style="font-size:1.5rem;">🌙</span>
+                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">Sleep Prep</p>
+                        <p style="font-size:0.6rem;color:#64748b;">15 mins</p>
+                    </div>
+                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
+                        <span style="font-size:1.5rem;">🧩</span>
+                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">More</p>
+                        <p style="font-size:0.6rem;color:#64748b;">Browse</p>
+                    </div>
+                </div>
+                <p id="qa-mindfulness-meta" class="text-xs mt-3" style="color:{status_color}">{html.escape(mindfulness_source_line)}</p>
             </div>'''
 
     # === Finch Self-Care Tracker ===
@@ -6791,6 +6830,11 @@ def generate_html(data):
     qa_ai = data.get("aiInsights", {}) if isinstance(data.get("aiInsights", {}), dict) else {}
     qa_today_day = get_ai_day(qa_ai, qa_today)
     qa_mindfulness = data.get("mindfulness", {}) if isinstance(data.get("mindfulness"), dict) else {}
+    # Fallback: if mindfulness empty, read directly from ai_insights.mindfulness_completion
+    if not qa_mindfulness.get("done"):
+        _mc_fallback = data.get("aiInsights", data.get("ai_insights", {})).get("mindfulness_completion", {})
+        if isinstance(_mc_fallback, dict) and _mc_fallback.get("done"):
+            qa_mindfulness = _mc_fallback
     qa_mindfulness_target_raw = qa_mindfulness.get("minutes_target", 20)
     try:
         qa_mindfulness_target = int(qa_mindfulness_target_raw)
@@ -13913,6 +13957,16 @@ function qaApplyTaDahFromScratch(scratchText) {{
         @media (hover: hover) {{
             .os-inline-list .row:hover {{
                 background: rgba(15, 23, 42, 0.45);
+            }}
+            /* Hover micro-interactions for icon grid buttons */
+            .os-card button[style*="grid"]:hover,
+            [style*="display:grid"] > button:hover {{
+                filter: brightness(1.15);
+                transform: translateY(-1px);
+            }}
+            .os-zen-tile:hover {{
+                background: rgba(196, 181, 253, 0.1) !important;
+                border-color: rgba(196, 181, 253, 0.2) !important;
             }}
         }}
         .os-progress {{
