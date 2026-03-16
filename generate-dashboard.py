@@ -2040,10 +2040,43 @@ def get_tadah():
         deduped_today_items.append(row)
     today_items = deduped_today_items
 
+    # Todoist completed tasks — merge as a ta-dah source
+    try:
+        _secrets_path = Path.home() / ".claude" / "secrets.json"
+        if _secrets_path.exists():
+            _todoist_token = json.loads(_secrets_path.read_text()).get("todoist_api_token", "")
+            if _todoist_token:
+                _todoist_url = "https://api.todoist.com/api/v1/tasks/completed?limit=50"
+                _todoist_req = __import__("urllib.request", fromlist=["Request", "urlopen"])
+                _req = _todoist_req.Request(_todoist_url, headers={"Authorization": f"Bearer {_todoist_token}"})
+                _resp = _todoist_req.urlopen(_req, timeout=8)
+                _todoist_data = json.loads(_resp.read())
+                _todoist_items = _todoist_data.get("items", [])
+                _routine_keywords = {"breakfast", "lunch", "dinner", "relax", "get ready", "morning todos", "tidy", "shower", "walk"}
+                for _ti in _todoist_items:
+                    _completed_at = str(_ti.get("completed_at", ""))
+                    if not _completed_at.startswith(today):
+                        continue
+                    _content = str(_ti.get("content", "")).strip()
+                    # Strip Todoist label syntax (@label)
+                    _content = re.sub(r'\s*@\S+', '', _content).strip()
+                    if not _content or len(_content) < 3:
+                        continue
+                    # Skip routine tasks — not ta-dah worthy
+                    if _content.lower() in _routine_keywords:
+                        continue
+                    _key = _tadah_score_key(_content)
+                    if _key and _key not in seen_today_keys:
+                        today_items.append({"text": _content, "source": "todoist"})
+                        seen_today_keys.add(_key)
+    except Exception:
+        pass
+
     # Reserve up to 5 slots for Pieces items so diary count never crowds them out
     diary_items = [i for i in today_items if i["source"] == "diary"][:35]
     pieces_items = [i for i in today_items if i["source"] == "pieces"][:5]
-    today_items = diary_items + pieces_items
+    todoist_items = [i for i in today_items if i["source"] == "todoist"][:8]
+    today_items = diary_items + pieces_items + todoist_items
     # Score by significance via Claude Haiku (subscription, cached per day)
     today_items = _score_tadah_items(today_items)
 
@@ -2055,7 +2088,8 @@ def get_tadah():
 
     return {
         "categories": {},
-        "flat": [i["text"] for i in today_items],
+        "flat": [i["text"] for i in today_items if i.get("source") != "pieces"],
+        "flat_all": [i["text"] for i in today_items],
         "items_with_source": today_items,
         "yesterday": yesterday_tadah,
     }
@@ -2382,8 +2416,20 @@ def generate_html(data):
     _BULLET_STRIP = re.compile(r'^[\u2219\u2022\u00b7\u2022\-\*\t\s]+')
     def _clean_tadah_text(t):
         return _strip_completion_hash_artifacts(_BULLET_STRIP.sub("", str(t)).strip())
+    def _is_dev_noise(text):
+        """Filter developer/system activity from ta-dah display."""
+        low = str(text or "").strip().lower()
+        if "**" in text or "`" in text:
+            return True  # Markdown formatting = Pieces session summary
+        dev_terms = ["dashboard", "bug fix", "daemon", "hookmark", "integration",
+                     "refactor", "debug", "script", "cache", "stale flag",
+                     "api", "css", "html", "python", "json", "polling",
+                     "calendar integration", "todoist integration", "token",
+                     "axidentifier", "deduplication", "time parsing"]
+        return any(term in low for term in dev_terms)
+
     tadah_flat = [_clean_tadah_text(t) for t in tadah_flat
-                  if str(t).strip().lower() not in ("list", "")]
+                  if str(t).strip().lower() not in ("list", "") and not _is_dev_noise(t)]
     yesterday_tadah = [_clean_tadah_text(t) for t in (tadah_data.get("yesterday", []) if isinstance(tadah_data, dict) else [])
                        if _clean_tadah_text(t) and str(t).strip().lower() not in ("list", "")]
 
@@ -2477,11 +2523,14 @@ def generate_html(data):
             source_badge = ""
             if source == "pieces":
                 source_badge = '<span class="inline-pill" style="margin-left:6px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#d4b896;">⚡ Pieces</span>'
+            elif source == "todoist":
+                source_badge = '<span class="inline-pill" style="margin-left:6px;background:rgba(69,204,144,0.12);border:1px solid rgba(69,204,144,0.35);color:#a7d8c4;">✅ Todoist</span>'
             # ★ prefix on high-significance items (score 4+)
             star_prefix = '<span style="color: #d4b896; margin-right: 4px; font-size: 0.85em;">★</span>' if (score is not None and score >= 4) else ""
-            return (f'<div class="flex items-start gap-2 text-sm" style="margin-left: 4px;">'
-                    f'<span style="color: {color}; font-size: 1.2em; line-height: 1;">●</span>'
-                    f'<span style="color: #d1d5db; line-height: 1.4;">{star_prefix}{html.escape(str(item_text))} {content_emoji}{source_badge}</span>'
+            return (f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.35rem 0.5rem;border-radius:0.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);margin-bottom:0.25rem;">'
+                    f'<div style="width:1.35rem;height:1.35rem;border-radius:999px;border:2px solid {color};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:0.1rem;">'
+                    f'<span style="font-size:0.6rem;color:{color};">✓</span></div>'
+                    f'<span style="color: #d1d5db; font-size:0.875rem; line-height: 1.4;">{star_prefix}{html.escape(str(item_text))} {content_emoji}{source_badge}</span>'
                     f'</div>')
 
         # Sort: by category first, then by significance (score desc) within each category
@@ -2567,7 +2616,7 @@ def generate_html(data):
             data-section="ta_dah"
             class="w-full rounded px-2 py-1.5 text-xs"
             style="background: transparent; border: none; color: #e5e7eb; resize: none; font-family: inherit; outline: none;"
-            placeholder="Drop a win or paste a task list (one per line)…"
+            placeholder="Add a win…"
             oninput="qaSaveScratchPad(this); this.style.height='auto'; this.style.height=this.scrollHeight+'px';"></textarea>
         <div class="flex items-center gap-2">
             <button id="qa-scratch-submit-ta_dah"
@@ -3870,28 +3919,20 @@ def generate_html(data):
             icon = type_icons.get(itype, "💡")
 
             html += f'''
-            <div class="mb-5 rounded-lg p-4" style="background: {config['bg']}; border-left: 3px solid {config['color']}">
-                <p class="text-xs font-bold mb-3 uppercase tracking-wider" style="color: {config['color']}; letter-spacing: 0.08em;">{icon} {config['label']}</p>'''
+            <div class="mb-3" style="text-align:left;">
+                <p class="text-xs font-bold mb-2 uppercase" style="color: {config['color']}; letter-spacing: 0.1em;">{icon} {config['label']}</p>'''
 
             for idx, item in enumerate(items):
                 text = item.get("text", "")
-                # Break long insights into lead sentence + supporting detail
+                # Extract ONLY the lead sentence — keep it punchy
                 sentences = re.split(r'(?<=[.!?])\s+', text)
+                lead = sentences[0] if sentences else text
+                # Cap at 90 chars for visual tightness
+                if len(lead) > 95:
+                    lead = lead[:92].rsplit(' ', 1)[0] + '…'
                 emoji = _pick_insight_emoji(text)
-                wrapper_attrs = ' class="mt-3 pt-3" style="border-top: 1px solid rgba(75,85,99,0.15);"' if idx > 0 else ""
-                if len(sentences) > 1 and len(text) > 120:
-                    lead = sentences[0]
-                    rest = ' '.join(sentences[1:])
-                    html += f'''
-                <div{wrapper_attrs}>
-                    <p class="text-base font-medium mb-1" style="color: #f3f4f6; line-height: 1.7;">{emoji} {lead}</p>
-                    <p class="text-sm ml-6" style="color: #9ca3af; line-height: 1.6;">{rest}</p>
-                </div>'''
-                else:
-                    html += f'''
-                <div{wrapper_attrs}>
-                    <p class="text-base" style="color: #e5e7eb; line-height: 1.7;">{emoji} {text}</p>
-                </div>'''
+                html += f'''
+                <p class="text-sm mb-1" style="color: #e5e7eb; line-height: 1.45;">{emoji} {lead}</p>'''
 
             html += '''
             </div>'''
@@ -4088,13 +4129,9 @@ def generate_html(data):
 
         if morning_sections:
             morning_insights_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(88,28,135,0.15), rgba(6,95,70,0.1)); border: 1px solid rgba(196,181,253,0.15);">
-                <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #b8d8c8">🌅 Morning Insights</summary>
-                    <div class="mt-3">
-                        {morning_sections}
-                    </div>
-                </details>
+            <div class="mb-3">
+                <p class="text-sm font-semibold mb-2" style="color: #b8d8c8">🌅 Morning Insights</p>
+                {morning_sections}
             </div>'''
 
         # Build Update Insights card (from source=updates)
@@ -4174,13 +4211,9 @@ def generate_html(data):
 
         if updates_sections:
             updates_insights_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(30,64,175,0.18), rgba(6,95,70,0.08)); border: 1px solid rgba(147,197,253,0.2);">
-                <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #a8c4e0">📝 Update Insights</summary>
-                    <div class="mt-3">
-                        {updates_sections}
-                    </div>
-                </details>
+            <div class="mb-3">
+                <p class="text-sm font-semibold mb-2" style="color: #a8c4e0">📝 Update Insights</p>
+                {updates_sections}
             </div>'''
 
         # Build Evening Insights card
@@ -4239,13 +4272,9 @@ def generate_html(data):
 
         if evening_sections:
             evening_insights_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(88,28,135,0.15), rgba(6,95,70,0.1)); border: 1px solid rgba(196,181,253,0.15);">
-                <details>
-                    <summary class="text-lg font-semibold cursor-pointer" style="color: #c4b8e0">🌙 Evening Insights</summary>
-                    <div class="mt-3">
-                        {evening_sections}
-                    </div>
-                </details>
+            <div class="mb-3">
+                <p class="text-sm font-semibold mb-2" style="color: #c4b8e0">🌙 Evening Insights</p>
+                {evening_sections}
             </div>'''
 
     # === Therapy Notes (HEALTH project only) ===
@@ -4392,27 +4421,20 @@ def generate_html(data):
                 step_text = str(step).strip()
                 if not step_text:
                     continue
-                _step_lower = step_text.lower()
-                if (
-                    any(_marker in _step_lower for _marker in _STALE_TRIP_MARKERS)
-                    and not bool(_future_travel_blocks)
-                ):
+                if _is_stale_trip_prep_task(step_text):
                     continue
                 steps_html += f'<li class="text-sm mb-1" style="color: #e2e8f0; line-height: 1.45;">{html.escape(step_text)}</li>'
 
+            # Compact intervention — one-line technique + first step only
+            _first_step = str(steps[0]).strip()[:80] if steps else ""
             intervention_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(2,132,199,0.14); border: 1px solid rgba(125,211,252,0.24);">
-                <div class="flex items-start justify-between gap-3 mb-2">
-                    <h3 class="text-lg font-semibold" style="color: #bae6fd">🎯 Best Intervention Now</h3>
-                    <span class="text-xs rounded px-2 py-1" style="border: 1px solid rgba(148,163,184,0.32); color: #cbd5e1;">{source_text}</span>
+            <div class="rounded-lg p-3 mb-3 flex items-center gap-3" style="background: rgba(2,132,199,0.12); border: 1px solid rgba(125,211,252,0.2);">
+                <span style="font-size:1.4rem;">🎯</span>
+                <div style="flex:1;min-width:0;">
+                    <p class="text-sm font-semibold" style="color: #bae6fd">{html.escape(technique)}</p>
+                    {f'<p class="text-xs" style="color:#94a3b8">{html.escape(_first_step)}</p>' if _first_step else ''}
                 </div>
-                <div class="flex flex-wrap gap-2 mb-2">
-                    <span class="optional-pill text-xs rounded px-2 py-1" style="border: 1px solid rgba(125,211,252,0.34); color: #dbeafe; background: rgba(15,23,42,0.5);">{html.escape(technique)}</span>
-                    <span class="optional-pill text-xs rounded px-2 py-1" style="border: 1px solid rgba(148,163,184,0.34); color: {relief_tone}; background: rgba(15,23,42,0.5);">Predicted relief: {relief_text}</span>
-                    <span class="optional-pill text-xs rounded px-2 py-1" style="border: 1px solid rgba(148,163,184,0.34); color: #cbd5e1; background: rgba(15,23,42,0.5);">{confidence_text}</span>
-                </div>
-                {f'<p class="text-sm mb-2" style="color: #e2e8f0; line-height: 1.5;">{html.escape(why)}</p>' if why else ''}
-                {f'<ul style="margin: 0; padding-left: 1rem;">{steps_html}</ul>' if steps_html else ''}
+                <span class="text-xs font-bold" style="color:{relief_tone}">{relief_text}</span>
             </div>'''
 
     # Detect WT day (for jobs section collapse)
@@ -5573,13 +5595,15 @@ def generate_html(data):
 
     # Build raw morning entries
     def _render_grateful_as_list(text):
-        """If text has numbered items, render as HTML ordered list. Otherwise plain text."""
-        items = [i.strip() for i in re.split(r'\n\n(?=\d+\.)', text.strip()) if i.strip()]
-        items = [re.sub(r'^\d+\.\s*', '', item) for item in items]
+        """Render grateful items as a styled numbered list."""
+        # Split on numbered prefixes (1. 2. 3.) with optional newlines
+        items = [i.strip() for i in re.split(r'(?:^|\n+|\s+)(?=\d+\.)', text.strip()) if i.strip()]
+        items = [re.sub(r'^\d+\.\s*', '', item).strip() for item in items]
+        items = [i for i in items if i]
         if len(items) > 1:
-            lis = ''.join(f'<li style="margin-bottom: 4px">{html.escape(item)}</li>' for item in items)
-            return f'<ol style="padding-left: 1.2em; margin: 0; list-style: decimal; color: #e5e7eb; font-size: 0.875rem">{lis}</ol>'
-        return f'<span>{html.escape(text)}</span>'
+            lis = ''.join(f'<li style="margin-bottom:0.4rem;line-height:1.5">{html.escape(item)}</li>' for item in items)
+            return f'<ol style="padding-left:1.4em;margin:0;list-style:decimal;color:#e5e7eb">{lis}</ol>'
+        return f'<p style="line-height:1.5">{html.escape(text)}</p>'
 
     if morning.get("grateful"):
         grateful_content = _render_grateful_as_list(morning.get("grateful", ""))
@@ -5715,10 +5739,7 @@ def generate_html(data):
         if not _is_raw_coords:
             context_bar_parts.append(f'📍 {html.escape(location_meta)}')
 
-    # Photos pill
-    if isinstance(photo_count_meta, int) and photo_count_meta > 0:
-        noun = "photo" if photo_count_meta == 1 else "photos"
-        context_bar_parts.append(f'📷 {photo_count_meta} {noun}')
+    # Photos pill — removed (photo visible in header image, text redundant)
 
     context_bar_html = ""
     _other_pills = ''.join(
@@ -5965,11 +5986,19 @@ def generate_html(data):
             session_type=_session_type,
         )
 
+    # For the narrative, exclude Pieces items — they're system/developer activity, not personal wins
+    _tadah_items_with_source = tadah_data.get("items_with_source", []) if isinstance(tadah_data, dict) else []
+    _tadah_flat_personal = [
+        _clean_tadah_text(item["text"]) for item in _tadah_items_with_source
+        if isinstance(item, dict) and item.get("source") != "pieces"
+        and _clean_tadah_text(item.get("text", ""))
+    ] if _tadah_items_with_source else tadah_flat
+
     _narrative, _narrative_freshness = compose_day_narrative(
         today_ai=_today_ai,
         data=data,
         updates_text=updates_text,
-        tadah_flat=tadah_flat,
+        tadah_flat=_tadah_flat_personal,
         steps_val=int(_steps_val or 0),
         session_type=_session_type,
         session_dur=_session_dur,
@@ -6083,7 +6112,7 @@ def generate_html(data):
             for item in tomorrow_lines_for_display[:5]:
                 t_emoji = item.get("emoji", "💡")
                 t_text = str(item.get("text", "")).strip()
-                if not t_text:
+                if not t_text or _is_stale_trip_prep_task(t_text):
                     continue
                 tomorrow_items_html += f'''
                 <div class="flex items-start gap-2 mb-3">
@@ -6120,6 +6149,8 @@ def generate_html(data):
             g_emoji = item.get("emoji", "💡")
             g_text = item.get("text", "").strip()
             if is_evening and tomorrow_is_weekend and _looks_work_guidance_text(g_text):
+                continue
+            if _is_stale_trip_prep_task(g_text):
                 continue
             if g_text:
                 guidance_items_html += f'''
@@ -7442,14 +7473,6 @@ def generate_html(data):
         _todoist_all = _todoist_data.get("tasks", [])
         _effective = get_effective_date()
 
-        def _todoist_should_hide_task(task_text):
-            _text = str(task_text or "").strip().lower()
-            if not _text:
-                return False
-            if not any(_marker in _text for _marker in _STALE_TRIP_MARKERS):
-                return False
-            return not bool(_future_travel_blocks)
-
         # Priority colors: P1=high/red, P2=medium/yellow, P3=low/green, P4=normal/grey
         # Todoist API values: 4=P1(urgent), 3=P2(high), 2=P3(medium), 1=P4(none)
         _pri_styles = {
@@ -7589,7 +7612,7 @@ def generate_html(data):
         for t in _todoist_all:
             if not isinstance(t, dict):
                 continue
-            if _todoist_should_hide_task(t.get("content", "")):
+            if _is_stale_trip_prep_task(t.get("content", "")):
                 continue
             _task_id = str(t.get("id", "") or "").strip()
             if _task_id and _task_id in _bell_linked_todoist_ids:
@@ -7668,7 +7691,7 @@ def generate_html(data):
 
     # If Todoist is active, use it; otherwise fall back to legacy Action Items
     if _todoist_active and _todoist_card_html:
-        action_items_html = _todoist_card_html + qa_anxiety_relief_html
+        action_items_html = _todoist_card_html
     else:
         action_items_html = rf'''
     {notifications_bell_html}
@@ -7706,7 +7729,6 @@ def generate_html(data):
             </div>
         </details>
 
-        {qa_anxiety_relief_html}
     </div>
     '''
 
@@ -12154,7 +12176,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             return None
         hour = int(match.group(1))
         minute = int(match.group(2) or 0)
-        meridiem = (match.group(3) or "").lower()
+        meridiem = (match.group(3) or "").lower() if match.lastindex and match.lastindex >= 3 else ""
         if meridiem == "pm" and hour != 12:
             hour += 12
         elif meridiem == "am" and hour == 12:
@@ -12232,6 +12254,26 @@ function qaApplyTaDahFromScratch(scratchText) {{
     os3_energy_note = str(os3_recovery.get("summary", "") or state_vector_payload.get("headline", "") or "Take the day one gentle block at a time.").strip()
     os3_focus_note = str(os3_focus.get("summary", "") or _schedule_insight or "Use the clearest next block first.").strip()
 
+    # Compact metric displays for energy widget — prefer health_live (today) over healthfit (may be stale)
+    _hl = data.get("health_live", {}) if isinstance(data.get("health_live", {}), dict) else {}
+    _hf = data.get("healthfit", {}) if isinstance(data.get("healthfit", {}), dict) else {}
+    _hf_latest = _hf.get("latest", {}) if isinstance(_hf.get("latest", {}), dict) else {}
+    _hl_sleep = _hl.get("sleep", {}) if isinstance(_hl.get("sleep", {}), dict) else {}
+    _sleep_h = _hl_sleep.get("asleep_hours")  # health_live first (today's actual sleep)
+    if not isinstance(_sleep_h, (int, float)):
+        # Fallback to healthfit sleep list (latest entry)
+        _hf_sleep_list = _hf.get("sleep", [])
+        if isinstance(_hf_sleep_list, list) and _hf_sleep_list:
+            _latest_sleep = _hf_sleep_list[0]
+            _asleep_raw = str(_latest_sleep.get("asleep", ""))
+            import re as _re_sleep
+            _sleep_match = _re_sleep.match(r"(\d+)h:(\d+)m", _asleep_raw)
+            if _sleep_match:
+                _sleep_h = int(_sleep_match.group(1)) + int(_sleep_match.group(2)) / 60
+    os3_sleep_display = f"{float(_sleep_h):.1f}h" if isinstance(_sleep_h, (int, float)) else "—"
+    os3_hrv_display = str(int(_hl.get("hrv_latest", 0) or _hf.get("hrv_latest", 0))) if (_hl.get("hrv_latest") or _hf.get("hrv_latest")) else "—"
+    os3_steps_display = f"{int(_hf_latest.get('steps', 0)):,}" if isinstance(_hf_latest.get("steps"), (int, float)) else "—"
+
     os3_calendar_rows = []
     os3_now_dt = datetime.now()
     for idx, item in enumerate(calendar_events[:6]):
@@ -12275,27 +12317,59 @@ function qaApplyTaDahFromScratch(scratchText) {{
         None,
     )
 
+    # Support mode chip (steady/progress/ease)
+    _support_meta = data.get("support_mode_meta", {}) if isinstance(data.get("support_mode_meta", {}), dict) else {}
+    _support_mode = str(_support_meta.get("mode", "")).strip().lower()
+    _support_mode_colors = {
+        "steady": ("rgba(167,216,196,0.12)", "rgba(167,216,196,0.3)", "#b8d8c8"),
+        "progress": ("rgba(147,197,253,0.12)", "rgba(147,197,253,0.3)", "#93c5fd"),
+        "ease": ("rgba(249,192,208,0.12)", "rgba(249,192,208,0.3)", "#f9c0d0"),
+    }
+    _sm_bg, _sm_border, _sm_color = _support_mode_colors.get(_support_mode, ("rgba(148,163,184,0.12)", "rgba(148,163,184,0.2)", "#94a3b8"))
+    os3_support_mode_chip = (
+        f'<span class="os-chip" style="background:{_sm_bg};border:1px solid {_sm_border};color:{_sm_color};">{html.escape(_support_mode.title())}</span>'
+        if _support_mode else ""
+    )
+
     os3_hero_source = "empty"
     os3_hero_title = "You're clear right now."
     os3_hero_meta = "No active block detected."
     os3_hero_subtitle = "Choose the gentlest next useful thing when you're ready."
-    if os3_current_event:
+    _os3_hour = os3_now_dt.hour
+    _os3_energy_note_hero = ""
+    if os3_body_battery < 40:
+        _os3_energy_note_hero = " · Energy is low — pace gently."
+    elif os3_body_battery < 55:
+        _os3_energy_note_hero = " · Moderate energy — steady pace."
+    if _os3_hour >= 20:
+        os3_hero_source = "winddown"
+        _os3_wins_count = len(tadah_flat)
+        os3_hero_title = "Wind down"
+        os3_hero_meta = f"{_os3_wins_count} win{'s' if _os3_wins_count != 1 else ''} today"
+        os3_hero_subtitle = "Close the day gently. Anything left can wait."
+    elif os3_current_event:
         os3_hero_source = "calendar"
         os3_hero_title = str(os3_current_event.get("event", "")).strip() or "Current focus"
         os3_hero_meta = f"Calendar · {html.escape(str(os3_current_event.get('time', 'Now')))}"
         if os3_current_event.get("end"):
-            os3_hero_subtitle = f"{_pick_content_emoji(os3_hero_title)} Ends in {_os3_minutes_label((os3_current_event['end'] - os3_now_dt).total_seconds() / 60)}."
+            os3_hero_subtitle = f"{_pick_content_emoji(os3_hero_title)} Ends in {_os3_minutes_label((os3_current_event['end'] - os3_now_dt).total_seconds() / 60)}.{_os3_energy_note_hero}"
         else:
-            os3_hero_subtitle = "Stay with the current block until it naturally closes."
+            os3_hero_subtitle = f"Stay with the current block until it naturally closes.{_os3_energy_note_hero}"
+    elif os3_next_event and os3_next_event.get("start") and (os3_next_event["start"] - os3_now_dt).total_seconds() < 1800:
+        # Upcoming calendar event within 30 min takes priority over action items
+        os3_hero_source = "upcoming"
+        os3_hero_title = str(os3_next_event.get("event", "")).strip() or "Next scheduled block"
+        os3_hero_meta = f"Coming up · {str(os3_next_event.get('time', '')).strip()}"
+        os3_hero_subtitle = ""
     elif os3_next_action:
         os3_hero_source = "action"
         os3_hero_title = str(os3_next_action.get("task", "")).strip()
         os3_hero_meta = "One thing at a time"
         _os3_action_time = str(os3_next_action.get("time", "")).strip()
         os3_hero_subtitle = (
-            f"{_pick_content_emoji(os3_hero_title)} {_os3_action_time}"
+            f"{_os3_action_time}{_os3_energy_note_hero}"
             if _os3_action_time else
-            "Use the clearest next action from today's list."
+            f"{_os3_energy_note_hero}".strip()
         )
     elif os3_next_event:
         os3_hero_source = "upcoming"
@@ -12333,22 +12407,22 @@ function qaApplyTaDahFromScratch(scratchText) {{
     os3_quick_actions_html = '''
         <div class="os-card">
             <p class="text-sm font-semibold mb-3" style="color:#e5e7eb">Quick actions</p>
-            <div class="os-inline-list">
-                <button type="button" class="row" data-os-nav-action="journal" data-target-sub="day" data-focus-target="journal-mood-card">
-                    <span class="text-sm font-semibold" style="color:#e5e7eb">🙂 Log mood</span>
-                    <span class="text-xs" style="color:#94a3b8">Journal</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(224,187,228,0.08);border:1px solid rgba(224,187,228,0.15);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="journal-mood-card">
+                    <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(224,187,228,0.15);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">😊</div>
+                    <span class="text-xs font-semibold" style="color:#e5e7eb">Log Mood</span>
                 </button>
-                <button type="button" class="row" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
-                    <span class="text-sm font-semibold" style="color:#e5e7eb">✍️ Quick reflection</span>
-                    <span class="text-xs" style="color:#94a3b8">Day notes</span>
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(181,255,217,0.06);border:1px solid rgba(181,255,217,0.12);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
+                    <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(181,255,217,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✍️</div>
+                    <span class="text-xs font-semibold" style="color:#e5e7eb">Reflect</span>
                 </button>
-                <button type="button" class="row" data-os-nav-action="health" data-target-sub="overview" data-focus-target="health-selfcare">
-                    <span class="text-sm font-semibold" style="color:#e5e7eb">🧘 Self-care</span>
-                    <span class="text-xs" style="color:#94a3b8">Health</span>
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(255,209,220,0.06);border:1px solid rgba(255,209,220,0.12);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="health" data-target-sub="overview" data-focus-target="health-selfcare">
+                    <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(255,209,220,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🧘</div>
+                    <span class="text-xs font-semibold" style="color:#e5e7eb">Self-care</span>
                 </button>
-                <button type="button" class="row" onclick="qaOpenWorkoutChecklist(true)">
-                    <span class="text-sm font-semibold" style="color:#e5e7eb">🏋️ Workout checklist</span>
-                    <span class="text-xs" style="color:#94a3b8">Real action</span>
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(125,211,252,0.06);border:1px solid rgba(125,211,252,0.12);cursor:pointer;transition:all 0.15s ease;" onclick="qaOpenWorkoutChecklist(true)">
+                    <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(125,211,252,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🏋️</div>
+                    <span class="text-xs font-semibold" style="color:#e5e7eb">Workout</span>
                 </button>
             </div>
         </div>
@@ -12378,30 +12452,47 @@ function qaApplyTaDahFromScratch(scratchText) {{
         if len(os3_daily_win_rows) >= 4:
             break
     os3_daily_wins_html = "".join(
-        f'<div class="row"><div><p class="text-sm font-semibold" style="color:#e5e7eb">{html.escape(item)}</p></div><span class="text-xs" style="color:#a7d8c4">done</span></div>'
+        f'<div class="row" style="align-items:center;">'
+        f'<div style="display:flex;align-items:center;gap:0.6rem;">'
+        f'<div style="width:1.5rem;height:1.5rem;border-radius:999px;background:rgba(181,255,217,0.2);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#B5FFD9;flex-shrink:0;">✓</div>'
+        f'<p class="text-sm" style="color:#e5e7eb">{html.escape(item)}</p>'
+        f'</div>'
+        f'<span style="font-size:1rem;">{_pick_content_emoji(item)}</span>'
+        f'</div>'
         for item in os3_daily_win_rows
-    ) or '<div class="row"><p class="text-sm" style="color:#94a3b8">Wins will gather here as the day moves.</p></div>'
+    ) or ''
 
     os3_review_today_attention_html = (
         f'<div class="os-banner" style="border-left:2px solid rgba(196,181,253,0.3)"><p class="text-xs" style="color:#cbd5e1">{html.escape(weekly_hint)}</p></div>'
         if weekly_needs_regeneration else ""
     )
 
-    os3_review_story_html = f'<p class="text-sm mb-3" style="color:#e5e7eb; line-height:1.65">{html.escape(str(_narrative))}</p>' if str(_narrative or "").strip() else ""
+    # Use the AI-generated narrative (Opus) instead of rule-based prose for synthesis
+    _ai_narrative = str(data.get("aiInsights", data.get("ai_insights", {})).get("day_activity_narrative", "") or "").strip()
+    _synthesis_story = _ai_narrative if _ai_narrative else str(_narrative or "").strip()
+    os3_review_story_html = f'<p class="text-sm mb-3" style="color:#e5e7eb; line-height:1.65">{html.escape(_synthesis_story)}</p>' if _synthesis_story else ""
+    _comp_signals_raw = [str(item).strip() for item in (state_vector_payload.get("compounding_signals", []) if isinstance(state_vector_payload.get("compounding_signals", []), list) else [])[:3] if str(item).strip()]
     os3_compounding_signals_html = "".join(
-        f'<li class="text-sm mb-1" style="color:#dbeafe;line-height:1.5;">{html.escape(str(item))}</li>'
-        for item in (state_vector_payload.get("compounding_signals", []) if isinstance(state_vector_payload.get("compounding_signals", []), list) else [])[:3]
-        if str(item).strip()
+        f'<div style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.3rem 0.65rem;border-radius:999px;background:rgba(147,197,253,0.08);border:1px solid rgba(147,197,253,0.18);margin:0.2rem 0.25rem 0.2rem 0;font-size:0.8rem;color:#dbeafe;">🔗 {html.escape(item)}</div>'
+        for item in _comp_signals_raw
     )
+    # Build synthesis sections with clear visual separation
+    _synth_sections = []
+    if os3_review_story_html:
+        _synth_sections.append(os3_review_story_html)
+    if how_felt_body_html:
+        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">How today felt</p>{how_felt_body_html}</div>')
+    elif not os3_review_story_html:
+        _synth_sections.append('<p class="text-sm" style="color:#cbd5e1">Waiting for diary data.</p>')
+    if os3_compounding_signals_html:
+        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#93c5fd">Signals to carry</p><div style="display:flex;flex-wrap:wrap;">{os3_compounding_signals_html}</div></div>')
+
     os3_review_synthesis_html = f'''
         <div class="os-card">
             <div class="flex items-center justify-between gap-3 mb-3">
                 <h3 class="text-lg font-semibold" style="color:#c4b8e0">Today&apos;s synthesis</h3>
-                <span class="text-xs" style="color:#94a3b8">Feel + pattern + signal</span>
             </div>
-            {os3_review_story_html}
-            {how_felt_body_html if how_felt_body_html else '<p class="text-sm" style="color:#cbd5e1">The day will synthesise here once more reflection lands.</p>'}
-            {f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#93c5fd">Signals to carry</p><ul style="margin:0;padding-left:1rem;">{os3_compounding_signals_html}</ul></div>' if os3_compounding_signals_html else ''}
+            {"".join(_synth_sections)}
         </div>
     '''
 
@@ -12409,16 +12500,21 @@ function qaApplyTaDahFromScratch(scratchText) {{
         os3_review_handoff_html = suggestions_html
     else:
         os3_handoff_bits = []
-        if str(tomorrow or "").strip():
-            os3_handoff_bits.append(("Tomorrow", str(tomorrow).strip()))
-        if str(remember_tomorrow_text or "").strip():
-            os3_handoff_bits.append(("Remember", str(remember_tomorrow_text).strip()))
-        if str(carrying or "").strip():
-            os3_handoff_bits.append(("Carry forward", str(carrying).strip()))
+        for _ho_label, _ho_text in [
+            ("Tomorrow", str(tomorrow or "").strip()),
+            ("Remember", str(remember_tomorrow_text or "").strip()),
+            ("Carry forward", str(carrying or "").strip()),
+        ]:
+            if not _ho_text:
+                continue
+            _ho_lines = [ln for ln in _ho_text.splitlines() if ln.strip() and not _is_stale_trip_prep_task(ln)]
+            _ho_cleaned = "\n".join(_ho_lines).strip()
+            if _ho_cleaned:
+                os3_handoff_bits.append((_ho_label, _ho_cleaned))
         os3_handoff_rows = "".join(
             f'<div class="row"><div><p class="text-xs font-semibold mb-1" style="color:#94a3b8">{html.escape(label)}</p><p class="text-sm" style="color:#e5e7eb">{html.escape(text)}</p></div></div>'
             for label, text in os3_handoff_bits
-        ) or '<div class="row"><p class="text-sm" style="color:#94a3b8">Tomorrow handoff appears here once evening planning lands.</p></div>'
+        ) or ''
         os3_review_handoff_html = f'''
             <div class="os-card">
                 <div class="flex items-center justify-between gap-3 mb-3">
@@ -12444,29 +12540,42 @@ function qaApplyTaDahFromScratch(scratchText) {{
     os3_avg_exercise = _os3_avg_health("exercise")
     os3_review_week_widgets_html = f'''
         <div class="os-three-col">
-            <div class="os-card">
-                <p class="text-xs font-semibold mb-2" style="color:#a7d8c4">Recovery</p>
+            <div class="os-card" style="text-align:center;">
+                <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(167,216,196,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin:0 auto 0.5rem;">⚡</div>
+                <p class="text-xs font-semibold mb-1" style="color:#a7d8c4">Recovery</p>
                 <p class="text-2xl font-bold" style="color:#e5e7eb">{os3_body_battery}%</p>
-                <p class="text-xs mt-2" style="color:#94a3b8">{html.escape(str(os3_recovery.get("summary", "Recovery signal from this week.")))}</p>
+                <p class="text-xs mt-2" style="color:#94a3b8">{html.escape(str(os3_recovery.get("summary", "Recovery signal from this week.")))[:50]}</p>
             </div>
-            <div class="os-card">
-                <p class="text-xs font-semibold mb-2" style="color:#d4a8b8">Sleep average</p>
+            <div class="os-card" style="text-align:center;">
+                <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(212,168,184,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin:0 auto 0.5rem;">🌙</div>
+                <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">Sleep average</p>
                 <p class="text-2xl font-bold" style="color:#e5e7eb">{f"{os3_avg_sleep:.1f}h" if os3_avg_sleep is not None else "n/a"}</p>
-                <p class="text-xs mt-2" style="color:#94a3b8">Last 7 days from health export.</p>
+                <p class="text-xs mt-2" style="color:#94a3b8">Last 7 days</p>
             </div>
-            <div class="os-card">
-                <p class="text-xs font-semibold mb-2" style="color:#c4b8e0">Focus score</p>
+            <div class="os-card" style="text-align:center;">
+                <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(196,184,224,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin:0 auto 0.5rem;">🧠</div>
+                <p class="text-xs font-semibold mb-1" style="color:#c4b8e0">Focus score</p>
                 <p class="text-2xl font-bold" style="color:#e5e7eb">{os3_focus_score}</p>
-                <p class="text-xs mt-2" style="color:#94a3b8">{html.escape(os3_focus_note)}</p>
+                <p class="text-xs mt-2" style="color:#94a3b8">{html.escape(os3_focus_note)[:50]}</p>
             </div>
         </div>
     '''
 
-    os3_review_biometrics_html = ''.join([
-        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Avg steps</p><p class="text-lg font-semibold" style="color:#e5e7eb">{int(os3_avg_steps):,}</p></div>' if os3_avg_steps is not None else "",
-        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Avg exercise</p><p class="text-lg font-semibold" style="color:#e5e7eb">{int(os3_avg_exercise)}m</p></div>' if os3_avg_exercise is not None else "",
-        f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Screen time</p><p class="text-lg font-semibold" style="color:#e5e7eb">{html.escape(str((screentime_data.get("summary", {}) if isinstance(screentime_data.get("summary", {}), dict) else {}).get("avg_screen_time_display", "n/a")))}</p></div>' if screentime_html else "",
-    ])
+    _bio_items = []
+    if os3_avg_steps is not None:
+        _bio_items.append(("👟", "Avg steps", f"{int(os3_avg_steps):,}", "rgba(125,211,252,0.12)", "#7dd3fc"))
+    if os3_avg_exercise is not None:
+        _bio_items.append(("🏃", "Avg exercise", f"{int(os3_avg_exercise)}m", "rgba(181,255,217,0.12)", "#a7d8c4"))
+    if screentime_html:
+        _st_display = str((screentime_data.get("summary", {}) if isinstance(screentime_data.get("summary", {}), dict) else {}).get("avg_screen_time_display", "n/a"))
+        _bio_items.append(("📱", "Screen time", html.escape(_st_display), "rgba(224,187,228,0.12)", "#E0BBE4"))
+    os3_review_biometrics_html = "".join(
+        f'<div class="os-surface" style="display:flex;align-items:center;gap:0.75rem;">'
+        f'<div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:{bg};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">{icon}</div>'
+        f'<div><p class="text-xs font-semibold" style="color:#94a3b8">{label}</p><p class="text-lg font-semibold" style="color:#e5e7eb">{val}</p></div>'
+        f'</div>'
+        for icon, label, val, bg, color in _bio_items
+    )
     os3_review_biometrics_html = (
         f'<div class="os-two-col">{os3_review_biometrics_html}</div>'
         if os3_review_biometrics_html else ""
@@ -12521,14 +12630,20 @@ function qaApplyTaDahFromScratch(scratchText) {{
     else:
         os3_mindfulness_habit_label = "Mindfulness"
     os3_health_habit_rows = [
-        ("Mood logged", "done" if qa_mood_state.get("done") else "open", bool(qa_mood_state.get("done"))),
-        (os3_mindfulness_habit_label, "done" if qa_mindfulness_state.get("done") else "pending", bool(qa_mindfulness_state.get("done"))),
-        (qa_quick_workout_title, "done" if qa_quick_workout_done else "pending", bool(qa_quick_workout_done)),
-        ("Close-down reflection", "done" if os3_reflection_saved_today else "pending", bool(os3_reflection_saved_today)),
+        ("Mood logged", "done" if qa_mood_state.get("done") else "open", bool(qa_mood_state.get("done")), "😊", "rgba(224,187,228,0.15)", "#E0BBE4"),
+        (os3_mindfulness_habit_label, "done" if qa_mindfulness_state.get("done") else "pending", bool(qa_mindfulness_state.get("done")), "🧘", "rgba(255,209,220,0.15)", "#FFD1DC"),
+        (qa_quick_workout_title, "done" if qa_quick_workout_done else "pending", bool(qa_quick_workout_done), "🏋️", "rgba(125,211,252,0.15)", "#7dd3fc"),
+        ("Close-down reflection", "done" if os3_reflection_saved_today else "pending", bool(os3_reflection_saved_today), "🌙", "rgba(196,181,253,0.15)", "#c4b5fd"),
     ]
     os3_health_habits_html = "".join(
-        f'<div class="row"><div><p class="text-sm font-semibold" style="color:#e5e7eb">{html.escape(label)}</p></div><span class="text-xs" style="color:{"#a7d8c4" if done else "#94a3b8"}">{status}</span></div>'
-        for label, status, done in os3_health_habit_rows[:4]
+        f'<div class="row" style="align-items:center;">'
+        f'<div style="display:flex;align-items:center;gap:0.75rem;">'
+        f'<div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:{icon_bg};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;{"opacity:0.4;" if not done else ""}">{icon}</div>'
+        f'<p class="text-sm font-semibold" style="color:{"#e5e7eb" if not done else "#94a3b8"};{"text-decoration:line-through;" if done else ""}">{html.escape(label)}</p>'
+        f'</div>'
+        f'<span class="text-xs" style="color:{"#a7d8c4" if done else "#94a3b8"};font-weight:600;">{status}</span>'
+        f'</div>'
+        for label, status, done, icon, icon_bg, icon_color in os3_health_habit_rows[:4]
     )
     os3_health_snapshot_html = (
         f'<div class="os-two-col">'
@@ -12536,45 +12651,90 @@ function qaApplyTaDahFromScratch(scratchText) {{
         f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#94a3b8">Avg exercise</p><p class="text-lg font-semibold" style="color:#e5e7eb">{int(os3_avg_exercise)}m</p></div>'
         f'</div>'
         if os3_avg_steps is not None and os3_avg_exercise is not None else
-        '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Weekly health snapshot appears after the next export sync.</p></div>'
+        '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">No health data synced yet.</p></div>'
+    )
+
+    # Build 7-day sparkline bar charts for steps and HRV
+    _dow_labels = ["M", "T", "W", "T", "F", "S", "S"]
+    def _build_sparkline_bars(values, label, color, max_val=None):
+        if not values or len(values) < 2:
+            return ""
+        max_v = max_val or max(values)
+        if max_v <= 0:
+            return ""
+        bars = ""
+        day_html = ""
+        _today_dow = datetime.now().weekday()
+        _start_dow = (_today_dow - len(values[-7:]) + 1) % 7
+        for i, v in enumerate(values[-7:]):
+            pct = min(100, int((v / max_v) * 100)) if max_v > 0 else 0
+            bars += f'<div style="flex:1;background:{color};height:{max(2, pct)}%;border-radius:2px;min-width:4px;" title="{v:,.0f}"></div>'
+            day_html += f'<span style="flex:1;text-align:center;">{_dow_labels[(_start_dow + i) % 7]}</span>'
+        return f'''<div class="mt-3"><p class="text-xs mb-1" style="color:#94a3b8">{label} (7d)</p><div style="display:flex;align-items:flex-end;gap:3px;height:32px;">{bars}</div><div style="display:flex;gap:3px;margin-top:2px;font-size:0.6rem;color:#64748b;font-weight:600;">{day_html}</div></div>'''
+
+    _hf_daily = data.get("healthfit", {}).get("daily_metrics", []) if isinstance(data.get("healthfit", {}), dict) else []
+    _spark_steps = [float(d.get("steps", 0)) for d in _hf_daily[:7] if isinstance(d, dict) and isinstance(d.get("steps"), (int, float))]
+    _spark_hrv = [float(d.get("hrv", 0)) for d in _hf_daily[:7] if isinstance(d, dict) and isinstance(d.get("hrv"), (int, float)) and d.get("hrv", 0) > 0]
+    _spark_steps.reverse()
+    _spark_hrv.reverse()
+    os3_health_sparklines_html = (
+        _build_sparkline_bars(_spark_steps, "Steps", "rgba(125,211,252,0.6)", max_val=20000)
+        + _build_sparkline_bars(_spark_hrv, "HRV", "rgba(167,216,196,0.6)", max_val=120)
     )
 
     os3_integrations_rows = [
-        ("Calendar", "live" if calendar_events else "quiet", f"{len(calendar_events)} item{'s' if len(calendar_events) != 1 else ''} today" if calendar_events else "No events surfaced"),
-        ("Health export", "fresh" if not data.get("healthDataStale", False) else "stale", "Health data available" if health_data else "No recent export"),
-        ("Screen time", "live" if screentime_html else "offline", "Synced" if screentime_html else "Unavailable"),
-        ("ActivityWatch", "live" if aw_status == "success" else "offline", "Focus telemetry available" if aw_status == "success" else "Unavailable"),
+        ("Calendar", "live" if calendar_events else "quiet", f"{len(calendar_events)} item{'s' if len(calendar_events) != 1 else ''} today" if calendar_events else "No events surfaced", "📅"),
+        ("Health export", "fresh" if not data.get("healthDataStale", False) else "stale", "Health data available" if health_data else "No recent export", "❤️"),
+        ("Screen time", "live" if screentime_html else "offline", "Synced" if screentime_html else "Unavailable", "📱"),
+        ("ActivityWatch", "live" if aw_status == "success" else "offline", "Focus telemetry available" if aw_status == "success" else "Unavailable", "🎯"),
     ]
+    _integ_state_colors = {"live": "#a7d8c4", "fresh": "#a7d8c4", "stale": "#d4b896", "quiet": "#94a3b8", "offline": "#94a3b8"}
+    _integ_dot_colors = {"live": "#45CC90", "fresh": "#45CC90", "stale": "#fbbf24", "quiet": "#64748b", "offline": "#64748b"}
     os3_integrations_html = "".join(
-        f'<div class="row"><div><p class="text-sm font-semibold" style="color:#e5e7eb">{html.escape(name)}</p><p class="text-xs mt-1" style="color:#94a3b8">{html.escape(detail)}</p></div><span class="text-xs" style="color:{("#a7d8c4" if state in {"live", "fresh"} else "#d4b896" if state == "stale" else "#94a3b8")}">{html.escape(state)}</span></div>'
-        for name, state, detail in os3_integrations_rows
+        f'<div class="row" style="align-items:center;">'
+        f'<div style="display:flex;align-items:center;gap:0.75rem;">'
+        f'<div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(148,163,184,0.08);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">{icon}</div>'
+        f'<div><p class="text-sm font-semibold" style="color:#e5e7eb">{html.escape(name)}</p><p class="text-xs mt-1" style="color:#94a3b8">{html.escape(detail)}</p></div>'
+        f'</div>'
+        f'<div style="display:flex;align-items:center;gap:0.4rem;"><span style="width:6px;height:6px;border-radius:999px;background:{_integ_dot_colors.get(state, "#64748b")};"></span><span class="text-xs" style="color:{_integ_state_colors.get(state, "#94a3b8")}">{html.escape(state)}</span></div>'
+        f'</div>'
+        for name, state, detail, icon in os3_integrations_rows
     )
 
     os3_archives_html = f'''
         <div class="os-inline-list">
-            <a class="row" href="{journal_today}">
-                <div><p class="text-sm font-semibold" style="color:#e5e7eb">Today&apos;s journal</p><p class="text-xs mt-1" style="color:#94a3b8">{html.escape(get_effective_date())}</p></div>
+            <a class="row" href="{journal_today}" style="align-items:center;">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(181,255,217,0.1);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">📓</div>
+                    <div><p class="text-sm font-semibold" style="color:#e5e7eb">Today&apos;s journal</p><p class="text-xs mt-1" style="color:#94a3b8">{html.escape(get_effective_date())}</p></div>
+                </div>
                 <span class="text-xs" style="color:#a8c4e0">open</span>
             </a>
-            <div class="row">
-                <div><p class="text-sm font-semibold" style="color:#e5e7eb">Current weekly report</p><p class="text-xs mt-1" style="color:#94a3b8">{weekly_current_link_html}</p></div>
+            <div class="row" style="align-items:center;">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(196,181,253,0.1);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">📊</div>
+                    <div><p class="text-sm font-semibold" style="color:#e5e7eb">Current weekly report</p><p class="text-xs mt-1" style="color:#94a3b8">{weekly_current_link_html}</p></div>
+                </div>
             </div>
-            <div class="row">
-                <div><p class="text-sm font-semibold" style="color:#e5e7eb">Latest weekly report</p><p class="text-xs mt-1" style="color:#94a3b8">{weekly_latest_link_html}</p></div>
+            <div class="row" style="align-items:center;">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(148,163,184,0.1);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">📁</div>
+                    <div><p class="text-sm font-semibold" style="color:#e5e7eb">Latest weekly report</p><p class="text-xs mt-1" style="color:#94a3b8">{weekly_latest_link_html}</p></div>
+                </div>
             </div>
         </div>
     '''
 
+    # Only show System card when there's an actual issue (orange/red pills or warnings)
+    _system_has_issue = any(s in backend_status_pills_html for s in ['#d4b896', '#e5a0a0', 'Stale', 'Error', 'critical', 'orange', 'red'])
+    _system_has_issue = _system_has_issue or bool(important_thing_warning_html) or bool(stale_notice_html)
     os3_more_system_html = f'''
-        <section id="system" class="os-card">
-            <div class="flex items-center justify-between gap-3 mb-3">
-                <div>
-                    <h3 class="text-lg font-semibold" style="color:#e5e7eb">System</h3>
-                    <p class="text-xs mt-1" style="color:#94a3b8">Full status lives here unless attention is needed elsewhere.</p>
-                </div>
+        <details id="system" class="os-card"{'' if _system_has_issue else ' hidden'}>
+            <summary class="flex items-center justify-between gap-3 cursor-pointer">
+                <span class="text-sm font-semibold" style="color:#e5e7eb">System</span>
                 <span class="backend-status-rail" aria-label="Live status">{backend_status_pills_html}</span>
-            </div>
-            <div id="qa-status-cards-section" data-static-cards="{status_static_card_count}"{status_cards_section_hidden_attr}>
+            </summary>
+            <div class="mt-3" id="qa-status-cards-section" data-static-cards="{status_static_card_count}"{status_cards_section_hidden_attr}>
                 {important_thing_warning_html}
                 <div id="qa-freshness-watch-wrap"{freshness_watch_hidden_attr}>{freshness_watch_html}</div>
                 {stale_notice_html}
@@ -12585,43 +12745,49 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 {system_status_html}
                 {('<div style="margin-top:0.75rem;">' + backlog_html + '</div>') if backlog_html else ''}
             </div>
-        </section>
+        </details>
     '''
 
     os3_review_today_panel_html = f'''
         {os3_review_today_attention_html}
-        <section id="review" class="os-card">
-            <div class="flex items-center justify-between gap-3 mb-3">
-                <div>
-                    <h3 class="text-lg font-semibold" style="color:#a7d8c4">Wins &amp; Ta-Dah</h3>
-                    <p class="text-xs mt-1" style="color:#94a3b8">{len(tadah_flat)} captured today</p>
-                </div>
-                <a href="{journal_today}" class="text-xs" style="color:#a7d8c4">Open journal</a>
+        {(f'<section id="daily-report" class="os-card" style="border-left:3px solid rgba(125,211,252,0.5);margin-bottom:1rem;"><div class="flex items-center gap-3 mb-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#7dd3fc;"></div><h3 class="text-base font-bold" style="color:#7dd3fc">Today\'s Story</h3></div><div>{daily_report_html}</div></section>') if daily_report_html else ''}
+        <div class="os-layout">
+            <div class="os-main-stack">
+                {os3_review_synthesis_html}
             </div>
-            <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
-            {yesterday_tadah_html}
-            {('<details class="mt-3"><summary class="text-xs cursor-pointer" style="color:#6b7280">Theme breakdown</summary><div class="mt-2">' + tadah_cat_html + '</div></details>') if tadah_cat_html else ''}
-        </section>
-        {os3_review_synthesis_html}
-        {os3_review_handoff_html}
+            <aside class="os-side-stack">
+                <section id="review" class="os-card">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div style="width:3px;height:1.5rem;border-radius:3px;background:#B5FFD9;"></div>
+                        <h3 class="text-base font-bold" style="color:#B5FFD9">Ta-Dah</h3>
+                        <span class="text-xs" style="background:rgba(181,255,217,0.12);color:#B5FFD9;padding:0.15rem 0.5rem;border-radius:999px;font-weight:700;">{len(tadah_flat)} wins</span>
+                    </div>
+                    <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
+                    {yesterday_tadah_html}
+                </section>
+                {qa_anxiety_relief_html if is_evening else ''}
+                {os3_review_handoff_html if is_evening else ''}
+            </aside>
+        </div>
     '''
 
     os3_review_week_panel_html = f'''
-        <section id="weekly" class="os-main-stack">
+        <section id="weekly">
             {os3_review_week_widgets_html}
-            {weekly_digest_html if weekly_digest_html else ''}
-            {os3_weekly_reflection_html}
-            {os3_review_compare_html}
-            {(f'<details id="daily-report" class="os-card"><summary class="cursor-pointer text-sm font-semibold" style="color:#e5e7eb">Detailed daily report</summary><div class="mt-3">{daily_report_html}</div></details>') if daily_report_html else ''}
+            <div class="os-layout" style="margin-top:1rem;">
+                <div class="os-main-stack">
+                    {weekly_digest_html if weekly_digest_html else ''}
+                    {os3_weekly_reflection_html}
+                </div>
+                <aside class="os-side-stack">
+                    {os3_review_compare_html}
+                </aside>
+            </div>
         </section>
     '''
 
     os3_shell_html = f'''
-        <div class="os-topbar">
-            <div class="os-brand">
-                <span class="os-brand-dot"></span>
-                <span>OS 3.0</span>
-            </div>
+        <div class="os-topbar" style="justify-content:center;">
             <nav class="os-global-nav" aria-label="OS tabs">
                 <button type="button" class="os-tab-btn" data-os-tab-btn="now">Now</button>
                 <button type="button" class="os-tab-btn" data-os-tab-btn="journal">Journal</button>
@@ -12629,9 +12795,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 <button type="button" class="os-tab-btn" data-os-tab-btn="health">Health</button>
                 <button type="button" class="os-tab-btn" data-os-tab-btn="more">More</button>
             </nav>
-            <div class="os-chip-row">{backend_status_pills_html}</div>
         </div>
-        {top_status_pills_html}
 
         <section data-os-tab="now" class="os-tab-panel">
             {os3_now_attention_html}
@@ -12640,54 +12804,56 @@ function qaApplyTaDahFromScratch(scratchText) {{
             <section id="os-now-hero" class="os-card os-hero" tabindex="-1">
                         <div class="os-hero-grid">
                             <div>
-                                <div class="os-chip-row mb-3">
-                                    <span class="os-chip" style="background:rgba(167,216,196,0.12);border:1px solid rgba(167,216,196,0.3);color:#b8d8c8;">Current focus</span>
+                                <div class="flex items-center gap-2 mb-2">
+                                    {os3_support_mode_chip}
                                     <span class="os-chip" style="background:rgba(196,181,253,0.12);border:1px solid rgba(196,181,253,0.24);color:#c4b8e0;">{html.escape(os3_hero_source.title())}</span>
                                 </div>
-                                <h2 class="text-2xl font-bold mb-2" style="color:#f8fafc">What do I do now?</h2>
-                                <p class="text-lg font-semibold" style="color:#e5e7eb">{html.escape(os3_hero_title)}</p>
-                                <p class="text-sm mt-2" style="color:#94a3b8">{os3_hero_meta}</p>
-                                <p class="text-sm mt-2" style="color:#cbd5e1">{html.escape(os3_hero_subtitle)}</p>
+                                <p class="text-lg font-semibold" style="color:#f8fafc">{html.escape(os3_hero_title)}</p>
+                                <p class="text-xs mt-1" style="color:#94a3b8">{os3_hero_meta}</p>
                             </div>
-                            <div>
-                                <button type="button" class="btn btn--primary" data-os-focus-enter="true" style="min-width: 11rem;">Enter Focus Mode</button>
+                            <div style="flex-shrink:0;">
+                                <button type="button" class="btn btn--primary" data-os-focus-enter="true">Focus</button>
                             </div>
                         </div>
                     </section>
                     <section id="schedule" class="os-card">
                         <div class="flex items-center justify-between gap-3 mb-3">
                             <div>
-                                <h3 class="text-lg font-semibold" style="color:#e5e7eb">Today&apos;s schedule</h3>
-                                <p class="text-xs mt-1" style="color:#94a3b8">Calm timeline for what&apos;s live and next.</p>
+                                <div class="flex items-center gap-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#93c5fd;"></div><h3 class="text-base font-bold" style="color:#93c5fd">Today&apos;s schedule</h3></div>
                             </div>
                         </div>
                         <div class="os-timeline">{os3_timeline_html}</div>
                     </section>
                     <section id="actions">{action_items_html}</section>
-                    {(f'<section id="guidance" class="os-card"><details><summary class="cursor-pointer text-sm font-semibold" style="color:#cbd5e1">Guidance</summary><div class="mt-3">{guidance_section_html}</div></details></section>') if guidance_section_html else ''}
                 </div>
                 <aside class="os-side-stack">
+                    {(f'<section id="guidance" class="os-card"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
                     {os3_quick_actions_html}
                     <section class="os-card">
-                        <div class="flex items-center justify-between gap-3 mb-3">
-                            <div>
-                                <p class="text-sm font-semibold" style="color:#e5e7eb">Energy</p>
-                                <p class="text-xs mt-1" style="color:#94a3b8">{html.escape(str(os3_load.get("summary", "") or "Pace according to load and recovery."))}</p>
+                        <div class="flex items-center gap-3 mb-2">
+                            <span style="font-size:1.5rem;">⚡</span>
+                            <div style="flex:1">
+                                <p class="text-xs font-bold uppercase" style="color:#94a3b8;letter-spacing:0.08em;">Energy</p>
+                                <p class="text-2xl font-black" style="color:#B5FFD9">{os3_body_battery}%</p>
                             </div>
-                            <span class="text-lg font-bold" style="color:#b8d8c8">{os3_body_battery}%</span>
                         </div>
                         {_os3_progress_bar(os3_body_battery)}
-                        <p class="text-xs mt-3" style="color:#cbd5e1">{html.escape(os3_energy_note)}</p>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            <span class="text-xs rounded-full px-2 py-1" style="background:rgba(181,255,217,0.1);color:#B5FFD9;">🌙 {os3_sleep_display}</span>
+                            <span class="text-xs rounded-full px-2 py-1" style="background:rgba(196,181,253,0.1);color:#E0BBE4;">💓 HRV {os3_hrv_display}</span>
+                            <span class="text-xs rounded-full px-2 py-1" style="background:rgba(255,209,220,0.1);color:#FFD1DC;">👟 {os3_steps_display}</span>
+                        </div>
                     </section>
                     <section class="os-card">
-                        <div class="flex items-center justify-between gap-3 mb-3">
-                            <div>
-                                <p class="text-sm font-semibold" style="color:#e5e7eb">Daily wins</p>
-                                <p class="text-xs mt-1" style="color:#94a3b8">Celebrate progress without extra admin.</p>
-                            </div>
-                            <span class="text-sm font-semibold" style="color:#a7d8c4">{len(tadah_flat)}</span>
+                        <div class="flex items-center gap-3 mb-3">
+                            <span style="font-size:1.3rem;">🏆</span>
+                            <p class="text-sm font-bold" style="color:#B5FFD9">Wins today</p>
+                            <span class="text-lg font-black" style="color:#B5FFD9">{len(tadah_flat)}</span>
                         </div>
-                        <div class="os-inline-list">{os3_daily_wins_html}</div>
+                        <div class="flex flex-wrap gap-1">
+                            {"".join(f'<div style="width:1.5rem;height:1.5rem;border-radius:999px;background:rgba(181,255,217,0.25);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#B5FFD9;">✓</div>' for _ in range(min(len(tadah_flat), 10)))}
+                            {"".join(f'<div style="width:1.5rem;height:1.5rem;border-radius:999px;border:1px dashed rgba(148,163,184,0.3);"></div>' for _ in range(max(0, 5 - len(tadah_flat))))}
+                        </div>
                         <div class="mt-3">{tadah_scratch_html}</div>
                     </section>
                 </aside>
@@ -12707,41 +12873,73 @@ function qaApplyTaDahFromScratch(scratchText) {{
         </section>
 
         <section data-os-tab="journal" class="os-tab-panel" hidden>
-            <div class="os-card mb-4">
+            <div class="os-card mb-3">
                 <div class="flex items-center justify-between gap-3 mb-3">
                     <div>
-                        <h2 class="text-xl font-semibold" style="color:#e5e7eb">Journal</h2>
-                        <p class="text-xs mt-1" style="color:#94a3b8">Morning, Day, and Evening live together with quick switching.</p>
+                        <h2 class="text-lg font-semibold" style="color:#c4b8e0">Journal</h2>
                     </div>
                     <div class="os-subnav">
                         <button type="button" class="os-subtab-btn" data-os-journal-btn="morning">Morning</button>
                         <button type="button" class="os-subtab-btn" data-os-journal-btn="day">Day</button>
                         <button type="button" class="os-subtab-btn" data-os-journal-btn="evening">Evening</button>
+                        <button type="button" class="text-xs" style="color:#a7d8c4; background:none; border:none; cursor:pointer; padding:0.4rem 0.6rem;" data-os-nav-action="review" data-target-sub="today">Review →</button>
                     </div>
                 </div>
                 <div id="journal-mood-card">{mood_tracking_html if mood_tracking_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Mood check-ins appear here.</p></div>'}</div>
             </div>
             <section id="morning" class="os-subpanel" data-os-journal-panel="morning">
-                <div class="os-card">{morning_mood_pill_html}{morning_card_html}{morning_insights_html}{_scratch_pad_html("morning", "Morning", effective_today)}</div>
+                {morning_mood_pill_html}
+                {f'<div class="os-card" style="border-left:3px solid var(--mint);margin-top:0.75rem;">{morning_insights_html}</div>' if morning_insights_html else ''}
+                <div class="os-card" style="margin-top:0.75rem;">
+                    <details>
+                        <summary class="flex items-center gap-2 cursor-pointer" style="color:#94a3b8">
+                            <span style="font-size:1.1rem;">📓</span>
+                            <span class="text-sm font-semibold">My entries</span>
+                        </summary>
+                        <div class="mt-3">{morning_card_html}</div>
+                    </details>
+                </div>
+                <div class="os-card" style="margin-top:0.75rem;">{_scratch_pad_html("morning", "Morning", effective_today)}</div>
             </section>
             <section id="updates" class="os-subpanel" data-os-journal-panel="day" hidden>
-                <div class="os-card">{updates_card_html}{updates_insights_html}{_scratch_pad_html("updates", "Updates", effective_today)}</div>
+                {f'<div class="os-card" style="border-left:3px solid #93c5fd;margin-top:0.75rem;">{updates_insights_html}</div>' if updates_insights_html else ''}
+                <div class="os-card" style="margin-top:0.75rem;">
+                    <details>
+                        <summary class="flex items-center gap-2 cursor-pointer" style="color:#94a3b8">
+                            <span style="font-size:1.1rem;">📓</span>
+                            <span class="text-sm font-semibold">My entries</span>
+                        </summary>
+                        <div class="mt-3">{updates_card_html}</div>
+                    </details>
+                </div>
+                <div class="os-card" style="margin-top:0.75rem;">{_scratch_pad_html("updates", "Updates", effective_today)}</div>
             </section>
             <section id="evening" class="os-subpanel" data-os-journal-panel="evening" hidden>
-                <div class="os-card">{evening_mood_pill_html}{evening_card_html}{evening_insights_html}{_scratch_pad_html("evening", "Evening", effective_today)}</div>
+                {evening_mood_pill_html}
+                {f'<div class="os-card" style="border-left:3px solid var(--purple);margin-top:0.75rem;">{evening_insights_html}</div>' if evening_insights_html else ''}
+                <div class="os-card" style="margin-top:0.75rem;">
+                    <details>
+                        <summary class="flex items-center gap-2 cursor-pointer" style="color:#94a3b8">
+                            <span style="font-size:1.1rem;">📓</span>
+                            <span class="text-sm font-semibold">My entries</span>
+                        </summary>
+                        <div class="mt-3">{evening_card_html}</div>
+                    </details>
+                </div>
+                <div class="os-card" style="margin-top:0.75rem;">{_scratch_pad_html("evening", "Evening", effective_today)}</div>
             </section>
         </section>
 
         <section data-os-tab="review" class="os-tab-panel" hidden>
-            <div class="os-card mb-4">
+            <div class="os-card mb-3">
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-xl font-semibold" style="color:#e5e7eb">Review</h2>
-                        <p class="text-xs mt-1" style="color:#94a3b8">Today first, then the week when you want the wider pattern.</p>
+                        <h2 class="text-lg font-semibold" style="color:#a7d8c4">Review</h2>
                     </div>
                     <div class="os-subnav">
                         <button type="button" class="os-subtab-btn" data-os-review-btn="today">Today</button>
                         <button type="button" class="os-subtab-btn" data-os-review-btn="week">Week</button>
+                        <button type="button" class="text-xs" style="color:#c4b8e0; background:none; border:none; cursor:pointer; padding:0.4rem 0.6rem;" data-os-nav-action="journal">← Journal</button>
                     </div>
                 </div>
             </div>
@@ -12750,11 +12948,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
         </section>
 
         <section id="health" data-os-tab="health" class="os-tab-panel" hidden>
-            <div class="os-card mb-4">
+            <div class="os-card mb-3">
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-xl font-semibold" style="color:#e5e7eb">Health</h2>
-                        <p class="text-xs mt-1" style="color:#94a3b8">Body state, habits, and actionable wellbeing in one calmer place.</p>
+                        <h2 class="text-lg font-semibold" style="color:#7dd3fc">Health</h2>
                     </div>
                     <div class="os-subnav">
                         <button type="button" class="os-subtab-btn" data-os-health-btn="overview">Overview</button>
@@ -12765,35 +12962,26 @@ function qaApplyTaDahFromScratch(scratchText) {{
             </div>
             <div class="os-subpanel" data-os-health-panel="overview">
                 <div class="os-two-col mb-4">
-                    <section class="os-card">
-                        <div class="flex items-center justify-between gap-3 mb-3">
-                            <div>
-                                <p class="text-sm font-semibold" style="color:#e5e7eb">Body Battery</p>
-                                <p class="text-xs mt-1" style="color:#94a3b8">{html.escape(str(os3_recovery.get("summary", "") or "Derived from recovery state."))}</p>
-                            </div>
-                            <span class="text-2xl font-bold" style="color:#b8d8c8">{os3_body_battery}%</span>
-                        </div>
-                        {_os3_progress_bar(os3_body_battery)}
+                    <section class="os-card" style="background:linear-gradient(135deg, rgba(30,28,45,0.8), rgba(6,95,70,0.15));border:1px solid rgba(181,255,217,0.1);">
+                        <p class="text-xs font-bold uppercase" style="color:var(--mint);letter-spacing:0.1em;opacity:0.8;">Body Battery</p>
+                        <p class="font-black mt-2" style="font-size:2.5rem;color:var(--mint);line-height:1;">{os3_body_battery}%</p>
+                        <div class="mt-3">{_os3_progress_bar(os3_body_battery)}</div>
+                        <p class="text-xs mt-2" style="color:#94a3b8">🌙 {os3_sleep_display} sleep · 💓 HRV {os3_hrv_display}</p>
                     </section>
-                    <section class="os-card">
-                        <div class="flex items-center justify-between gap-3 mb-3">
-                            <div>
-                                <p class="text-sm font-semibold" style="color:#e5e7eb">Focus Potential</p>
-                                <p class="text-xs mt-1" style="color:#94a3b8">{html.escape(os3_focus_note)}</p>
-                            </div>
-                            <span class="text-2xl font-bold" style="color:#f9c0d0">{html.escape(os3_focus_label)}</span>
-                        </div>
+                    <section class="os-card" style="background:linear-gradient(135deg, rgba(30,28,45,0.8), rgba(88,28,135,0.15));border:1px solid rgba(224,187,228,0.1);">
+                        <p class="text-xs font-bold uppercase" style="color:var(--purple);letter-spacing:0.1em;opacity:0.8;">Focus Potential</p>
+                        <p class="font-black mt-2" style="font-size:2.5rem;color:var(--purple);line-height:1;">{html.escape(os3_focus_label)}</p>
+                        <div class="flex items-center justify-between gap-3 mb-3 mt-3">
                         {_os3_progress_bar(os3_focus_score, "linear-gradient(90deg, rgba(249,192,208,0.95), rgba(196,181,253,0.92))")}
                     </section>
                 </div>
                 <div class="os-layout">
                     <div class="os-main-stack">
-                        <section id="health-selfcare" class="os-card">{mindfulness_html if mindfulness_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Mindfulness tools appear here.</p></div>'}</section>
+                        <section id="health-selfcare" class="os-card">{mindfulness_html if mindfulness_html else ''}</section>
                         <section class="os-card">
                             <div class="flex items-center justify-between gap-3 mb-3">
                                 <div>
-                                    <h3 class="text-lg font-semibold" style="color:#e5e7eb">Today&apos;s active habits</h3>
-                                    <p class="text-xs mt-1" style="color:#94a3b8">Only the habits that matter today.</p>
+                                    <h3 class="text-lg font-semibold" style="color:#7dd3fc">Today&apos;s active habits</h3>
                                 </div>
                             </div>
                             <div class="os-inline-list">{os3_health_habits_html}</div>
@@ -12801,23 +12989,24 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     </div>
                     <aside class="os-side-stack">
                         <section class="os-card">
-                            <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Weekly snapshot</h3>
+                            <h3 class="text-sm font-semibold mb-3" style="color:#93c5fd">Weekly snapshot</h3>
                             {os3_health_snapshot_html}
+                            {os3_health_sparklines_html}
                         </section>
                         <section class="os-card">
-                            <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Quick launchers</h3>
-                            <div class="os-inline-list">
-                                <button type="button" class="row" onclick="qaOpenWorkoutChecklist(true)">
-                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Open workout checklist</span>
-                                    <span class="text-xs" style="color:#94a3b8">action</span>
+                            <h3 class="text-sm font-semibold mb-3" style="color:#93c5fd">Quick launchers</h3>
+                            <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.15);cursor:pointer;transition:all 0.15s ease;text-align:left;" onclick="qaOpenWorkoutChecklist(true)">
+                                    <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(125,211,252,0.15);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">🏋️</div>
+                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Workout checklist</span>
                                 </button>
-                                <button type="button" class="row" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
-                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Log quick reflection</span>
-                                    <span class="text-xs" style="color:#94a3b8">deep-link</span>
+                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(181,255,217,0.06);border:1px solid rgba(181,255,217,0.12);cursor:pointer;transition:all 0.15s ease;text-align:left;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
+                                    <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(181,255,217,0.12);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">✍️</div>
+                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Quick reflection</span>
                                 </button>
-                                <button type="button" class="row" data-os-nav-action="health" data-target-sub="activity" data-focus-target="health-digital">
-                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Review digital activity</span>
-                                    <span class="text-xs" style="color:#94a3b8">deep-link</span>
+                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(224,187,228,0.06);border:1px solid rgba(224,187,228,0.12);cursor:pointer;transition:all 0.15s ease;text-align:left;" data-os-nav-action="health" data-target-sub="activity" data-focus-target="health-digital">
+                                    <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(224,187,228,0.12);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">📱</div>
+                                    <span class="text-sm font-semibold" style="color:#e5e7eb">Digital activity</span>
                                 </button>
                             </div>
                         </section>
@@ -12825,47 +13014,57 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 </div>
             </div>
             <div class="os-subpanel" data-os-health-panel="activity" hidden>
-                <div class="os-main-stack">
-                    <section class="os-card">{workout_html}{fitness_html}</section>
-                    <section id="health-digital" class="os-card">
-                        <div class="os-main-stack">
+                <div class="os-layout">
+                    <div class="os-main-stack">
+                        <section class="os-card">{workout_html}{fitness_html}</section>
+                    </div>
+                    <aside class="os-side-stack">
+                        <section id="health-digital" class="os-card">
                             {screentime_html if screentime_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Screen time data unavailable right now.</p></div>'}
                             {activitywatch_html if activitywatch_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">ActivityWatch focus telemetry unavailable right now.</p></div>'}
-                        </div>
-                    </section>
+                        </section>
+                    </aside>
                 </div>
             </div>
             <div class="os-subpanel" data-os-health-panel="vitals" hidden>
-                <div class="os-main-stack">
-                    <section class="os-card">{health_html if health_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Vitals will appear after the next health export.</p></div>'}</section>
-                    {correlation_html if correlation_html else ''}
-                    {mood_correlation_html if mood_correlation_html else ''}
+                <div class="os-layout">
+                    <div class="os-main-stack">
+                        <section class="os-card">{health_html if health_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Vitals will appear after the next health export.</p></div>'}</section>
+                    </div>
+                    <aside class="os-side-stack">
+                        {correlation_html if correlation_html else ''}
+                        {mood_correlation_html if mood_correlation_html else ''}
+                    </aside>
                 </div>
             </div>
         </section>
 
         <section data-os-tab="more" class="os-tab-panel" hidden>
-            <div class="os-main-stack">
-                <details class="os-card">
-                    <summary class="cursor-pointer text-sm font-semibold" style="color:#e5e7eb">Therapy</summary>
-                    <div class="mt-3">
-                        {therapy_notes_html if therapy_notes_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Therapy homework or summaries will surface here when available.</p></div>'}
-                    </div>
-                </details>
-                <section class="os-card">
-                    <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Library &amp; media</h3>
-                    {film_html if film_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Film and media picks appear here when fresh.</p></div>'}
-                </section>
-                <section class="os-card">
-                    <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Archives</h3>
-                    {os3_archives_html}
-                </section>
-                {(f'<section class="os-card"><h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Maintenance</h3>{_claude_section_html}</section>') if _claude_section_html else ''}
-                <section class="os-card">
-                    <h3 class="text-lg font-semibold mb-3" style="color:#e5e7eb">Integrations</h3>
-                    <div class="os-inline-list">{os3_integrations_html}</div>
-                </section>
-                {os3_more_system_html}
+            <div class="os-layout">
+                <div class="os-main-stack">
+                    <details class="os-card">
+                        <summary class="cursor-pointer text-sm font-semibold" style="color:#f5d0fe">Therapy</summary>
+                        <div class="mt-3">
+                            {therapy_notes_html if therapy_notes_html else '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">Therapy homework or summaries will surface here when available.</p></div>'}
+                        </div>
+                    </details>
+                    <section class="os-card">
+                        <h3 class="text-sm font-semibold mb-2" style="color:#c4b8e0">Library &amp; media</h3>
+                        {film_html if film_html else ''}
+                    </section>
+                    <section class="os-card">
+                        <h3 class="text-sm font-semibold mb-2" style="color:#93c5fd">Archives</h3>
+                        {os3_archives_html}
+                    </section>
+                </div>
+                <aside class="os-side-stack">
+                    {(f'<section class="os-card"><h3 class="text-sm font-semibold mb-2" style="color:#d4a8b8">Maintenance</h3>{_claude_section_html}</section>') if _claude_section_html else ''}
+                    <section class="os-card">
+                        <h3 class="text-sm font-semibold mb-2" style="color:#a7d8c4">Integrations</h3>
+                        <div class="os-inline-list">{os3_integrations_html}</div>
+                    </section>
+                    {os3_more_system_html}
+                </aside>
             </div>
         </section>
     '''
@@ -13500,10 +13699,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
             outline-offset: 2px;
             border-color: rgba(203,239,223,0.58) !important;
         }}
-        .text-xs {{ font-size: 0.88rem !important; line-height: 1.35rem !important; }}
-        .text-sm {{ font-size: 1.02rem !important; line-height: 1.58rem !important; }}
-        .text-lg {{ font-size: 1.2rem !important; line-height: 1.52rem !important; }}
-        .text-2xl {{ font-size: 1.55rem !important; }}
+        .text-xs {{ font-size: 0.78rem !important; line-height: 1.18rem !important; }}
+        .text-sm {{ font-size: 0.9rem !important; line-height: 1.4rem !important; }}
+        .text-lg {{ font-size: 1.08rem !important; line-height: 1.38rem !important; }}
+        .text-2xl {{ font-size: 1.35rem !important; }}
         button, input[type="text"], select {{ font-size: 1rem; }}
         button {{ min-height: 2rem; }}
         input[type="range"] {{ min-height: 1.8rem; }}
@@ -13515,7 +13714,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         .os-topbar {{
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             flex-wrap: wrap;
             gap: 0.9rem;
             margin-bottom: 1.25rem;
@@ -13527,21 +13726,8 @@ function qaApplyTaDahFromScratch(scratchText) {{
             -webkit-backdrop-filter: blur(18px) saturate(1.2);
             box-shadow: 0 1px 4px rgba(0,0,0,0.15);
         }}
-        .os-brand {{
-            display: flex;
-            align-items: center;
-            gap: 0.65rem;
-            color: var(--focus-soft);
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }}
-        .os-brand-dot {{
-            width: 0.65rem;
-            height: 0.65rem;
-            border-radius: 999px;
-            background: linear-gradient(135deg, #45CC90, #c4b5fd);
-            box-shadow: 0 0 12px rgba(69, 204, 144, 0.35);
-        }}
+        .os-brand {{ display: none; }}
+        .os-brand-dot {{ display: none; }}
         .os-global-nav,
         .os-subnav {{
             display: flex;
@@ -13582,7 +13768,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-layout {{
             display: grid;
-            grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.95fr);
+            grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
             gap: 1rem;
             align-items: start;
         }}
@@ -13592,11 +13778,22 @@ function qaApplyTaDahFromScratch(scratchText) {{
             flex-direction: column;
             gap: 1rem;
         }}
+        :root {{
+            --mint: #B5FFD9;
+            --pink: #FFD1DC;
+            --purple: #E0BBE4;
+            --accent-mint: #69db7c;
+            --accent-purple: #da77f2;
+            --surface: rgba(30, 28, 45, 0.6);
+        }}
         .os-card {{
             border-radius: 1rem;
-            border: 1px solid rgba(148, 163, 184, 0.09);
-            background: rgba(15, 23, 42, 0.58);
-            padding: 1.1rem 1.15rem;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--surface);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            padding: 1.25rem 1.5rem;
+            text-align: left;
             transition: border-color 0.15s ease;
         }}
         @media (hover: hover) {{
@@ -13620,29 +13817,49 @@ function qaApplyTaDahFromScratch(scratchText) {{
         .os-timeline {{
             display: flex;
             flex-direction: column;
-            gap: 0.85rem;
+            gap: 0;
+            position: relative;
+            padding-left: 1rem;
+            border-left: 2px solid rgba(148, 163, 184, 0.12);
         }}
         .os-timeline-row {{
             display: grid;
-            grid-template-columns: 24px minmax(0, 1fr);
-            gap: 0.8rem;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0;
             align-items: start;
+            padding: 0.5rem 0 0.5rem 1rem;
+            position: relative;
         }}
         .os-timeline-dot {{
-            width: 0.8rem;
-            height: 0.8rem;
+            width: 0.75rem;
+            height: 0.75rem;
             border-radius: 999px;
-            margin-top: 0.32rem;
+            position: absolute;
+            left: -1.42rem;
+            top: 0.65rem;
             border: 2px solid rgba(148, 163, 184, 0.32);
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(10, 10, 12, 1);
         }}
         .os-timeline-row.is-now .os-timeline-dot {{
-            background: #b8d8c8;
-            border-color: rgba(184, 216, 200, 0.8);
-            box-shadow: 0 0 16px rgba(184, 216, 200, 0.35);
+            background: #B5FFD9;
+            border-color: rgba(181, 255, 217, 0.8);
+            box-shadow: 0 0 12px rgba(181, 255, 217, 0.35);
+            width: 0.9rem;
+            height: 0.9rem;
+            left: -1.49rem;
+            top: 0.58rem;
+        }}
+        .os-timeline-row.is-now {{
+            background: rgba(181, 255, 217, 0.04);
+            border-radius: 0.5rem;
+            border: 1px solid rgba(181, 255, 217, 0.1);
+        }}
+        .os-timeline-row.is-done {{
+            opacity: 0.45;
         }}
         .os-timeline-row.is-done .os-timeline-dot {{
-            opacity: 0.6;
+            background: rgba(148, 163, 184, 0.3);
+            border-color: rgba(148, 163, 184, 0.2);
         }}
         .os-chip-row {{
             display: flex;
@@ -13678,10 +13895,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
             align-items: flex-start;
             justify-content: space-between;
             gap: 0.9rem;
-            padding: 0.6rem 0.8rem;
-            border-radius: 0.75rem;
-            background: rgba(15, 23, 42, 0.32);
-            border: 1px solid rgba(148, 163, 184, 0.07);
+            padding: 0.55rem 0.75rem;
+            border-radius: 0.65rem;
+            background: rgba(30, 41, 59, 0.35);
+            border: 1px solid rgba(148, 163, 184, 0.08);
             transition: background 0.12s ease;
         }}
         @media (hover: hover) {{
@@ -13714,8 +13931,8 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-surface {{
             border-radius: 0.85rem;
-            border: 1px solid rgba(148, 163, 184, 0.07);
-            background: rgba(15, 23, 42, 0.35);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            background: rgba(30, 41, 59, 0.4);
             padding: 0.85rem;
         }}
         @media (max-width: 960px) {{
@@ -15356,6 +15573,7 @@ def main():
         "activitywatch": cache.get("activitywatch", {}),
         "film_data": cache.get("film_data", {}) if isinstance(cache.get("film_data", {}), dict) else {},
         "healthfit": cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {},
+        "health_live": cache.get("health_live", {}) if isinstance(cache.get("health_live", {}), dict) else {},
         "appleHealth": apple_health if isinstance(apple_health, dict) else {},
         "autosleep": cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {},
         "taDahCategorised": cache.get("ta_dah_categorised", {}),
@@ -15371,6 +15589,7 @@ def main():
         "schedule_analysis": cache.get("schedule_analysis", {}),
         "pieces_activity": cache.get("pieces_activity", {}),
         "day_state_summary": cache.get("day_state_summary", {}) if isinstance(cache.get("day_state_summary", {}), dict) else {},
+        "support_mode_meta": cache.get("support_mode_meta", {}) if isinstance(cache.get("support_mode_meta", {}), dict) else {},
         "diariumDataDate": diarium_source_date,
         "diariumFresh": diarium_fresh,
         "diariumFreshReason": diarium_fresh_reason,

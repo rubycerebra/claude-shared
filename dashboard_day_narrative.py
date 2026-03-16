@@ -415,7 +415,45 @@ def compose_day_narrative(
 
     updates_lines = collect_day_narrative_lines([updates_text], max_items=2, split_sentences=True)
     updates_lines = [line for line in updates_lines if not is_updates_verification_noise_text(line)]
-    done_source = [item for item in tadah_flat if not looks_like_test_noise(item)]
+    def _is_system_navigation_noise(text: str) -> bool:
+        """Filter Pieces/IDE/system activity that isn't a real personal accomplishment."""
+        low = str(text or "").strip().lower()
+        noise_phrases = [
+            "find settings", "integrations menu", "locate tadah",
+            "sync or export option", "open settings", "navigate to",
+            "click on", "select the", "go to settings", "check the menu",
+            "look for the", "search for the", "open the dashboard",
+            "refresh the page", "close the tab", "scroll to",
+            "sign in", "log in", "open claude app", "open the app",
+            "open app on phone", "install the", "download the",
+        ]
+        # Developer/system activity keywords — these are Pieces session summaries, not personal wins
+        dev_keywords = [
+            "bug fix", "bug in", "resolved a", "implemented a", "refactor",
+            "dashboard", "daemon", "hookmark", "axidentifier",
+            "polling loop", "cache", "stale flag", "api endpoint",
+            "script", "debug", "integration bug", "integration error",
+            "deduplication", "code review", "pull request", "commit",
+            "merge", "session summary", "focused laptop session",
+            "ui color", "ui layout", "ux improvement", "apple notes integration",
+            "calendar integration", "todoist integration",
+            "fixing the", "improving the", "updating the",
+            "layout across", "sections", "time parsing",
+            "token", "css", "html", "python", "json",
+        ]
+        if any(phrase in low for phrase in noise_phrases):
+            return True
+        if any(phrase in low for phrase in dev_keywords):
+            return True
+        # Short imperative phrases that are UI actions
+        if len(low) < 40 and re.match(r"^(open|close|find|locate|check|click|tap|scroll|browse|navigate)\b", low):
+            return True
+        # Pieces-style session summaries with markdown formatting artifacts
+        if "**" in text or "`" in text:
+            return True
+        return False
+
+    done_source = [item for item in tadah_flat if not looks_like_test_noise(item) and not _is_system_navigation_noise(item)]
     done_lines = collect_day_narrative_lines(done_source, max_items=4, split_sentences=False)
 
     def _as_progress_fragment(raw_line: str) -> str:
