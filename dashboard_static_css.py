@@ -188,19 +188,20 @@ COMPONENT_CSS = """
   padding: 8px 12px;
   margin-bottom: 5px;
   background: rgba(15,23,42,0.5);
-  border: 2px solid rgba(148,163,184,0.55);
+  border: none;
+  border-left: 3px solid rgba(148,163,184,0.35);
   border-radius: var(--radius-md);
   transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 .todo-row:hover {
   background: rgba(22,33,62,0.75);
-  border-color: rgba(181,255,217,0.7);
+  border-left-color: rgba(181,255,217,0.7);
   box-shadow: 0 2px 10px rgba(0,0,0,0.22);
   transform: translateY(-1px);
 }
-.todo-row--p1 { border-color: rgba(248,113,113,0.75); }
-.todo-row--p2 { border-color: rgba(251,191,36,0.7); }
-.todo-row--p3 { border-color: rgba(134,239,172,0.65); }
+.todo-row--p1 { border-left-color: rgba(248,113,113,0.75); }
+.todo-row--p2 { border-left-color: rgba(251,191,36,0.7); }
+.todo-row--p3 { border-left-color: rgba(134,239,172,0.65); }
 
 /* Checkbox — uses a styled <span> to avoid Safari <button> sizing issues */
 .todo-check {

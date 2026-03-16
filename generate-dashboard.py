@@ -2431,6 +2431,16 @@ def generate_html(data):
         tadah_flat = tadah_data.get("flat", [])
         tadah_categories = tadah_data.get("categories", {})
 
+    # Fallback: if tadah.flat is empty but taDahCategorised has scored items, use those
+    if not tadah_flat:
+        _tdc_scores = data.get("taDahCategorised", data.get("ta_dah_categorised", {}))
+        if isinstance(_tdc_scores, dict):
+            _scored_items = _tdc_scores.get("scores", [])
+            if isinstance(_scored_items, list) and _scored_items:
+                # Sort by score descending so highest-importance items come first
+                _scored_items = sorted(_scored_items, key=lambda x: -(x.get("score", 0) if isinstance(x, dict) else 0))
+                tadah_flat = [str(s.get("text", "")).strip() for s in _scored_items if isinstance(s, dict) and str(s.get("text", "")).strip()]
+
     # Strip Diarium bullet artifacts (∙, •, ·, tabs) and filter sentinel "list" item
     _BULLET_STRIP = re.compile(r'^[\u2219\u2022\u00b7\u2022\-\*\t\s]+')
     def _clean_tadah_text(t):
@@ -2634,13 +2644,13 @@ def generate_html(data):
     # Habits HTML — pastel progress bars with at-risk warnings
     # Ta-Dah scratch pad — lives at the top of the dashboard for quick access
     _tadah_scratch_storage_key = f"dashboard.scratch.{get_effective_date()}.ta_dah"
-    tadah_scratch_html = f'''<div class="mb-4 rounded-xl px-3 py-2" style="background: rgba(15,23,42,0.6); border: 2px solid rgba(181,255,217,0.55);">
+    tadah_scratch_html = f'''<div class="mb-4 rounded-xl px-3 py-2" style="background: rgba(15,23,42,0.5); border: 2px solid rgba(181,255,217,0.35);">
         <textarea id="qa-scratch-ta_dah"
             rows="1" maxlength="2000"
             data-storage-key="{html.escape(_tadah_scratch_storage_key)}"
             data-section="ta_dah"
             class="w-full rounded px-2 py-1.5 text-xs"
-            style="background: transparent; border: none; color: #e5e7eb; resize: none; font-family: inherit; outline: none;"
+            style="background: rgba(15,23,42,0.4); border: 1px solid rgba(148,163,184,0.16); border-radius: 0.5rem; color: #e5e7eb; resize: none; font-family: inherit; outline: none; padding: 0.5rem;"
             placeholder="Add a win…"
             oninput="qaSaveScratchPad(this); this.style.height='auto'; this.style.height=this.scrollHeight+'px';"></textarea>
         <div class="flex items-center gap-2">
@@ -2744,7 +2754,7 @@ def generate_html(data):
         </div>
         <p id="qa-workout-progression-meta" class="text-xs mt-2" style="color: {workout_progression_ui["color"]}">{html.escape(workout_progression_ui["label"])}</p>
         {workout_progression_detail_html}
-        {exercise_list_html}
+        {f'<details style="margin-top:0.5rem;"><summary class="text-xs cursor-pointer" style="color:#94a3b8">Show exercises</summary>{exercise_list_html}</details>' if exercise_list_html else ''}
         {workout_toggle_html}
     </div>'''
 
@@ -2753,7 +2763,7 @@ def generate_html(data):
     film_data = data.get("film_data", {}) if isinstance(data.get("film_data"), dict) else {}
     if film_data.get("status") == "success" and not (film_data.get("stale") and film_data.get("export_age_days", 0) > 180):
         import html as _html
-        def _truncate_headline(text, max_len=120):
+        def _truncate_headline(text, max_len=300):
             """Truncate to first sentence or max_len, whichever is shorter."""
             s = str(text or "").strip()
             for sep in ['. ', ' — ', ' - ', '; ']:
@@ -2856,7 +2866,7 @@ def generate_html(data):
             _disc_film_parts = _disc_suggestion.split(" \u2014 ", 1)
             _disc_film = _disc_film_parts[0].strip()
             _disc_reason = _disc_film_parts[1].strip() if len(_disc_film_parts) > 1 else ""
-            _disc_reason_short = _truncate_headline(_disc_reason, max_len=120)
+            _disc_reason_short = _truncate_headline(_disc_reason, max_len=300)
             _disc_reason_html2 = f'<p style="font-size:0.72rem;color:#9ca3af;margin:0.2rem 0 0 0;line-height:1.4;">{_html.escape(_disc_reason_short)}</p>' if _disc_reason_short else ""
             discovery_html = (
                 '<div style="margin-top:0.65rem;background:rgba(6,78,59,0.12);border:2px solid rgba(52,211,153,0.55);border-radius:0.5rem;padding:0.55rem 0.7rem;">'
@@ -4005,22 +4015,21 @@ def generate_html(data):
             icon = type_icons.get(itype, "💡")
 
             html += f'''
-            <div class="mb-3" style="text-align:left;border:2px solid {config['color']}88;border-radius:0.65rem;padding:0.65rem 0.75rem;">
-                <p class="text-xs font-bold mb-2 uppercase" style="color: {config['color']}; letter-spacing: 0.1em;">{icon} {config['label']}</p>'''
+            <div class="mb-4" style="text-align:left;border:2px solid {config['color']}55;border-radius:0.75rem;padding:0.85rem 1rem;">
+                <p class="text-xs font-bold mb-3 uppercase" style="color: {config['color']}; letter-spacing: 0.1em;">{icon} {config['label']}</p>'''
 
             for idx, item in enumerate(items):
                 text = item.get("text", "")
-                # Extract ONLY the lead sentence — keep it punchy
+                # Show full first two sentences
                 sentences = re.split(r'(?<=[.!?])\s+', text)
-                lead = sentences[0] if sentences else text
-                # Cap at 90 chars for visual tightness
-                if len(lead) > 95:
-                    lead = lead[:92].rsplit(' ', 1)[0] + '…'
+                lead = ' '.join(sentences[:2]) if len(sentences) > 1 else text
+                if len(lead) > 300:
+                    lead = lead[:297].rsplit(' ', 1)[0] + '…'
                 emoji = _pick_insight_emoji(text)
                 html += f'''
-                <div style="display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.45rem;padding:0.4rem 0.55rem;border:2px solid {config['color']}88;border-radius:0.45rem;background:{config['bg']};">
-                    <div style="width:1.5rem;height:1.5rem;border-radius:0.45rem;background:{config['bg']};display:flex;align-items:center;justify-content:center;font-size:0.7rem;flex-shrink:0;margin-top:0.15rem;">{emoji}</div>
-                    <p class="text-sm" style="color: #e5e7eb; line-height: 1.45;">{lead}</p>
+                <div style="display:flex;align-items:flex-start;gap:0.6rem;margin-bottom:0.55rem;padding:0.5rem 0.65rem;border-radius:0.5rem;background:{config['bg']};">
+                    <div style="width:1.5rem;height:1.5rem;border-radius:0.45rem;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;margin-top:0.15rem;">{emoji}</div>
+                    <p class="text-sm" style="color: #e5e7eb; line-height: 1.65;">{lead}</p>
                 </div>'''
 
             html += '''
@@ -4174,13 +4183,13 @@ def generate_html(data):
                     lead = sentences[0]
                     rest = ' '.join(sentences[1:])
                     synthesis_items_html += f'''
-                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+                        <div class="mb-3 rounded-lg px-4 py-3" style="background:rgba(88,28,135,0.06);">
                             <p class="text-base font-medium leading-relaxed" style="color: #f3f4f6; line-height: 1.8;">{emoji} {lead}</p>
                             <p class="text-sm mt-2 ml-6 leading-relaxed" style="color: #b0b5bd; line-height: 1.7;">{rest}</p>
                         </div>'''
                 else:
                     synthesis_items_html += f'''
-                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+                        <div class="mb-3 rounded-lg px-4 py-3" style="background:rgba(88,28,135,0.06);">
                             <p class="text-base leading-relaxed" style="color: #e5e7eb; line-height: 1.8;">{emoji} {sl}</p>
                         </div>'''
             morning_sections += f'''
@@ -4288,7 +4297,7 @@ def generate_html(data):
                         item_type = "signal"
                     fallback_items.append({
                         "type": item_type,
-                        "text": _truncate_sentence_safe(line, max_len=190),
+                        "text": _truncate_sentence_safe(line, max_len=500),
                     })
                 if fallback_items:
                     updates_sections += f'''
@@ -4315,13 +4324,13 @@ def generate_html(data):
                     lead = sentences[0]
                     rest = ' '.join(sentences[1:])
                     synthesis_items_html += f'''
-                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+                        <div class="mb-3 rounded-lg px-4 py-3" style="background:rgba(88,28,135,0.06);">
                             <p class="text-base font-medium leading-relaxed" style="color: #f3f4f6; line-height: 1.8;">{emoji} {lead}</p>
                             <p class="text-sm mt-2 ml-6 leading-relaxed" style="color: #b0b5bd; line-height: 1.7;">{rest}</p>
                         </div>'''
                 else:
                     synthesis_items_html += f'''
-                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+                        <div class="mb-3 rounded-lg px-4 py-3" style="background:rgba(88,28,135,0.06);">
                             <p class="text-base leading-relaxed" style="color: #e5e7eb; line-height: 1.8;">{emoji} {sl}</p>
                         </div>'''
             evening_sections += f'''
@@ -5141,8 +5150,14 @@ def generate_html(data):
         else:
             latest_steps = latest.get("steps", 0)
             latest_ex = latest.get("exercise", 0)
-            latest_day = latest.get("day", "?")
-            today_day = datetime.now().strftime("%d")
+            # Support both "day" field (HealthFit) and "date" field (auto export)
+            latest_day = latest.get("day", "")
+            if not latest_day and latest.get("date"):
+                try:
+                    latest_day = str(latest["date"]).split("-")[-1][:2].lstrip("0") or "?"
+                except Exception:
+                    latest_day = "?"
+            today_day = datetime.now().strftime("%-d")
             day_label = "today" if latest_day == today_day else f"latest ({latest_day}th)"
             health_html = f'''
             <div class="flex gap-4">
@@ -5662,7 +5677,7 @@ def generate_html(data):
 
     def _render_section_mood_pill(tag_value, emoji, border_color, bg_color):
         tag = str(tag_value or "").strip()
-        if not tag:
+        if not tag or tag.lower() == "unknown":
             return ""
         return (
             '<div style="margin: -0.25rem 0 0.75rem;">'
@@ -6479,14 +6494,14 @@ def generate_html(data):
         # Evening emotional summary (rich prose — primary)
         if eve_felt_summary:
             felt_parts += f'''
-            <div class="rounded-lg px-3 py-2.5 mb-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.06);">
                 <p class="text-sm" style="color: #e5e7eb; line-height: 1.6">{eve_felt_summary}</p>
             </div>'''
 
         # Latest overall summary (secondary)
         if emotional_summary and emotional_summary != eve_felt_summary:
             felt_parts += f'''
-            <div class="rounded-lg px-3 py-2.5 mb-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.06);">
                 <p class="text-sm" style="color: #d1d5db; line-height: 1.6">{emotional_summary}</p>
             </div>'''
 
@@ -6669,9 +6684,9 @@ def generate_html(data):
                 )
 
             os3_more_beads_html = f'''
-                <details class="os-card">
+                <details class="os-surface" style="border-color:rgba(148,163,184,0.15);background:rgba(30,28,45,0.35);margin-top:0.5rem;">
                     <summary class="cursor-pointer" style="display:flex;align-items:center;justify-content:space-between;gap:0.65rem;">
-                        <span class="text-sm font-semibold" style="color:#f5d0fe">🎯 Beads board</span>
+                        <span class="text-sm font-semibold" style="color:#f5d0fe">🎯 Beads</span>
                         <span class="text-xs" style="color:#94a3b8">{len(all_beads)} open</span>
                     </summary>
                     <div class="mt-3">
@@ -7316,10 +7331,7 @@ def generate_html(data):
     _anxiety_saved_today = bool(qa_workout_signals_state.get("anxiety_saved_today", False))
     _daytime_anxiety_confidence = int(_anxiety_in_tone) + int(_anxiety_in_signals) + int(_hrv_low)
     _daytime_anxiety_high_confidence = _anxiety_saved_today or _daytime_anxiety_confidence >= 2
-    qa_anxiety_visible = (
-        is_evening
-        or _daytime_anxiety_high_confidence
-    )
+    qa_anxiety_visible = is_evening
     qa_anxiety_hidden_attr = "" if qa_anxiety_visible else ' hidden="hidden"'
     qa_anxiety_relief_html = f'''
     <div id="qa-anxiety-relief-wrap" class="card rounded-xl mb-4" data-daytime-base-visible="{'1' if _daytime_anxiety_high_confidence else '0'}"{qa_anxiety_hidden_attr} style="background: rgba(88,28,135,0.08); border: 3px solid rgba(252, 211, 177, 0.55); padding: 0.85rem 1rem;">
@@ -7421,7 +7433,6 @@ def generate_html(data):
             </div>
             {daily_report_meta_html}
             <div class="mb-4 qa-report-body qa-report-copy">
-                <p class="qa-report-kicker text-xs font-semibold mb-2" style="color:#a7d8c4">📖 Today&apos;s story</p>
                 {_daily_report_prose_html(daily_report_story_text, _daily_story_palette)}
             </div>
             {f'<div class="mb-4 pt-3 qa-report-divider qa-report-copy" style="border-top-color:rgba(196,181,253,0.5)"><p class="qa-report-kicker text-xs font-semibold mb-2" style="color:#c4b8e0">💭 How today felt</p>{felt_parts}</div>' if felt_parts else ''}
@@ -7642,7 +7653,7 @@ def generate_html(data):
             if _created_count:
                 _bell_summary_parts.append(f'{_created_count} new')
             if _error_count:
-                _bell_summary_parts.append(f'{_error_count} sync issue{"s" if _error_count != 1 else ""}')
+                _bell_summary_parts.append(f'{_error_count} need{"s" if _error_count == 1 else ""} attention')
             _bell_summary_text = ' · '.join(_bell_summary_parts)
             _bell_summary_color = '#fca5a5' if _error_count else ('#bfdbfe' if _bell_linked_count else '#94a3b8')
             notifications_bell_html = f'''
@@ -7651,7 +7662,6 @@ def generate_html(data):
             <span style="font-size:1.15rem">🔔</span>
             <span style="font-size:0.9rem;font-weight:600;color:#e5e7eb">Check In</span>
             <span class="inline-pill" style="background:rgba(59,130,246,0.25);color:#a8c4e0;">{_bell_count}</span>
-            {f'<span class="text-caption" style="color:{_bell_summary_color};">{html.escape(_bell_summary_text)}</span>' if _bell_summary_text else ''}
         </summary>
         <div style="margin-top:0.55rem;">{"".join(_bell_rows)}</div>
     </details>'''
@@ -12890,7 +12900,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         os3_timeline_html = '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">No schedule blocks surfaced for today.</p></div>'
 
     os3_quick_actions_html = '''
-        <div class="os-card">
+        <div class="os-card" style="border-color:rgba(224,187,228,0.55);">
             <p class="text-sm font-semibold mb-3" style="color:#e5e7eb">Quick actions</p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
                 <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(224,187,228,0.08);border:2px solid rgba(224,187,228,0.55);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="journal-mood-card">
@@ -12981,34 +12991,37 @@ function qaApplyTaDahFromScratch(scratchText) {{
         </div>
     '''
 
-    if suggestions_html:
-        os3_review_handoff_html = suggestions_html
-    else:
-        os3_handoff_bits = []
-        for _ho_label, _ho_text in [
-            ("Tomorrow", str(tomorrow or "").strip()),
-            ("Remember", str(remember_tomorrow_text or "").strip()),
-            ("Carry forward", str(carrying or "").strip()),
-        ]:
-            if not _ho_text:
-                continue
-            _ho_lines = [ln for ln in _ho_text.splitlines() if ln.strip() and not _is_stale_trip_prep_task(ln)]
-            _ho_cleaned = "\n".join(_ho_lines).strip()
-            if _ho_cleaned:
-                os3_handoff_bits.append((_ho_label, _ho_cleaned))
-        os3_handoff_rows = "".join(
-            f'<div class="row"><div><p class="text-xs font-semibold mb-1" style="color:#94a3b8">{html.escape(label)}</p><p class="text-sm" style="color:#e5e7eb">{html.escape(text)}</p></div></div>'
-            for label, text in os3_handoff_bits
-        ) or ''
-        os3_review_handoff_html = f'''
-            <div class="os-card">
-                <div class="flex items-center justify-between gap-3 mb-3">
-                    <h3 class="text-lg font-semibold" style="color:#a7d8c4">Tomorrow handoff</h3>
-                    <span class="text-xs" style="color:#94a3b8">Close-down</span>
-                </div>
-                <div class="os-inline-list">{os3_handoff_rows}</div>
+    # Build tomorrow handoff — merge AI guidance + raw journal notes into one section
+    os3_handoff_bits = []
+    for _ho_label, _ho_text in [
+        ("Tomorrow", str(tomorrow or "").strip()),
+        ("Remember", str(remember_tomorrow_text or "").strip()),
+        ("Carry forward", str(carrying or "").strip()),
+    ]:
+        if not _ho_text:
+            continue
+        _ho_lines = [ln for ln in _ho_text.splitlines() if ln.strip() and not _is_stale_trip_prep_task(ln)]
+        _ho_cleaned = "\n".join(_ho_lines).strip()
+        if _ho_cleaned:
+            os3_handoff_bits.append((_ho_label, _ho_cleaned))
+    os3_handoff_rows = "".join(
+        f'<div class="row"><div><p class="text-xs font-semibold mb-1" style="color:#94a3b8">{html.escape(label)}</p><p class="text-sm" style="color:#e5e7eb">{html.escape(text)}</p></div></div>'
+        for label, text in os3_handoff_bits
+    ) or ''
+    # Merge AI tomorrow guidance into the handoff card (not separate)
+    _ai_guidance_in_handoff = ""
+    if suggestions_html and tomorrow_items_html:
+        _ai_guidance_in_handoff = f'<div class="mb-3" style="padding:0.65rem 0.75rem;border-radius:0.65rem;background:rgba(6,95,70,0.08);">{tomorrow_items_html}</div>'
+    os3_review_handoff_html = f'''
+        <div class="os-card">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 class="text-lg font-semibold" style="color:#a7d8c4">Tomorrow</h3>
+                <span class="text-xs" style="color:#94a3b8">Close-down</span>
             </div>
-        '''
+            {_ai_guidance_in_handoff}
+            <div class="os-inline-list">{os3_handoff_rows}</div>
+        </div>
+    '''
 
     def _os3_avg_health(key):
         values = []
@@ -13111,7 +13124,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
     else:
         os3_mindfulness_habit_label = "Mindfulness"
     os3_health_habit_rows = [
-        ("Mood logged", "done" if qa_mood_state.get("done") else "pending", bool(qa_mood_state.get("done")), "😊", "rgba(224,187,228,0.15)", "#E0BBE4"),
+        ("Mood logged", "done" if (qa_mood_state.get("done") or len(mood_entries) > 0) else "pending", bool(qa_mood_state.get("done") or len(mood_entries) > 0), "😊", "rgba(224,187,228,0.15)", "#E0BBE4"),
         (os3_mindfulness_habit_label, "done" if qa_mindfulness_state.get("done") else "pending", bool(qa_mindfulness_state.get("done")), "🧘", "rgba(255,209,220,0.15)", "#FFD1DC"),
         (qa_quick_workout_title, "done" if qa_quick_workout_done else "pending", bool(qa_quick_workout_done), "🏋️", "rgba(255,209,220,0.15)", "#FFD1DC"),
         ("Close-down reflection", "done" if os3_reflection_saved_today else "pending", bool(os3_reflection_saved_today), "🌙", "rgba(196,181,253,0.15)", "#c4b5fd"),
@@ -13292,7 +13305,6 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <div class="space-y-1 card-scrollable" id="qa-tadah-list">{tadah_html}</div>
                     {yesterday_tadah_html}
                 </section>
-                {qa_anxiety_relief_html if qa_anxiety_visible else ''}
                 {os3_review_handoff_html if is_evening else ''}
             </aside>
         </div>
@@ -13322,13 +13334,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 <button type="button" class="os-tab-btn" data-os-tab-btn="health">Health</button>
                 <button type="button" class="os-tab-btn" data-os-tab-btn="more">More</button>
             </nav>
-            <div class="os-view-modes" aria-label="Dashboard presets">
-                <span class="os-view-modes-label">Modes</span>
-                <button type="button" class="os-mode-btn" data-ui-preset-btn="style" title="Border-forward styling with standard density">🎨 Style</button>
-                <button type="button" class="os-mode-btn" data-ui-preset-btn="noise" title="Lower-stim, fewer extras, focus density">🔇 Quiet</button>
-                <button type="button" class="os-mode-btn" data-ui-preset-btn="ease" title="Larger targets and roomier spacing">👐 Easy</button>
-            </div>
-            <p id="os-mode-note" class="os-mode-note" aria-live="polite">Preset: Style • Tone: Standard • Density: Standard • Spacing: Standard.</p>
+            <!-- Modes removed per user request -->
         </div>
 
         <section data-os-tab="now" class="os-tab-panel">
@@ -13362,9 +13368,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <section id="actions">{action_items_html}</section>
                 </div>
                 <aside class="os-side-stack">
-                    {(f'<section id="guidance" class="os-card"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
+                    {(f'<section id="guidance" class="os-card" style="border-color:rgba(196,181,253,0.55);"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
                     {os3_quick_actions_html}
-                    <section class="os-card">
+                    <section class="os-card" style="border-color:rgba(181,255,217,0.55);">
                         <div class="flex items-center gap-3 mb-2">
                             <span style="font-size:1.5rem;">⚡</span>
                             <div style="flex:1">
@@ -13379,7 +13385,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                             <span class="text-xs rounded-full px-2 py-1" style="background:rgba(255,209,220,0.1);color:#FFD1DC;">👟 {os3_steps_display}</span>
                         </div>
                     </section>
-                    {f'''<section class="os-card">
+                    {f'''<section class="os-card" style="border-color:rgba(255,209,220,0.55);">
                         <div class="flex items-center gap-3 mb-2">
                             <span style="font-size:1.1rem;">🏆</span>
                             <p class="text-xs font-bold uppercase" style="color:#B5FFD9;letter-spacing:0.08em;">Wins · {len(tadah_flat)}</p>
@@ -13540,6 +13546,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                                 </button>
                             </div>
                         </section>
+                        {qa_anxiety_relief_html if qa_anxiety_visible else ''}
                     </aside>
                 </div>
             </div>
@@ -13597,7 +13604,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     </section>
                 </div>
                 <aside class="os-side-stack">
-                    {(f'<section class="os-card"><div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;"><div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(212,168,184,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔧</div><h3 class="text-sm font-semibold" style="color:#d4a8b8">Maintenance</h3></div>{_claude_section_html}{os3_more_beads_html}</section>') if (_claude_section_html or os3_more_beads_html) else ''}
+                    {(f'<section class="os-card" style="border-color:rgba(212,168,184,0.55);"><div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;"><div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(212,168,184,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔧</div><h3 class="text-sm font-semibold" style="color:#d4a8b8">Maintenance</h3></div>{_claude_section_html}{os3_more_beads_html}</section>') if (_claude_section_html or os3_more_beads_html) else ''}
                     <section class="os-card">
                         <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;">
                             <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(167,216,196,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔌</div>
@@ -14346,8 +14353,8 @@ function qaApplyTaDahFromScratch(scratchText) {{
         button {{ min-height: 2rem; }}
         input[type="range"] {{ min-height: 1.8rem; }}
         textarea {{ font: inherit; line-height: 1.72; letter-spacing: 0.008em; word-spacing: 0.045em; }}
-        p {{ margin: 0; max-width: 66ch; text-wrap: pretty; }}
-        li {{ line-height: 1.76; max-width: 62ch; margin: 0.24rem 0; }}
+        p {{ margin: 0; max-width: none; text-wrap: pretty; }}
+        li {{ line-height: 1.76; max-width: none; margin: 0.24rem 0; }}
         ul, ol {{ margin: 0.42rem 0 0.68rem; padding-left: 1.25rem; }}
         details > summary {{ list-style: none; line-height: 1.48; }}
         details > summary::-webkit-details-marker {{ display: none; }}
@@ -14549,7 +14556,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             text-transform: uppercase;
         }}
         .qa-report-body {{
-            max-width: 66ch;
+            max-width: none;
         }}
         .qa-report-copy {{
             font-size: 0.98rem;
@@ -14562,13 +14569,14 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .qa-report-prose-block {{
             border-radius: 0.85rem;
-            padding: 1rem 1.1rem;
+            padding: 1rem 1.25rem;
             margin-bottom: 0.75rem;
-            border: 2px solid rgba(148, 163, 184, 0.5);
+            border: 2px solid rgba(148, 163, 184, 0.35);
             line-height: 1.94;
             font-size: 1rem;
             letter-spacing: 0.008em;
             word-spacing: 0.05em;
+            max-width: none;
         }}
         .qa-report-prose-block:last-child {{
             margin-bottom: 0;
@@ -14728,10 +14736,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
             align-items: flex-start;
             justify-content: space-between;
             gap: 0.9rem;
-            padding: 0.55rem 0.75rem;
+            padding: 0.6rem 0.75rem;
             border-radius: 0.65rem;
             background: rgba(30, 41, 59, 0.35);
-            border: 2px solid rgba(148, 163, 184, 0.5);
+            border: none;
             transition: background 0.12s ease;
         }}
         @media (hover: hover) {{
@@ -14798,7 +14806,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         /* Apply .card-scrollable to AI insights, journal entries, todos
            so they scroll rather than becoming walls of text */
         .card-scrollable {{
-            max-height: 420px;
+            max-height: 800px;
             overflow-y: auto;
             overscroll-behavior: contain;
             scrollbar-width: thin;
@@ -16821,11 +16829,62 @@ def main():
                 "type": event_type
             })
 
-    # Parse health data — prefer HealthFit (auto-synced Google Sheets) over Apple Health (manual export)
+    # Parse health data — prefer health-live auto export, then HealthFit, then Apple Health
     healthfit = cache.get("healthfit", {})
     health_source_used = False
 
-    if healthfit.get("status") == "success" and healthfit.get("daily_metrics"):
+    # Health Auto Export (iOS app, 6-hourly via health-export-server.py)
+    _health_live_path2 = Path.home() / ".claude" / "cache" / "health-live.json"
+    if _health_live_path2.exists():
+        try:
+            from collections import defaultdict as _dd2
+            _hl2 = json.loads(_health_live_path2.read_text(encoding="utf-8"))
+            _hl2_metrics = _hl2.get("data", {}).get("metrics", [])
+            _hl2_daily = _dd2(dict)
+            for _m2 in _hl2_metrics:
+                _n2 = _m2.get("name", "")
+                for _d2 in _m2.get("data", []):
+                    _dk2 = str(_d2.get("date", ""))[:10]
+                    if not _dk2:
+                        continue
+                    if _n2 == "sleep_analysis":
+                        _v2 = _d2.get("asleep", _d2.get("totalSleep", 0))
+                        if isinstance(_v2, (int, float)) and _v2 > 0:
+                            _hl2_daily[_dk2]["sleep_hours"] = round(_v2, 1)
+                    elif _n2 == "step_count":
+                        _q2 = _d2.get("qty", 0)
+                        if isinstance(_q2, (int, float)):
+                            _hl2_daily[_dk2]["steps"] = _hl2_daily[_dk2].get("steps", 0) + _q2
+                    elif _n2 == "apple_exercise_time":
+                        _q2 = _d2.get("qty", 0)
+                        if isinstance(_q2, (int, float)):
+                            _hl2_daily[_dk2]["exercise"] = _hl2_daily[_dk2].get("exercise", 0) + _q2
+                    elif _n2 == "heart_rate_variability":
+                        _q2 = _d2.get("qty")
+                        if isinstance(_q2, (int, float)):
+                            _hl2_daily[_dk2]["hrv"] = round(_q2, 1)
+                    elif _n2 == "resting_heart_rate":
+                        _q2 = _d2.get("qty")
+                        if isinstance(_q2, (int, float)):
+                            _hl2_daily[_dk2]["resting_hr"] = round(_q2)
+            if _hl2_daily and len(_hl2_daily) >= 2:
+                data["healthData"] = []
+                for _dk2 in sorted(_hl2_daily.keys()):
+                    _row2 = {"date": _dk2, "day": _dk2.split("-")[-1].lstrip("0")}
+                    _row2.update(_hl2_daily[_dk2])
+                    if "steps" in _row2:
+                        _row2["steps"] = round(_row2["steps"])
+                    if "exercise" in _row2:
+                        _row2["exercise"] = round(_row2["exercise"])
+                    data["healthData"].append(_row2)
+                data["healthDataStale"] = False
+                data["healthDataAge"] = 0
+                health_source_used = True
+        except Exception:
+            pass
+
+    # HealthFit (Google Sheets backup) — only if auto export unavailable
+    if not health_source_used and healthfit.get("status") == "success" and healthfit.get("daily_metrics"):
         hf_metrics = healthfit.get("daily_metrics", [])[:7]
         # HealthFit dates are DD/MM/YYYY — sort chronologically
         def _hf_sort_key(m):
@@ -17088,6 +17147,31 @@ def main():
     # Parse wins
     if WINS_FILE.exists():
         data["wins"] = parse_wins(WINS_FILE.read_text())
+
+    # Enrich mindfulness from health-live auto export if ai_insights says not done
+    _mf = data.get("mindfulness", {})
+    if not _mf.get("done"):
+        try:
+            _hl_path = Path.home() / ".claude" / "cache" / "health-live.json"
+            if _hl_path.exists():
+                _hl_data = json.loads(_hl_path.read_text(encoding="utf-8"))
+                _today_str = get_effective_date()
+                _mf_total = 0
+                for _m in _hl_data.get("data", {}).get("metrics", []):
+                    if _m.get("name") == "mindful_minutes":
+                        for _d in _m.get("data", []):
+                            if _today_str in str(_d.get("date", "")):
+                                _q = _d.get("qty", 0)
+                                if isinstance(_q, (int, float)):
+                                    _mf_total += _q
+                if _mf_total >= 1:
+                    data["mindfulness"] = {
+                        "done": True, "auto_done": True, "auto_source": "apple_health",
+                        "source": "apple_health", "minutes_done": round(_mf_total),
+                        "updated_at": now.isoformat(),
+                    }
+        except Exception:
+            pass
 
     # Generate HTML
     html = generate_html(data)
