@@ -2047,9 +2047,9 @@ def get_tadah():
             _todoist_token = json.loads(_secrets_path.read_text()).get("todoist_api_token", "")
             if _todoist_token:
                 _todoist_url = "https://api.todoist.com/api/v1/tasks/completed?limit=50"
-                _todoist_req = __import__("urllib.request", fromlist=["Request", "urlopen"])
-                _req = _todoist_req.Request(_todoist_url, headers={"Authorization": f"Bearer {_todoist_token}"})
-                _resp = _todoist_req.urlopen(_req, timeout=8)
+                from urllib.request import Request as _Req, urlopen as _urlopen
+                _req = _Req(_todoist_url, headers={"Authorization": f"Bearer {_todoist_token}"})
+                _resp = _urlopen(_req, timeout=8)
                 _todoist_data = json.loads(_resp.read())
                 _todoist_items = _todoist_data.get("items", [])
                 _routine_keywords = {"breakfast", "lunch", "dinner", "relax", "get ready", "morning todos", "tidy", "shower", "walk"}
@@ -2063,7 +2063,7 @@ def get_tadah():
                     if not _content or len(_content) < 3:
                         continue
                     # Skip routine tasks — not ta-dah worthy
-                    if _content.lower() in _routine_keywords:
+                    if any(kw in _content.lower() for kw in _routine_keywords):
                         continue
                     _key = _tadah_score_key(_content)
                     if _key and _key not in seen_today_keys:
@@ -2089,7 +2089,6 @@ def get_tadah():
     return {
         "categories": {},
         "flat": [i["text"] for i in today_items if i.get("source") != "pieces"],
-        "flat_all": [i["text"] for i in today_items],
         "items_with_source": today_items,
         "yesterday": yesterday_tadah,
     }
@@ -2419,14 +2418,20 @@ def generate_html(data):
     def _is_dev_noise(text):
         """Filter developer/system activity from ta-dah display."""
         low = str(text or "").strip().lower()
-        if "**" in text or "`" in text:
-            return True  # Markdown formatting = Pieces session summary
-        dev_terms = ["dashboard", "bug fix", "daemon", "hookmark", "integration",
-                     "refactor", "debug", "script", "cache", "stale flag",
-                     "api", "css", "html", "python", "json", "polling",
-                     "calendar integration", "todoist integration", "token",
-                     "axidentifier", "deduplication", "time parsing"]
-        return any(term in low for term in dev_terms)
+        # Pieces session summaries have markdown formatting
+        if str(text).count("**") >= 2 or str(text).count("`") >= 2:
+            return True
+        # Word-boundary matching to avoid false positives
+        # ("committed to routine" != "commit", "read sections" != "sections")
+        dev_terms = ["bug fix", "daemon", "hookmark", "refactor",
+                     "stale flag", "api endpoint", "axidentifier",
+                     "deduplication", "code review", "pull request",
+                     "calendar integration", "todoist integration",
+                     "polling loop", "focused laptop session"]
+        for term in dev_terms:
+            if re.search(r'\b' + re.escape(term) + r'\b', low):
+                return True
+        return False
 
     tadah_flat = [_clean_tadah_text(t) for t in tadah_flat
                   if str(t).strip().lower() not in ("list", "") and not _is_dev_noise(t)]
@@ -4415,18 +4420,6 @@ def generate_html(data):
             else:
                 relief_text = "n/a"
                 relief_tone = "#9ca3af"
-
-            confidence_map = {"high": "High confidence", "medium": "Medium confidence", "low": "Low confidence"}
-            confidence_text = confidence_map.get(confidence, "Medium confidence")
-            source_text = "AI selected" if path_used.startswith("ai") else "Heuristic fallback"
-            steps_html = ""
-            for step in steps[:3]:
-                step_text = str(step).strip()
-                if not step_text:
-                    continue
-                if _is_stale_trip_prep_task(step_text):
-                    continue
-                steps_html += f'<li class="text-sm mb-1" style="color: #e2e8f0; line-height: 1.45;">{html.escape(step_text)}</li>'
 
             # Compact intervention — one-line technique + first step only
             _first_step = str(steps[0]).strip()[:80] if steps else ""
@@ -12289,8 +12282,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         if isinstance(_hf_sleep_list, list) and _hf_sleep_list:
             _latest_sleep = _hf_sleep_list[0]
             _asleep_raw = str(_latest_sleep.get("asleep", ""))
-            import re as _re_sleep
-            _sleep_match = _re_sleep.match(r"(\d+)h:(\d+)m", _asleep_raw)
+            _sleep_match = re.match(r"(\d+)h:(\d+)m", _asleep_raw)
             if _sleep_match:
                 _sleep_h = int(_sleep_match.group(1)) + int(_sleep_match.group(2)) / 60
     os3_sleep_display = f"{float(_sleep_h):.1f}h" if isinstance(_sleep_h, (int, float)) else "—"
@@ -12990,8 +12982,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <section class="os-card" style="background:linear-gradient(135deg, rgba(30,28,45,0.8), rgba(88,28,135,0.15));border:1px solid rgba(224,187,228,0.1);">
                         <p class="text-xs font-bold uppercase" style="color:var(--purple);letter-spacing:0.1em;opacity:0.8;">Focus Potential</p>
                         <p class="font-black mt-2" style="font-size:2.5rem;color:var(--purple);line-height:1;">{html.escape(os3_focus_label)}</p>
-                        <div class="flex items-center justify-between gap-3 mb-3 mt-3">
+                        <div class="mt-3">
                         {_os3_progress_bar(os3_focus_score, "linear-gradient(90deg, rgba(249,192,208,0.95), rgba(196,181,253,0.92))")}
+                        </div>
                     </section>
                 </div>
                 <div class="os-layout">

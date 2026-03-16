@@ -418,38 +418,33 @@ def compose_day_narrative(
     def _is_system_navigation_noise(text: str) -> bool:
         """Filter Pieces/IDE/system activity that isn't a real personal accomplishment."""
         low = str(text or "").strip().lower()
+        # Multi-word phrases — safe for substring matching (specific enough)
         noise_phrases = [
             "find settings", "integrations menu", "locate tadah",
             "sync or export option", "open settings", "navigate to",
             "click on", "select the", "go to settings", "check the menu",
-            "look for the", "search for the", "open the dashboard",
-            "refresh the page", "close the tab", "scroll to",
-            "sign in", "log in", "open claude app", "open the app",
-            "open app on phone", "install the", "download the",
-        ]
-        # Developer/system activity keywords — these are Pieces session summaries, not personal wins
-        dev_keywords = [
-            "bug fix", "bug in", "resolved a", "implemented a", "refactor",
-            "dashboard", "daemon", "hookmark", "axidentifier",
-            "polling loop", "cache", "stale flag", "api endpoint",
-            "script", "debug", "integration bug", "integration error",
-            "deduplication", "code review", "pull request", "commit",
-            "merge", "session summary", "focused laptop session",
-            "ui color", "ui layout", "ux improvement", "apple notes integration",
-            "calendar integration", "todoist integration",
-            "fixing the", "improving the", "updating the",
-            "layout across", "sections", "time parsing",
-            "token", "css", "html", "python", "json",
+            "open the dashboard", "refresh the page", "close the tab",
+            "sign in", "log in", "open claude app", "open app on phone",
         ]
         if any(phrase in low for phrase in noise_phrases):
             return True
-        if any(phrase in low for phrase in dev_keywords):
-            return True
+        # Dev keywords — use word-boundary matching to avoid false positives
+        # ("committed to routine" != "git commit", "read sections" != "code sections")
+        dev_boundary_words = [
+            "bug fix", "refactor", "daemon", "hookmark", "axidentifier",
+            "polling loop", "stale flag", "api endpoint", "deduplication",
+            "code review", "pull request", "focused laptop session",
+            "apple notes integration", "calendar integration",
+            "todoist integration", "ui layout", "ux improvement",
+        ]
+        for phrase in dev_boundary_words:
+            if re.search(r'\b' + re.escape(phrase) + r'\b', low):
+                return True
         # Short imperative phrases that are UI actions
         if len(low) < 40 and re.match(r"^(open|close|find|locate|check|click|tap|scroll|browse|navigate)\b", low):
             return True
-        # Pieces-style session summaries with markdown formatting artifacts
-        if "**" in text or "`" in text:
+        # Pieces session summaries have markdown formatting (** headers, ` backticks)
+        if text.count("**") >= 2 or text.count("`") >= 2:
             return True
         return False
 
