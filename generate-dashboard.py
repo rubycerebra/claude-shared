@@ -4966,37 +4966,13 @@ def generate_html(data):
             </div>'''
         else:
             mindfulness_html = f'''
-            <div class="os-card" style="background:rgba(30,64,175,0.08);border:1px solid rgba(147,197,253,0.15);">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem;">
-                    <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(196,181,253,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;">🧘</div>
-                        <h3 class="text-base font-semibold" style="color:#a8c4e0">Zen Flow</h3>
-                    </div>
-                    <span class="text-xs" style="color:#94a3b8">{html.escape(status_text)}</span>
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.2);">
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                    <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(147,197,253,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;">🧠</div>
+                    <h3 class="text-base font-semibold" style="color: #a8c4e0">Mindfulness</h3>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:0.65rem;">
-                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
-                        <span style="font-size:1.5rem;">🌬️</span>
-                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">Breathing</p>
-                        <p style="font-size:0.6rem;color:#64748b;">5 mins</p>
-                    </div>
-                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
-                        <span style="font-size:1.5rem;">🌿</span>
-                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">Nature</p>
-                        <p style="font-size:0.6rem;color:#64748b;">10 mins</p>
-                    </div>
-                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
-                        <span style="font-size:1.5rem;">🌙</span>
-                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">Sleep Prep</p>
-                        <p style="font-size:0.6rem;color:#64748b;">15 mins</p>
-                    </div>
-                    <div class="os-zen-tile" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;padding:0.75rem 0.5rem;border-radius:0.75rem;background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.1);text-align:center;cursor:default;transition:background 0.15s ease;">
-                        <span style="font-size:1.5rem;">🧩</span>
-                        <p style="font-size:0.7rem;font-weight:700;color:#e5e7eb;">More</p>
-                        <p style="font-size:0.6rem;color:#64748b;">Browse</p>
-                    </div>
-                </div>
-                <p id="qa-mindfulness-meta" class="text-xs mt-3" style="color:{status_color}">{html.escape(mindfulness_source_line)}</p>
+                <p id="qa-mindfulness-meta" class="text-sm" style="color: {status_color}">{html.escape(status_text)}</p>
+                <p class="text-xs mt-1" style="color: #6b7280">{html.escape(mindfulness_source_line)}</p>
             </div>'''
 
     # === Finch Self-Care Tracker ===
