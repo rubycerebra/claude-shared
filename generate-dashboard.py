@@ -12629,13 +12629,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
         </details>
     '''
 
-    os3_evening_close_markers = [
-        _clean_evening_reflections_text(evening.get("evening_reflections", "")),
-        str(evening.get("brave", "") or "").strip(),
-    ]
-    os3_evening_three_things = evening.get("three_things", []) if isinstance(evening.get("three_things", []), list) else []
-    os3_evening_close_markers.extend(str(item or "").strip() for item in os3_evening_three_things if str(item or "").strip())
-    os3_reflection_saved_today = any(os3_evening_close_markers)
+    # Close-down reflection: only the actual evening reflections text counts.
+    # Gratitude items (three_things) and brave moments are separate check-ins
+    # and should NOT mark the close-down reflection as done.
+    os3_reflection_saved_today = bool(_clean_evening_reflections_text(evening.get("evening_reflections", "")))
     os3_mindfulness_minutes_done = int(qa_mindfulness_state.get("minutes_done", 0) or 0)
     os3_mindfulness_auto_done = bool(qa_mindfulness_state.get("auto_done"))
     if os3_mindfulness_auto_done and os3_mindfulness_minutes_done > 0:

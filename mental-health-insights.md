@@ -273,15 +273,15 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-15 (hash: 6022cc448dce995d)*
+*Auto-synced from Pieces persona summary on 2026-03-16 (hash: 49663a1724f2d5ef)*
 
 ### Job search anxiety patterns
-- David Petty** is a keen film enthusiast and critic whose primary activities, as observed in James Cherry's workstream, revolve around in-depth discussions and reviews of films and related media. Based on 15 total observed interactions (10 new events), he consistently participates
-- What They Work On
+- There are no direct observations of an individual named "Unknown" within the provided workstream events. The profile generation process relies strictly on direct participation of the named individual in observed events, such as being a speaker, counterparty, author, recipient, or
 
 ### Coping mechanisms Pieces has observed
-- David Petty remains identifiable as a professional whose visible activities in the observer's context are exclusively within film-related discussions. His phone number, +44 7745 519009, has been consistently observed in multiple WhatsApp chat transcripts (observed in 8 previous W
-- What They Work On
+- Therefore, consistent with the existing profile, there is still no evidence to construct an observational profile for an individual identified as "Unknown".
+- Confidence Assessment:**
 
 ### Work habits Pieces has observed
-- David Petty remains identifiable as a professional whose visible activities in the observer's context are exclusively within film-related discussions. His phone number, +44 7745 519009, has been consistently observed in multiple WhatsApp chat transcripts (observed in 8 previous W
+- **Overall data quality:** None (for "Unknown"). No interactions for a person explicitly named "Unknown" were identified in the new data.
+- **Significant gaps:** The complete absence of any mention or interaction by "Unknown" means no profile can be generated or updated. The previous assessment remains unchanged.
