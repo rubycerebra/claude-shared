@@ -3412,7 +3412,7 @@ def generate_html(data):
     )
     _current_hour = datetime.now().hour
 
-    _TRAVEL_EVENT_KEYWORDS = ("bristol", "parkway", "train", "travel", "journey", "leave", "home")
+    _TRAVEL_EVENT_KEYWORDS = ("bristol", "parkway", "train", "travel to", "journey to")
     _STALE_TRIP_MARKERS = (
         "suitcase", "bristol", "parkway", "earlier train",
         "train option", "train options", "after the walk", "get the girls to",
@@ -3434,6 +3434,14 @@ def generate_html(data):
             except Exception:
                 _start_dt = None
             if _start_dt and _start_dt < datetime.now(_start_dt.tzinfo) - timedelta(hours=2):
+                continue
+        else:
+            # All-day event: skip if the date is in the past
+            try:
+                _allday_dt = datetime.strptime(_start_raw[:10], "%Y-%m-%d")
+            except Exception:
+                _allday_dt = None
+            if _allday_dt and _allday_dt.date() < datetime.now().date():
                 continue
         _future_travel_blocks.append(_summary_lower)
 
@@ -12655,7 +12663,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         f'</div>'
         f'<span class="text-xs" style="color:{"#a7d8c4" if done else "#94a3b8"};font-weight:600;">{status}</span>'
         f'</div>'
-        for label, status, done, icon, icon_bg, icon_color in os3_health_habit_rows[:4]
+        for label, status, done, icon, icon_bg, _ in os3_health_habit_rows[:4]
     )
     os3_health_snapshot_html = (
         f'<div class="os-two-col">'
@@ -13200,7 +13208,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         a {{ color: inherit; text-decoration: none; }}
         a:hover {{ color: var(--focus); }}
         .dashboard-shell {{
-            max-width: 1340px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 1.25rem 1rem 3rem;
         }}
@@ -13208,7 +13216,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             .dashboard-shell {{ padding: 1.75rem 2rem 3.5rem; }}
         }}
         @media (min-width: 1200px) {{
-            .dashboard-shell {{ padding: 2rem 2.5rem 4rem; }}
+            .dashboard-shell {{ padding: 2rem 3rem 4rem; }}
         }}
         .card {{
             background: var(--bg-primary);
@@ -13787,8 +13795,8 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-layout {{
             display: grid;
-            grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
-            gap: 1rem;
+            grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+            gap: 1.25rem;
             align-items: start;
         }}
         .os-main-stack,
@@ -15239,6 +15247,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
             if (nowMain) nowMain.hidden = focusActive;
             if (focusView) focusView.hidden = !focusActive;
 
+            if (focusActive) {{
+                // Scroll to top first so the focus view is visible (especially on iOS)
+                window.scrollTo({{ top: 0, behavior: "smooth" }});
+            }}
             if (options.focusTarget) {{
                 focusTarget(options.focusTarget);
             }} else if (focusActive) {{
