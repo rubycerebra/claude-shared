@@ -2,13 +2,13 @@
 
 This file is updated from the dashboard compounding layer so future sessions/QMD can recall cross-day context, not just same-day UI state.
 
-- Headline: Recovery and Momentum can carry the day, but load needs pacing.
-- Today throughput: 0
-- 7d throughput avg: 10.3
-- 30d throughput avg: 14.8
+- Headline: Focus and Recovery can carry the day, but load needs pacing.
+- Today throughput: 8
+- 7d throughput avg: 11.4
+- 30d throughput avg: 15.7
 
 ## Increasing
-- The compounding layer is online, but it still needs a few more days of snapshots for stronger trend claims.
+- System is the strongest completed domain today.
 
 ## Stalling
 - Move forward keeps resurfacing and needs a real close-loop move.
