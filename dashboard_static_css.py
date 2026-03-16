@@ -188,20 +188,19 @@ COMPONENT_CSS = """
   padding: 8px 12px;
   margin-bottom: 5px;
   background: rgba(15,23,42,0.5);
-  border: 1px solid rgba(148,163,184,0.12);
-  border-left: 3px solid rgba(148,163,184,0.18);
+  border: 2px solid rgba(148,163,184,0.55);
   border-radius: var(--radius-md);
   transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 .todo-row:hover {
   background: rgba(22,33,62,0.75);
-  border-color: rgba(148,163,184,0.24);
+  border-color: rgba(181,255,217,0.7);
   box-shadow: 0 2px 10px rgba(0,0,0,0.22);
   transform: translateY(-1px);
 }
-.todo-row--p1 { border-left-color: rgba(248,113,113,0.7); }
-.todo-row--p2 { border-left-color: rgba(251,191,36,0.6); }
-.todo-row--p3 { border-left-color: rgba(134,239,172,0.45); }
+.todo-row--p1 { border-color: rgba(248,113,113,0.75); }
+.todo-row--p2 { border-color: rgba(251,191,36,0.7); }
+.todo-row--p3 { border-color: rgba(134,239,172,0.65); }
 
 /* Checkbox — uses a styled <span> to avoid Safari <button> sizing issues */
 .todo-check {
@@ -210,7 +209,7 @@ COMPONENT_CSS = """
   min-width: 18px;
   flex-shrink: 0;
   border-radius: 50%;
-  border: 2px solid rgba(69,204,144,0.35);
+  border: 2px solid rgba(69,204,144,0.65);
   background: transparent;
   cursor: pointer;
   display: inline-flex;
@@ -227,9 +226,9 @@ COMPONENT_CSS = """
   transform: scale(1.15);
 }
 .todo-check:active { transform: scale(0.9); }
-.todo-row--p1 .todo-check { border-color: rgba(248,113,113,0.4); }
+.todo-row--p1 .todo-check { border-color: rgba(248,113,113,0.7); }
 .todo-row--p1 .todo-check:hover { border-color: #f87171; background: rgba(248,113,113,0.14); color: #f87171; }
-.todo-row--p2 .todo-check { border-color: rgba(251,191,36,0.35); }
+.todo-row--p2 .todo-check { border-color: rgba(251,191,36,0.65); }
 .todo-row--p2 .todo-check:hover { border-color: #fbbf24; background: rgba(251,191,36,0.12); color: #fbbf24; }
 
 .todo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -304,6 +303,34 @@ COMPONENT_CSS = """
 }
 .todo-schedule-time:focus,
 .todo-schedule-duration:focus { border-color: var(--semantic-purple-border); outline: none; }
+
+@media (max-width: 640px) {
+  .todo-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .todo-body {
+    flex: 1 1 calc(100% - 28px);
+  }
+  .todo-actions {
+    width: 100%;
+    justify-content: flex-end;
+    opacity: 1;
+    padding-left: 28px;
+  }
+  .todo-schedule-popup {
+    right: auto;
+    left: 0;
+    min-width: 0;
+    width: min(calc(100vw - 2rem), 248px);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .todo-actions {
+    opacity: 1;
+  }
+}
 
 /* ── Pills / Badges ── */
 .pill {

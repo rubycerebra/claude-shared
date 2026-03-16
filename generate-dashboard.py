@@ -1195,7 +1195,7 @@ def _build_pieces_shared_parts(pieces_payload, digest_text, digest_source, body_
             for w in wins[:3]
         )
         parts.append(
-            f'<div class="rounded p-2 mb-3" style="background:rgba(6,95,70,0.08);border:1px solid rgba(110,231,183,0.2);">{win_items}</div>'
+            f'<div class="rounded p-2 mb-3" style="background:rgba(6,95,70,0.08);border:2px solid rgba(110,231,183,0.6);">{win_items}</div>'
         )
 
     timeline_html = _render_pieces_timeline_html(summaries, details_class=details_class)
@@ -1895,7 +1895,7 @@ def _is_future_intent(text):
     # Routine daily items that aren't wins
     routine_items = (
         "breakfast", "lunch", "dinner", "coffee", "get ready",
-        "walk dog", "tidy", "relax",
+        "walk dog", "walk", "tidy", "relax", "shower",
     )
     if lower in routine_items:
         return True
@@ -1903,6 +1903,27 @@ def _is_future_intent(text):
     if "_debug" in lower or lower.startswith("test_"):
         return True
     return False
+
+
+def _todoist_completed_matches_effective_date(raw_completed_at: str, effective_date: str) -> bool:
+    """Return True if the Todoist completion timestamp falls on effective_date (3am rollover)."""
+    raw = str(raw_completed_at or "").strip()
+    if not raw:
+        return False
+    try:
+        completed_dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        local_dt = completed_dt.astimezone() if completed_dt.tzinfo else completed_dt
+        if local_dt.hour < 3:
+            local_dt = local_dt - timedelta(days=1)
+        return local_dt.strftime("%Y-%m-%d") == effective_date
+    except Exception:
+        return raw[:10] == effective_date
+
+
+def _todoist_is_routine_win(raw_text: str) -> bool:
+    """Return True if the Todoist task is a routine daily item, not a genuine win."""
+    normalized = re.sub(r"[^a-z0-9]+", " ", str(raw_text or "").lower()).strip()
+    return bool(normalized) and _is_future_intent(normalized)
 
 
 def _score_tadah_items(items):
@@ -2052,10 +2073,9 @@ def get_tadah():
                 _resp = _urlopen(_req, timeout=8)
                 _todoist_data = json.loads(_resp.read())
                 _todoist_items = _todoist_data.get("items", [])
-                _routine_keywords = {"breakfast", "lunch", "dinner", "relax", "get ready", "morning todos", "tidy", "shower", "walk"}
                 for _ti in _todoist_items:
                     _completed_at = str(_ti.get("completed_at", ""))
-                    if not _completed_at.startswith(today):
+                    if not _todoist_completed_matches_effective_date(_completed_at, today):
                         continue
                     _content = str(_ti.get("content", "")).strip()
                     # Strip Todoist label syntax (@label)
@@ -2063,7 +2083,7 @@ def get_tadah():
                     if not _content or len(_content) < 3:
                         continue
                     # Skip routine tasks — not ta-dah worthy
-                    if any(kw in _content.lower() for kw in _routine_keywords):
+                    if _todoist_is_routine_win(_content):
                         continue
                     _key = _tadah_score_key(_content)
                     if _key and _key not in seen_today_keys:
@@ -2192,7 +2212,7 @@ def generate_html(data):
     _auth_alert_html = ""
     _auth_alert_path = Path.home() / ".claude" / "cache" / "google_auth_alert.json"
     if _auth_alert_path.exists():
-        _auth_alert_html = '''<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(153,27,27,0.2); border: 1px solid rgba(248,113,113,0.3);">
+        _auth_alert_html = '''<div class="rounded-lg px-3 py-2 mb-3" style="background: rgba(153,27,27,0.2); border: 2px solid rgba(248,113,113,0.6);">
             <p class="text-sm font-semibold" style="color: #fca5a5">🔑 Google Auth Expired</p>
             <p class="text-xs mt-1" style="color: #d4a0a0">Calendar, Gmail + Akiflow are offline. Run in terminal:<br>
             <code class="text-caption" style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; ">python3 ~/.claude/scripts/google-reauth.py</code></p>
@@ -2527,12 +2547,12 @@ def generate_html(data):
             content_emoji = _pick_content_emoji(item_text)
             source_badge = ""
             if source == "pieces":
-                source_badge = '<span class="inline-pill" style="margin-left:6px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#d4b896;">⚡ Pieces</span>'
+                source_badge = '<span class="inline-pill" style="margin-left:6px;background:rgba(251,191,36,0.12);border:2px solid rgba(251,191,36,0.55);color:#d4b896;">⚡ Pieces</span>'
             elif source == "todoist":
-                source_badge = '<span class="inline-pill" style="margin-left:6px;background:rgba(69,204,144,0.12);border:1px solid rgba(69,204,144,0.35);color:#a7d8c4;">✅ Todoist</span>'
+                source_badge = '<span class="inline-pill" style="margin-left:6px;background:rgba(69,204,144,0.12);border:2px solid rgba(69,204,144,0.55);color:#a7d8c4;">✅ Todoist</span>'
             # ★ prefix on high-significance items (score 4+)
             star_prefix = '<span style="color: #d4b896; margin-right: 4px; font-size: 0.85em;">★</span>' if (score is not None and score >= 4) else ""
-            return (f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.35rem 0.5rem;border-radius:0.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);margin-bottom:0.25rem;">'
+            return (f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.35rem 0.5rem;border-radius:0.5rem;background:rgba(255,255,255,0.02);border:2px solid rgba(181,255,217,0.5);margin-bottom:0.25rem;">'
                     f'<div style="width:1.35rem;height:1.35rem;border-radius:999px;border:2px solid {color};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:0.1rem;">'
                     f'<span style="font-size:0.6rem;color:{color};">✓</span></div>'
                     f'<span style="color: #d1d5db; font-size:0.875rem; line-height: 1.4;">{star_prefix}{html.escape(str(item_text))} {content_emoji}{source_badge}</span>'
@@ -2578,7 +2598,7 @@ def generate_html(data):
         wins_badges = ""
         for w in wins:
             win_emoji = _pick_content_emoji(w)
-            wins_badges += f'<span class="text-caption optional-pill" style="background: rgba(6,95,70,0.4); border: 1px solid rgba(110,231,183,0.3); border-radius: 9999px; padding: 2px 10px; color: #b8d8c8; ">{win_emoji} {html.escape(str(w))}</span>'
+            wins_badges += f'<span class="text-caption optional-pill" style="background: rgba(6,95,70,0.4); border: 2px solid rgba(110,231,183,0.6); border-radius: 9999px; padding: 2px 10px; color: #b8d8c8; ">{win_emoji} {html.escape(str(w))}</span>'
         tadah_html += f'<div class="flex flex-wrap gap-1 mt-3 pt-2" style="border-top: 1px solid #374151">{wins_badges}</div>'
 
     # Yesterday's ta-dahs — always separate from today's list for clear differentiation
@@ -2614,7 +2634,7 @@ def generate_html(data):
     # Habits HTML — pastel progress bars with at-risk warnings
     # Ta-Dah scratch pad — lives at the top of the dashboard for quick access
     _tadah_scratch_storage_key = f"dashboard.scratch.{get_effective_date()}.ta_dah"
-    tadah_scratch_html = f'''<div class="mb-4 rounded-xl px-3 py-2" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(110,231,183,0.18);">
+    tadah_scratch_html = f'''<div class="mb-4 rounded-xl px-3 py-2" style="background: rgba(15,23,42,0.6); border: 2px solid rgba(181,255,217,0.55);">
         <textarea id="qa-scratch-ta_dah"
             rows="1" maxlength="2000"
             data-storage-key="{html.escape(_tadah_scratch_storage_key)}"
@@ -2676,7 +2696,7 @@ def generate_html(data):
         workout_meta_text = f"✅ {workout['title']} logged for today" if workout.get("done") else f"⬜ {workout['title']} not logged yet"
         workout_meta_color = "#a7d8c4" if workout.get("done") else "#9ca3af"
         workout_toggle_html = f'''
-        <div class="mt-3 pt-3" style="border-top: 1px solid rgba(110,231,183,0.15);">
+        <div class="mt-3 pt-3" style="border-top: 2px solid rgba(110,231,183,0.55);">
             <label class="flex items-center gap-3 cursor-pointer">
                 <input id="qa-workout-check" type="checkbox" {checked_attr} data-workout="{html.escape(workout["title"], quote=True)}" onchange="qaToggleWorkout(this)" class="h-4 w-4">
                 <span class="text-sm" style="color: #e5e7eb">Log today&apos;s {workout["title"]}</span>
@@ -2686,7 +2706,7 @@ def generate_html(data):
 
     if workout["done"]:
         workout_html = f'''
-    <div class="card rounded-xl p-4 mb-4" style="background: rgba(6,95,70,0.15); border: 1px solid rgba(110,231,183,0.2);">
+    <div class="card rounded-xl p-4 mb-4" style="background: rgba(6,95,70,0.15); border: 2px solid rgba(110,231,183,0.6);">
         <div class="flex items-center gap-3">
             <span class="text-2xl">✅</span>
             <div>
@@ -2701,7 +2721,7 @@ def generate_html(data):
     </div>'''
     elif workout["type"] == "rest":
         workout_html = f'''
-    <div class="card rounded-xl p-4 mb-4 flex items-center gap-3" style="background: rgba(55,65,81,0.3); border: 1px solid rgba(107,114,128,0.2);">
+    <div class="card rounded-xl p-4 mb-4 flex items-center gap-3" style="background: rgba(55,65,81,0.3); border: 3px solid rgba(167, 243, 208, 0.5);">
         <span class="text-2xl">{workout["emoji"]}</span>
         <div>
             <span class="text-base font-semibold" style="color: #d1d5db">Workout Guide: {workout["title"]}</span>
@@ -2713,7 +2733,7 @@ def generate_html(data):
     else:
         window_note = "Tonight option: still valid to run this session if energy allows." if datetime.now().hour >= 14 else "Plan this into today's schedule."
         workout_html = f'''
-    <div class="card rounded-xl p-4 mb-4" style="background: rgba(6,95,70,0.15); border: 1px solid rgba(110,231,183,0.2);">
+    <div class="card rounded-xl p-4 mb-4" style="background: rgba(6,95,70,0.15); border: 2px solid rgba(110,231,183,0.6);">
         <div class="flex items-center gap-3">
             <span class="text-2xl">{workout["emoji"]}</span>
             <div>
@@ -2839,7 +2859,7 @@ def generate_html(data):
             _disc_reason_short = _truncate_headline(_disc_reason, max_len=120)
             _disc_reason_html2 = f'<p style="font-size:0.72rem;color:#9ca3af;margin:0.2rem 0 0 0;line-height:1.4;">{_html.escape(_disc_reason_short)}</p>' if _disc_reason_short else ""
             discovery_html = (
-                '<div style="margin-top:0.65rem;background:rgba(6,78,59,0.12);border:1px solid rgba(52,211,153,0.15);border-radius:0.5rem;padding:0.55rem 0.7rem;">'
+                '<div style="margin-top:0.65rem;background:rgba(6,78,59,0.12);border:2px solid rgba(52,211,153,0.55);border-radius:0.5rem;padding:0.55rem 0.7rem;">'
                 '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;color:#a7d8c4;font-weight:700;margin:0 0 0.2rem 0;">\U0001f50d Discovery</p>'
                 f'<p style="font-size:0.85rem;color:#b8d8c8;font-weight:600;margin:0;">{_html.escape(_disc_film)}</p>'
                 f'{_disc_reason_html2}'
@@ -2871,7 +2891,7 @@ def generate_html(data):
                     star_dots = f'<div style="margin-top:0.3rem;font-size:0.65rem;color:#d4b896;">{_html.escape(rating_label)}</div>'
             date_line = f'<p style="font-size:0.65rem;color:#4b5563;margin:0.15rem 0 0 0;">{date}</p>' if date else ""
             watched_items_html += (
-                f'<div style="min-width:110px;max-width:140px;background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.1);'
+                f'<div style="min-width:110px;max-width:140px;background:rgba(88,28,135,0.1);border:2px solid rgba(196,181,253,0.5);'
                 f'border-radius:0.65rem;padding:0.6rem 0.7rem;flex-shrink:0;">'
                 f'<p style="font-size:0.78rem;color:#e5e7eb;font-weight:600;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{title}</p>'
                 f'<p style="font-size:0.65rem;color:#6b7280;margin:0.1rem 0 0 0;">{year}</p>'
@@ -2905,7 +2925,7 @@ def generate_html(data):
         if _film_pick_source == "ai":
             source_badge = (
                 '<span class="inline-pill ml-2" '
-                'style="background:rgba(6,95,70,0.28);color:#b8d8c8;border:1px solid rgba(110,231,183,0.28);">AI pick</span>'
+                'style="background:rgba(6,95,70,0.28);color:#b8d8c8;border:2px solid rgba(110,231,183,0.55);">AI pick</span>'
             )
             profile_headline = str(film_profile.get("headline", "")).strip()
             profile_reason = str(film_profile.get("reason_text", "")).strip()
@@ -2940,7 +2960,7 @@ def generate_html(data):
                         if alt_reason else ""
                     )
                     alternate_rows_html += (
-                        f'<div style="flex:1;min-width:0;background:rgba(15,23,42,0.4);border:1px solid rgba(196,181,253,0.1);'
+                        f'<div style="flex:1;min-width:0;background:rgba(15,23,42,0.4);border:2px solid rgba(196,181,253,0.5);'
                         f'border-radius:0.5rem;padding:0.5rem 0.65rem;">'
                         f'<p style="font-size:0.8rem;color:#e5e7eb;font-weight:600;margin:0;">{alt_link} '
                         f'<span style="color:#6b7280;font-weight:400;">({_html.escape(alt_year)})</span></p>'
@@ -2955,7 +2975,7 @@ def generate_html(data):
                         '</div>'
                     )
                 primary_pick_html = f'''
-            <div style="background:linear-gradient(135deg, rgba(88,28,135,0.3) 0%, rgba(30,27,75,0.45) 100%);border:1px solid rgba(196,181,253,0.18);border-radius:0.85rem;padding:1.1rem 1.25rem;margin-bottom:0.75rem;position:relative;overflow:hidden;">
+            <div style="background:linear-gradient(135deg, rgba(88,28,135,0.3) 0%, rgba(30,27,75,0.45) 100%);border:3px solid rgba(196,181,253,0.5);border-radius:0.85rem;padding:1.1rem 1.25rem;margin-bottom:0.75rem;position:relative;overflow:hidden;">
               <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle, rgba(196,181,253,0.06) 0%, transparent 70%);pointer-events:none;"></div>
               <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
                 <span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:#d4a8b8;font-weight:700;">Tonight&apos;s watch</span>
@@ -2970,7 +2990,7 @@ def generate_html(data):
             elif _ai_reason:
                 primary_pick_summary_html = " · Tonight: AI pick"
                 primary_pick_html = f'''
-            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:2px solid rgba(196,181,253,0.55)">
               <p class="text-xs font-semibold mb-1" style="color:#d4a8b8">🍿 Tonight&apos;s watch {source_badge}</p>
               <p class="text-sm mt-1" style="color:#e5e7eb">{_html.escape(_ai_reason)}</p>
               {profile_reason_html}
@@ -2982,7 +3002,7 @@ def generate_html(data):
             # Heuristic pick — no AI override available
             source_badge = (
                 '<span style="font-size:0.6rem;padding:0.15rem 0.4rem;border-radius:0.25rem;'
-                'background:rgba(88,28,135,0.18);color:#c4b8e0;border:1px solid rgba(196,181,253,0.18)">heuristic</span>'
+                'background:rgba(88,28,135,0.18);color:#c4b8e0;border:2px solid rgba(196,181,253,0.55)">heuristic</span>'
             )
             primary_year = str(film_primary.get("year", "")).strip()
             primary_url = str(film_primary.get("url", "")).strip()
@@ -3011,7 +3031,7 @@ def generate_html(data):
                     if alt_reason else ""
                 )
                 alternate_rows_html += (
-                    f'<div style="flex:1;min-width:0;background:rgba(15,23,42,0.4);border:1px solid rgba(196,181,253,0.1);'
+                    f'<div style="flex:1;min-width:0;background:rgba(15,23,42,0.4);border:2px solid rgba(196,181,253,0.5);'
                     f'border-radius:0.5rem;padding:0.5rem 0.65rem;">'
                     f'<p style="font-size:0.8rem;color:#e5e7eb;font-weight:600;margin:0;">{alt_link} '
                     f'<span style="color:#6b7280;font-weight:400;">({_html.escape(alt_year)})</span></p>'
@@ -3026,7 +3046,7 @@ def generate_html(data):
                     '</div>'
                 )
             primary_pick_html = f'''
-            <div style="background:linear-gradient(135deg, rgba(88,28,135,0.3) 0%, rgba(30,27,75,0.45) 100%);border:1px solid rgba(196,181,253,0.18);border-radius:0.85rem;padding:1.1rem 1.25rem;margin-bottom:0.75rem;position:relative;overflow:hidden;">
+            <div style="background:linear-gradient(135deg, rgba(88,28,135,0.3) 0%, rgba(30,27,75,0.45) 100%);border:3px solid rgba(196,181,253,0.5);border-radius:0.85rem;padding:1.1rem 1.25rem;margin-bottom:0.75rem;position:relative;overflow:hidden;">
               <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle, rgba(196,181,253,0.06) 0%, transparent 70%);pointer-events:none;"></div>
               <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
                 <span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:#d4a8b8;font-weight:700;">Tonight&apos;s watch</span>
@@ -3042,7 +3062,7 @@ def generate_html(data):
         # If no tonight pick but discovery exists, surface it standalone
         if not primary_title and discovery_html and not primary_pick_html:
             primary_pick_html = f'''
-            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:1px solid rgba(196,181,253,0.28)">
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="background:rgba(88,28,135,0.18);border:2px solid rgba(196,181,253,0.55)">
               {discovery_html}
             </div>
             '''
@@ -3059,7 +3079,7 @@ def generate_html(data):
             f'</div>'
         ) if watched_items_html else ""
         wl_block = (
-            '<details style="margin-top:0.65rem;background:rgba(15,23,42,0.3);border:1px solid rgba(249,168,212,0.12);border-radius:0.5rem;padding:0.5rem 0.7rem;">'
+            '<details style="margin-top:0.65rem;background:rgba(15,23,42,0.3);border:2px solid rgba(249,168,212,0.55);border-radius:0.5rem;padding:0.5rem 0.7rem;">'
             '<summary class="cursor-pointer" style="font-size:0.7rem;font-weight:600;color:#d4a8b8;">'
             f'📋 Watchlist adds ({len(recent_watchlist)})</summary>'
             f'<div style="margin-top:0.4rem;">{watchlist_items_html}</div>'
@@ -3074,7 +3094,7 @@ def generate_html(data):
         _summary_parts.append(f"{wl_str} on watchlist")
         _summary_right = " · ".join(_summary_parts)
 
-        film_html = f'''<details open class="card rounded-xl mb-4" style="background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.14);padding:1.1rem 1.25rem;">
+        film_html = f'''<details open class="card rounded-xl mb-4" style="background:rgba(88,28,135,0.1);border:3px solid rgba(196,181,253,0.5);padding:1.1rem 1.25rem;">
   <summary class="cursor-pointer" style="display:flex;align-items:center;gap:0.65rem;">
     <span style="font-size:1.1rem;font-weight:700;color:#c4b8e0;">🎬 Film</span>
     <span style="font-size:0.8rem;color:#94a3b8;margin-left:auto;">{_summary_right}</span>
@@ -3729,11 +3749,11 @@ def generate_html(data):
                 )
 
             if is_done:
-                row_style = "background: rgba(15,23,42,0.46); border: 1px solid rgba(148,163,184,0.2); opacity: 0.72;"
+                row_style = "background: rgba(15,23,42,0.46); border: 2px solid rgba(148,163,184,0.55); opacity: 0.72;"
                 text_style = "color: #cbd5e1; line-height: 1.45; text-decoration: line-through; text-decoration-thickness: 1.5px; text-decoration-color: rgba(148,163,184,0.82);"
                 button_html = '<button class="btn btn--blue" disabled>☑ Done</button>'
             else:
-                row_style = "background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.24);"
+                row_style = "background: rgba(15,23,42,0.6); border: 2px solid rgba(148,163,184,0.55);"
                 text_style = "color: #f3f4f6; line-height: 1.45;"
                 button_html = f'''
                 <div style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;margin-top:0.35rem;">
@@ -3840,7 +3860,7 @@ def generate_html(data):
                     f"+{len(_tq_deduped) - 8} more future item(s)</p>"
                 )
             items_html += f'''
-            <details data-qa-tomorrow-queue="1" class="mt-4 rounded-lg px-3 py-2" style="background: rgba(30,41,59,0.38); border: 1px solid rgba(129,140,248,0.24);">
+            <details data-qa-tomorrow-queue="1" class="mt-4 rounded-lg px-3 py-2" style="background: rgba(30,41,59,0.38); border: 2px solid rgba(129,140,248,0.55);">
                 <summary class="text-xs font-semibold cursor-pointer" style="color:#c4b8e0">🗓️ Tomorrow queue ({len(_tq_deduped)})</summary>
                 <p class="text-xs mt-2 mb-2" style="color:#9ca3af">Hidden from today's action list. Expands into action items on its target day.</p>
                 {tomorrow_rows_html}
@@ -3863,14 +3883,14 @@ def generate_html(data):
         if _tb_status == "scheduled" and _therapy_brief_data.get("therapist_brief_status") == "generated":
             # Day before therapy — Samantha's brief is ready
             _therapy_action = '''
-            <div class="flex items-center gap-2 rounded-lg px-3 py-2 mb-2" style="background: rgba(69,204,144,0.12); border: 1px solid rgba(69,204,144,0.25);">
+            <div class="flex items-center gap-2 rounded-lg px-3 py-2 mb-2" style="background: rgba(69,204,144,0.12); border: 2px solid rgba(69,204,144,0.55);">
                 <span class="text-sm">🩺</span>
                 <span class="text-sm" style="color: #a7d8c4">Send therapist brief to Samantha on BetterHelp — therapy tomorrow</span>
             </div>'''
         elif _tb_status in ("generated", "existing"):
             # Therapy day
             _therapy_action = '''
-            <div class="flex items-center gap-2 rounded-lg px-3 py-2 mb-2" style="background: rgba(69,204,144,0.12); border: 1px solid rgba(69,204,144,0.25);">
+            <div class="flex items-center gap-2 rounded-lg px-3 py-2 mb-2" style="background: rgba(69,204,144,0.12); border: 2px solid rgba(69,204,144,0.55);">
                 <span class="text-sm">🩺</span>
                 <span class="text-sm" style="color: #a7d8c4">Therapy today — review your brief before session</span>
             </div>'''
@@ -3985,7 +4005,7 @@ def generate_html(data):
             icon = type_icons.get(itype, "💡")
 
             html += f'''
-            <div class="mb-3" style="text-align:left;">
+            <div class="mb-3" style="text-align:left;border:2px solid {config['color']}88;border-radius:0.65rem;padding:0.65rem 0.75rem;">
                 <p class="text-xs font-bold mb-2 uppercase" style="color: {config['color']}; letter-spacing: 0.1em;">{icon} {config['label']}</p>'''
 
             for idx, item in enumerate(items):
@@ -3998,7 +4018,7 @@ def generate_html(data):
                     lead = lead[:92].rsplit(' ', 1)[0] + '…'
                 emoji = _pick_insight_emoji(text)
                 html += f'''
-                <div style="display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.35rem;">
+                <div style="display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.45rem;padding:0.4rem 0.55rem;border:2px solid {config['color']}88;border-radius:0.45rem;background:{config['bg']};">
                     <div style="width:1.5rem;height:1.5rem;border-radius:0.45rem;background:{config['bg']};display:flex;align-items:center;justify-content:center;font-size:0.7rem;flex-shrink:0;margin-top:0.15rem;">{emoji}</div>
                     <p class="text-sm" style="color: #e5e7eb; line-height: 1.45;">{lead}</p>
                 </div>'''
@@ -4153,20 +4173,18 @@ def generate_html(data):
                 if len(sentences) > 2 and len(sl) > 150:
                     lead = sentences[0]
                     rest = ' '.join(sentences[1:])
-                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div{divider_attrs}>
+                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
                             <p class="text-base font-medium leading-relaxed" style="color: #f3f4f6; line-height: 1.8;">{emoji} {lead}</p>
                             <p class="text-sm mt-2 ml-6 leading-relaxed" style="color: #b0b5bd; line-height: 1.7;">{rest}</p>
                         </div>'''
                 else:
-                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div{divider_attrs}>
+                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
                             <p class="text-base leading-relaxed" style="color: #e5e7eb; line-height: 1.8;">{emoji} {sl}</p>
                         </div>'''
             morning_sections += f'''
-            <div class="mb-4 pb-3" style="border-bottom: 1px solid rgba(196,181,253,0.1);">
+            <div class="mb-4 pb-3" style="border-bottom: 1px solid rgba(196,181,253,0.35);">
                 {synthesis_items_html}
             </div>'''
 
@@ -4240,11 +4258,11 @@ def generate_html(data):
                 for idx, summary in enumerate(update_summaries[:2]):
                     emoji = _pick_insight_emoji(summary)
                     summary_items += f'''
-                        <div class="mb-3{'  pt-3" style="border-top: 1px solid rgba(147,197,253,0.12);' if idx > 0 else '"'}>
+                        <div class="mb-3{'  pt-3" style="border-top: 1px solid rgba(147,197,253,0.35);' if idx > 0 else '"'}>
                             <p class="text-base leading-relaxed" style="color: #e5e7eb; line-height: 1.7;">{emoji} {summary}</p>
                         </div>'''
                 updates_sections += f'''
-                <div class="mb-4 pb-3" style="border-bottom: 1px solid rgba(147,197,253,0.16);">
+                <div class="mb-4 pb-3" style="border-bottom: 1px solid rgba(147,197,253,0.35);">
                     {summary_items}
                 </div>'''
 
@@ -4296,20 +4314,18 @@ def generate_html(data):
                 if len(sentences) > 2 and len(sl) > 150:
                     lead = sentences[0]
                     rest = ' '.join(sentences[1:])
-                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div{divider_attrs}>
+                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
                             <p class="text-base font-medium leading-relaxed" style="color: #f3f4f6; line-height: 1.8;">{emoji} {lead}</p>
                             <p class="text-sm mt-2 ml-6 leading-relaxed" style="color: #b0b5bd; line-height: 1.7;">{rest}</p>
                         </div>'''
                 else:
-                    divider_attrs = ' class="mb-4 pt-3" style="border-top: 1px solid rgba(196,181,253,0.08);"' if idx > 0 else ' class="mb-4"'
                     synthesis_items_html += f'''
-                        <div{divider_attrs}>
+                        <div class="mb-3 rounded-lg px-4 py-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
                             <p class="text-base leading-relaxed" style="color: #e5e7eb; line-height: 1.8;">{emoji} {sl}</p>
                         </div>'''
             evening_sections += f'''
-            <div class="mb-4 pb-3" style="border-bottom: 1px solid rgba(196,181,253,0.1);">
+            <div class="mb-4 pb-3" style="border-bottom: 1px solid rgba(196,181,253,0.35);">
                 {synthesis_items_html}
             </div>'''
 
@@ -4406,7 +4422,7 @@ def generate_html(data):
                     </div>
                 </div>'''
             insights_fallback_html = f'''
-                <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(88,28,135,0.15), rgba(6,95,70,0.1)); border: 1px solid rgba(196,181,253,0.15);">
+                <div class="card rounded-xl p-5 mb-4" style="background: linear-gradient(135deg, rgba(88,28,135,0.15), rgba(6,95,70,0.1)); border: 2px solid rgba(196,181,253,0.55);">
                     <h3 class="text-lg font-semibold mb-3" style="color: #c4b8e0">💡 Today's Guidance</h3>
                     {items_html}
                 </div>'''
@@ -4457,7 +4473,7 @@ def generate_html(data):
             for item in techniques[:4]
         )
         support_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.2);">
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.14); border: 2px solid rgba(147,197,253,0.55);">
                 <h3 class="text-lg font-semibold mb-2" style="color: #a8c4e0">🧠 Overwhelm Support</h3>
                 <p class="text-xs mb-2" style="color: #94a3b8">Trigger signals detected: {", ".join(sorted(support_triggers))}</p>
                 <ul style="margin: 0; padding-left: 1rem;">{technique_html}</ul>
@@ -4485,7 +4501,7 @@ def generate_html(data):
             # Compact intervention — one-line technique + first step only
             _first_step = str(steps[0]).strip()[:80] if steps else ""
             intervention_html = f'''
-            <div class="rounded-lg p-3 mb-3 flex items-center gap-3" style="background: rgba(2,132,199,0.12); border: 1px solid rgba(125,211,252,0.2);">
+            <div class="rounded-lg p-3 mb-3 flex items-center gap-3" style="background: rgba(2,132,199,0.12); border: 2px solid rgba(125,211,252,0.55);">
                 <span style="font-size:1.4rem;">🎯</span>
                 <div style="flex:1;min-width:0;">
                     <p class="text-sm font-semibold" style="color: #bae6fd">{html.escape(technique)}</p>
@@ -4573,7 +4589,7 @@ def generate_html(data):
     wc_weights_progression_html = ""
     if wc_workout_type != "weights":
         wc_weights_progression_html = f'''
-                    <div class="rounded px-3 py-2 mb-2" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.18);">
+                    <div class="rounded px-3 py-2 mb-2" style="background: rgba(15,23,42,0.45); border: 2px solid rgba(148,163,184,0.55);">
                         <p class="text-xs font-semibold mb-1" style="color: #a8c4e0">🏋️ Weights progression snapshot</p>
                         <p id="qa-wc-weights-progression-meta" class="text-xs" style="color: {wc_weights_progression_view["color"]}">{html.escape(wc_weights_progression_view["label"])}</p>
                         {f'<p id="qa-wc-weights-progression-detail" class="text-xs mt-1" style="color: #9ca3af">{html.escape(wc_weights_progression_view["detail"])}</p>' if wc_weights_progression_view["detail"] else '<p id="qa-wc-weights-progression-detail" class="text-xs mt-1" style="color: #9ca3af"></p>'}
@@ -4581,13 +4597,13 @@ def generate_html(data):
         '''
 
     workout_checklist_html = f'''
-            <details id="qa-workout-checklist" class="mt-3 pt-2" style="border-top: 1px solid rgba(110,231,183,0.1);">
+            <details id="qa-workout-checklist" class="mt-3 pt-2" style="border-top: 2px solid rgba(110,231,183,0.55);">
                 <summary class="text-xs font-semibold cursor-pointer" style="color: #9ca3af">🧾 Workout checklist</summary>
                 <div class="mt-3">
-                    <div class="rounded px-3 py-3 mb-2" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(110,231,183,0.18);">
+                    <div class="rounded px-3 py-3 mb-2" style="background: rgba(15,23,42,0.5); border: 2px solid rgba(110,231,183,0.55);">
                         <div class="flex flex-wrap items-center gap-2 mb-2">
                             <label for="qa-wc-recovery" class="text-xs font-semibold" style="color: #b8d8c8">Recovery gate before weights</label>
-                            <select id="qa-wc-recovery" class="rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(110,231,183,0.25); color: #e5e7eb;">
+                            <select id="qa-wc-recovery" class="rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(110,231,183,0.55); color: #e5e7eb;">
                                 <option value="unknown" {'selected' if wc_recovery == 'unknown' else ''}>Unknown</option>
                                 <option value="pass" {'selected' if wc_recovery == 'pass' else ''}>Pass</option>
                                 <option value="fail" {'selected' if wc_recovery == 'fail' else ''}>Fail</option>
@@ -4601,30 +4617,30 @@ def generate_html(data):
                         <span style="color: #e5e7eb">Calf work done (standing + bent-knee raises)</span>
                     </label>
 
-                    <div class="rounded px-3 py-3 mb-3" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.2);">
+                    <div class="rounded px-3 py-3 mb-3" style="background: rgba(15,23,42,0.5); border: 2px solid rgba(148,163,184,0.55);">
                         <p class="text-xs font-semibold mb-2" style="color: #cbd5e1">Post-workout log (weights progression)</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <label class="text-xs" style="color: #9ca3af">RPE (1-10)
-                                <input id="qa-wc-rpe" type="number" min="1" max="10" value="{wc_rpe_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(148,163,184,0.25); color: #e5e7eb;">
+                                <input id="qa-wc-rpe" type="number" min="1" max="10" value="{wc_rpe_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(148,163,184,0.55); color: #e5e7eb;">
                             </label>
                             <label class="text-xs" style="color: #9ca3af">Pain (0-10)
-                                <input id="qa-wc-pain" type="number" min="0" max="10" value="{wc_pain_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(148,163,184,0.25); color: #e5e7eb;">
+                                <input id="qa-wc-pain" type="number" min="0" max="10" value="{wc_pain_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(148,163,184,0.55); color: #e5e7eb;">
                             </label>
                             <label class="text-xs" style="color: #9ca3af">Energy after (1-10)
-                                <input id="qa-wc-energy" type="number" min="1" max="10" value="{wc_energy_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(148,163,184,0.25); color: #e5e7eb;">
+                                <input id="qa-wc-energy" type="number" min="1" max="10" value="{wc_energy_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(148,163,184,0.55); color: #e5e7eb;">
                             </label>
                         </div>
                     </div>
 
-                    <div id="qa-wc-yoga-feedback-wrap" class="rounded px-3 py-3 mb-3" style="display: {'block' if wc_workout_type == 'yoga' else 'none'}; background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);">
+                    <div id="qa-wc-yoga-feedback-wrap" class="rounded px-3 py-3 mb-3" style="display: {'block' if wc_workout_type == 'yoga' else 'none'}; background: rgba(30,64,175,0.14); border: 2px solid rgba(147,197,253,0.55);">
                         <p class="text-xs font-semibold mb-2" style="color: #b0c8d8">🧘 Yoga feedback (for progression)</p>
                         <p class="text-xs mb-2" style="color: #9ca3af">Fill for progression tracking.</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
                             <label class="text-xs" style="color: #9ca3af">Duration (minutes)
-                                <input id="qa-wc-duration" type="number" min="5" max="240" value="{wc_duration_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;">
+                                <input id="qa-wc-duration" type="number" min="5" max="240" value="{wc_duration_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(147,197,253,0.55); color: #e5e7eb;">
                             </label>
                             <label class="text-xs" style="color: #9ca3af">Intensity
-                                <select id="qa-wc-intensity" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;">
+                                <select id="qa-wc-intensity" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(147,197,253,0.55); color: #e5e7eb;">
                                     <option value="" {'selected' if not wc_intensity_value else ''}>Select…</option>
                                     <option value="easy" {'selected' if wc_intensity_value == 'easy' else ''}>Easy</option>
                                     <option value="moderate" {'selected' if wc_intensity_value == 'moderate' else ''}>Moderate</option>
@@ -4632,7 +4648,7 @@ def generate_html(data):
                                 </select>
                             </label>
                             <label class="text-xs" style="color: #9ca3af">Type
-                                <select id="qa-wc-session-type" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;">
+                                <select id="qa-wc-session-type" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(147,197,253,0.55); color: #e5e7eb;">
                                     <option value="" {'selected' if not wc_session_type_value else ''}>Select…</option>
                                     <option value="somatic" {'selected' if wc_session_type_value == 'somatic' else ''}>Somatic</option>
                                     <option value="yin" {'selected' if wc_session_type_value == 'yin' else ''}>Yin</option>
@@ -4643,7 +4659,7 @@ def generate_html(data):
                                 </select>
                             </label>
                             <label class="text-xs" style="color: #9ca3af">Body feel after
-                                <select id="qa-wc-body-feel" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;">
+                                <select id="qa-wc-body-feel" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(147,197,253,0.55); color: #e5e7eb;">
                                     <option value="" {'selected' if not wc_body_feel_value else ''}>Select…</option>
                                     <option value="relaxed" {'selected' if wc_body_feel_value == 'relaxed' else ''}>Relaxed</option>
                                     <option value="neutral" {'selected' if wc_body_feel_value == 'neutral' else ''}>Neutral</option>
@@ -4654,21 +4670,21 @@ def generate_html(data):
                                 </select>
                             </label>
                             <label class="text-xs" style="color: #9ca3af">Anxiety relief (0-10)
-                                <input id="qa-wc-anxiety" type="number" min="0" max="10" step="1" value="{wc_yoga_anxiety_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;" oninput="qaOnChecklistAnxietyInput(this)" onchange="qaOnChecklistAnxietyInput(this)">
+                                <input id="qa-wc-anxiety" type="number" min="0" max="10" step="1" value="{wc_yoga_anxiety_value}" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(147,197,253,0.55); color: #e5e7eb;" oninput="qaOnChecklistAnxietyInput(this)" onchange="qaOnChecklistAnxietyInput(this)">
                             </label>
                         </div>
                         <label class="text-xs block" style="color: #9ca3af">Optional note
-                            <textarea id="qa-wc-note" rows="2" maxlength="280" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.26); color: #e5e7eb;">{html.escape(wc_note_value)}</textarea>
+                            <textarea id="qa-wc-note" rows="2" maxlength="280" class="mt-1 w-full rounded px-2 py-1 text-xs" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(147,197,253,0.55); color: #e5e7eb;">{html.escape(wc_note_value)}</textarea>
                         </label>
                     </div>
 
-                    <div class="rounded px-3 py-2 mb-2" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.18);">
+                    <div class="rounded px-3 py-2 mb-2" style="background: rgba(15,23,42,0.45); border: 2px solid rgba(148,163,184,0.55);">
                         <p class="text-xs font-semibold mb-1" style="color: #94a3b8">Close checks</p>
                         <label class="flex items-center gap-2 text-xs mb-1" style="color: #cbd5e1"><input id="qa-wc-sig-healthfit" type="checkbox" disabled {hf_fresh_checked} class="h-3 w-3">HealthFit export done today</label>
                         {evening_close_checks_html}
                     </div>
 
-                    <div class="rounded px-3 py-2 mb-2" style="background: rgba(6,95,70,0.14); border: 1px solid rgba(110,231,183,0.2);">
+                    <div class="rounded px-3 py-2 mb-2" style="background: rgba(6,95,70,0.14); border: 2px solid rgba(110,231,183,0.6);">
                         <p class="text-xs font-semibold mb-1" style="color: #a7d8c4">Auto-adjust progression rule</p>
                         <p id="qa-wc-progression-meta" class="text-xs" style="color: {wc_progression_view["color"]}">{html.escape(wc_progression_view["label"])}</p>
                         {f'<p id="qa-wc-progression-detail" class="text-xs mt-1" style="color: #9ca3af">{html.escape(wc_progression_view["detail"])}</p>' if wc_progression_view["detail"] else '<p id="qa-wc-progression-detail" class="text-xs mt-1" style="color: #9ca3af"></p>'}
@@ -4764,7 +4780,7 @@ def generate_html(data):
         # 7-day progression
         if recent:
             fitness_deep_html += f'''
-            <div class="mt-2 pt-2" style="border-top: 1px solid rgba(110,231,183,0.1);">
+            <div class="mt-2 pt-2" style="border-top: 2px solid rgba(110,231,183,0.55);">
                 <p class="text-xs font-semibold mb-2" style="color: #9ca3af">📊 Last 7 days: {len(recent)} workouts</p>'''
             for rw in recent[:5]:
                 dur = parse_duration_mins(rw.get("duration", ""))
@@ -4812,7 +4828,7 @@ def generate_html(data):
                 yoga_status = f'''<span style="color: #d4b896">⚠️ Yoga: {latest_yoga}m ({yoga_date_label}) — below your 20m minimum</span>'''
 
             fitness_deep_html += f'''
-            <div class="mt-2 pt-2" style="border-top: 1px solid rgba(110,231,183,0.1);">
+            <div class="mt-2 pt-2" style="border-top: 2px solid rgba(110,231,183,0.55);">
                 <div class="text-sm mb-1">{yoga_status}</div>'''
 
             # Trend over last sessions
@@ -4833,7 +4849,7 @@ def generate_html(data):
 
         if fitness_deep_html:
             fitness_items_html += f'''
-            <details class="mt-3 pt-2" style="border-top: 1px solid rgba(110,231,183,0.1);">
+            <details class="mt-3 pt-2" style="border-top: 2px solid rgba(110,231,183,0.55);">
                 <summary class="text-xs font-semibold cursor-pointer" style="color: #9ca3af">📂 Show training history and trends</summary>
                 <div class="mt-2">
                     {fitness_deep_html}
@@ -4843,7 +4859,7 @@ def generate_html(data):
         fitness_items_html += workout_checklist_html
 
         fitness_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.1); border: 1px solid rgba(110,231,183,0.15);">
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.1); border: 2px solid rgba(110,231,183,0.55);">
                 <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">💪 Fitness</h3>
                 {fitness_items_html}
             </div>'''
@@ -4853,7 +4869,7 @@ def generate_html(data):
         fallback_icon = "✅" if fallback_workout.get("done") else "⬜"
         fallback_color = "#e5e7eb" if fallback_workout.get("done") else "#6b7280"
         fitness_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.1); border: 1px solid rgba(110,231,183,0.15);">
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.1); border: 2px solid rgba(110,231,183,0.55);">
                 <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">💪 Fitness</h3>
                 <div class="flex items-start gap-2 mb-2">
                     <span style="color: {'#a7d8c4' if fallback_workout.get("done") else '#6b7280'}">{fallback_icon}</span>
@@ -4904,7 +4920,7 @@ def generate_html(data):
     _mood_current_label = html.escape(str(mood_entries[-1].get("label", "")).title()) if mood_entries else ""
     _mood_label_pill = f'<span style="font-size:0.75rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:999px;background:rgba(181,255,217,0.08);color:#B5FFD9;">{_mood_current_label}</span>' if _mood_current_label else ''
     mood_tracking_html = f'''
-            <div class="os-card mood-card" style="background:linear-gradient(135deg, rgba(88,28,135,0.08), rgba(30,28,45,0.6));border:1px solid rgba(196,181,253,0.15);">
+            <div class="os-card mood-card" style="background:linear-gradient(135deg, rgba(88,28,135,0.08), rgba(30,28,45,0.6));border:3px solid rgba(196,181,253,0.55);">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
                     <div style="display:flex;align-items:center;gap:0.5rem;">
                         <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(196,181,253,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;">🎭</div>
@@ -5010,7 +5026,7 @@ def generate_html(data):
 
         if mindfulness_done:
             mindfulness_html = f'''
-            <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.08); border: 1px solid rgba(147,197,253,0.15);">
+            <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.08); border: 2px solid rgba(147,197,253,0.55);">
                 <details>
                     <summary class="cursor-pointer flex items-center gap-2">
                         <span class="text-sm font-medium" style="color: #a7d8c4">✅ Mindfulness done</span>
@@ -5024,7 +5040,7 @@ def generate_html(data):
             </div>'''
         else:
             mindfulness_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.2);">
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 2px solid rgba(147,197,253,0.55);">
                 <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
                     <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(147,197,253,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;">🧠</div>
                     <h3 class="text-base font-semibold" style="color: #a8c4e0">Mindfulness</h3>
@@ -5083,7 +5099,7 @@ def generate_html(data):
                 pass
 
         finch_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.08); border: 1px solid rgba(110,231,183,0.12);">
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(6,95,70,0.08); border: 2px solid rgba(110,231,183,0.55);">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-lg font-semibold" style="color: #b8d8c8">🐦 Finch Self-Care</h3>
                     <div class="text-right">
@@ -5101,8 +5117,8 @@ def generate_html(data):
                         <p class="text-xs" style="color: #6b7280">activities</p>
                     </div>
                 </div>
-                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(110,231,183,0.1);"><p class="text-xs mb-2 font-semibold" style="color: #9ca3af">🧘 Daily habits:</p>' + activities_html + '</div>') if activities_html else ''}
-                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(110,231,183,0.1);">' + insights_html + '</div>') if insights_html else ''}
+                {('<div class="mt-2 pt-2" style="border-top: 2px solid rgba(110,231,183,0.55);"><p class="text-xs mb-2 font-semibold" style="color: #9ca3af">🧘 Daily habits:</p>' + activities_html + '</div>') if activities_html else ''}
+                {('<div class="mt-2 pt-2" style="border-top: 2px solid rgba(110,231,183,0.55);">' + insights_html + '</div>') if insights_html else ''}
                 {backup_warning}
             </div>'''
 
@@ -5119,7 +5135,7 @@ def generate_html(data):
 
         if stale:
             health_html = f'''
-            <div class="rounded-lg p-3 text-center" style="background: rgba(120,53,15,0.15); border: 1px solid rgba(251,191,36,0.2);">
+            <div class="rounded-lg p-3 text-center" style="background: rgba(120,53,15,0.15); border: 2px solid rgba(251,191,36,0.55);">
                 <p class="text-sm" style="color: #d8c8a0">⚠️ Health data is {age} days old — please export</p>
             </div>'''
         else:
@@ -5130,13 +5146,13 @@ def generate_html(data):
             day_label = "today" if latest_day == today_day else f"latest ({latest_day}th)"
             health_html = f'''
             <div class="flex gap-4">
-                <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(6,95,70,0.15); border: 1px solid rgba(110,231,183,0.15);">
+                <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(6,95,70,0.15); border: 2px solid rgba(110,231,183,0.55);">
                     <p class="text-2xl font-bold" style="color: #a7d8c4">{avg_steps:,}</p>
                     <p class="text-xs" style="color: #9ca3af">avg steps/day</p>
                     <p class="text-lg font-semibold mt-2" style="color: #34d399">{latest_steps:,}</p>
                     <p class="text-xs" style="color: #6b7280">{day_label}</p>
                 </div>
-                <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(88,28,135,0.15); border: 1px solid rgba(196,181,253,0.15);">
+                <div class="flex-1 rounded-lg p-3 text-center" style="background: rgba(88,28,135,0.15); border: 2px solid rgba(196,181,253,0.55);">
                     <p class="text-2xl font-bold" style="color: #c4b8e0">{avg_ex}m</p>
                     <p class="text-xs" style="color: #9ca3af">avg exercise</p>
                     <p class="text-lg font-semibold mt-2" style="color: #a78bfa">{latest_ex}m</p>
@@ -5174,16 +5190,16 @@ def generate_html(data):
         diff_summary = " ".join(diff_bits) if diff_bits else "Need more mixed health + anxiety score days for stronger comparison."
 
         correlation_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 1px solid rgba(147,197,253,0.18);">
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,64,175,0.12); border: 2px solid rgba(147,197,253,0.55);">
                 <details>
                     <summary class="text-lg font-semibold cursor-pointer" style="color: #a8c4e0">📈 Anxiety Relief Correlation ({points_count} days)</summary>
                     <div class="mt-3">
                         <p class="text-xs mb-2" style="color: #94a3b8">Tracks whether your Finch anxiety scores correlate with steps, exercise, and sleep over the last 14 days — helps identify which health habits most reliably reduce anxiety.</p>
                         <p class="text-xs mb-2" style="color: #94a3b8">Last 14 days with score+health overlap: {points_count}</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs mb-3">
-                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Steps corr: <span style="color: #b8d8c8">{corr_text(step_corr)}</span></div>
-                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Exercise corr: <span style="color: #b8d8c8">{corr_text(ex_corr)}</span></div>
-                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.2); color: #cbd5e1;">Sleep corr: <span style="color: #b8d8c8">{corr_text(sleep_corr)}</span></div>
+                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 2px solid rgba(148,163,184,0.55); color: #cbd5e1;">Steps corr: <span style="color: #b8d8c8">{corr_text(step_corr)}</span></div>
+                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 2px solid rgba(148,163,184,0.55); color: #cbd5e1;">Exercise corr: <span style="color: #b8d8c8">{corr_text(ex_corr)}</span></div>
+                            <div class="rounded px-2 py-2" style="background: rgba(15,23,42,0.55); border: 2px solid rgba(148,163,184,0.55); color: #cbd5e1;">Sleep corr: <span style="color: #b8d8c8">{corr_text(sleep_corr)}</span></div>
                         </div>
                         <p class="text-sm" style="color: #dbeafe; line-height: 1.5;">{diff_summary}</p>
                     </div>
@@ -5203,13 +5219,13 @@ def generate_html(data):
         for c in corr_items:
             conf_colour = {"high": "#a7d8c4", "medium": "#d4b896", "low": "#94a3b8"}.get(c.get("confidence", "low"), "#94a3b8")
             mood_items_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(30,58,138,0.12); border-left: 3px solid {conf_colour}">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(30,58,138,0.12); border: 2px solid {conf_colour}">
                 <p class="text-sm" style="color: #e5e7eb">{html.escape(str(c.get("finding", "")))}</p>
                 <p class="text-xs mt-1" style="color: #9ca3af">💡 {html.escape(str(c.get("recommendation", "")))}</p>
             </div>'''
 
         mood_correlation_html = f'''
-            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,58,138,0.12); border: 1px solid rgba(110,231,183,0.18);">
+            <div class="card rounded-xl p-5 mb-4" style="background: rgba(30,58,138,0.12); border: 2px solid rgba(110,231,183,0.55);">
                 <h3 class="text-lg font-semibold mb-3" style="color: #a7d8c4">📊 Mood Patterns ({mood_days}d)</h3>
                 {f'<p class="text-sm mb-3" style="color: #9ca3af">{html.escape(mood_summary)}</p>' if mood_summary else ""}
                 {mood_items_html}
@@ -5272,17 +5288,23 @@ def generate_html(data):
         "#d4b896" if weekly_needs_regeneration
         else ("#a7d8c4" if weekly_current_exists else ("#d4b896" if weekly_needs_generation else "#94a3b8"))
     )
-    weekly_latest_link_html = (
-        f'<a id="qa-weekly-digest-latest-link" href="{html.escape(weekly_latest_url)}" style="color: #a8c4e0">{html.escape(weekly_latest_name or "Latest weekly digest")}</a>'
+    weekly_latest_link_inner_html = (
+        f'<a href="{html.escape(weekly_latest_url)}" style="color: #a8c4e0">{html.escape(weekly_latest_name or "Latest weekly digest")}</a>'
         + (' <span class="text-xs" style="color:#d4b896">placeholder</span>' if weekly_latest_placeholder else "")
         if weekly_latest_url
-        else '<span id="qa-weekly-digest-latest-link" style="color: #6b7280">No weekly digest generated yet.</span>'
+        else '<span style="color: #6b7280">No weekly digest generated yet.</span>'
     )
-    weekly_current_link_html = (
-        f'<a id="qa-weekly-digest-current-link" href="{html.escape(weekly_current_url)}" style="color: #b8d8c8">{html.escape(Path(weekly_current_path).name)}</a>'
+    weekly_latest_link_html = (
+        f'<span data-qa-weekly-link-slot="latest">{weekly_latest_link_inner_html}</span>'
+    )
+    weekly_current_link_inner_html = (
+        f'<a href="{html.escape(weekly_current_url)}" style="color: #b8d8c8">{html.escape(Path(weekly_current_path).name)}</a>'
         + (' <span class="text-xs" style="color:#d4b896">placeholder</span>' if weekly_current_placeholder else "")
         if weekly_current_exists and weekly_current_url
-        else f'<span id="qa-weekly-digest-current-link" style="color: #6b7280">Current week ({html.escape(weekly_current_week)}) digest not generated yet.</span>'
+        else f'<span style="color: #6b7280">Current week ({html.escape(weekly_current_week)}) digest not generated yet.</span>'
+    )
+    weekly_current_link_html = (
+        f'<span data-qa-weekly-link-slot="current">{weekly_current_link_inner_html}</span>'
     )
     weekly_hint = (
         "Current weekly artifact exists, but the analysis content is still a placeholder — regenerate it."
@@ -5293,15 +5315,15 @@ def generate_html(data):
     )
     weekly_generate_btn_label = "↻ Regenerate week report" if weekly_current_exists else "📝 Generate week report"
     weekly_digest_html = f'''
-        <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.1); border: 1px solid rgba(147,197,253,0.2);">
+        <div class="card rounded-xl p-4 mb-4" style="background: rgba(30,64,175,0.1); border: 2px solid rgba(147,197,253,0.55);">
             <div class="flex items-center justify-between gap-3 mb-2">
                 <h3 class="text-lg font-semibold" style="color: #a8c4e0">📅 Weekly Report ({html.escape(weekly_current_week)})</h3>
-                <span id="qa-weekly-digest-status" class="optional-pill text-xs rounded px-2 py-1" style="border: 1px solid rgba(148,163,184,0.24); color: {weekly_status_color};">{weekly_status_label}</span>
+                <span id="qa-weekly-digest-status" class="optional-pill text-xs rounded px-2 py-1" style="border: 2px solid rgba(148,163,184,0.55); color: {weekly_status_color};">{weekly_status_label}</span>
             </div>
             <p class="text-xs mb-1" style="color: #cbd5e1">Current week: {weekly_current_link_html}</p>
             <p class="text-xs mb-2" style="color: #94a3b8">Latest: {weekly_latest_link_html}</p>
             <p id="qa-weekly-digest-meta" class="text-xs mb-3" style="color: #6b7280">{html.escape(weekly_hint)}</p>
-            <button id="qa-weekly-digest-btn" onclick="qaGenerateWeeklyDigest(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.3); color: #b0c8d8; border: 1px solid rgba(147,197,253,0.35);">{weekly_generate_btn_label}</button>
+            <button id="qa-weekly-digest-btn" onclick="qaGenerateWeeklyDigest(this)" class="rounded px-3 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.3); color: #b0c8d8; border: 2px solid rgba(147,197,253,0.55);">{weekly_generate_btn_label}</button>
         </div>''' if weekly_is_sunday else ""
     # === Screen Time Section ===
     screentime_html = ""
@@ -5346,7 +5368,7 @@ def generate_html(data):
             is_high = False
 
         bg_color = "rgba(120,53,15,0.15)" if is_high else "rgba(88,28,135,0.15)"
-        border_color = "rgba(251,191,36,0.2)" if is_high else "rgba(196,181,253,0.15)"
+        border_color = "rgba(251,191,36,0.55)" if is_high else "rgba(196,181,253,0.55)"
         text_color = "#d8c8a0" if is_high else "#c4b8e0"
         warning_emoji = " ⚠️" if is_high else ""
         screentime_summary_label = f"📱 Screen Time • {avg_time} (7-day avg){warning_emoji}"
@@ -5378,13 +5400,13 @@ def generate_html(data):
                         today_apps_html += f'<div class="flex justify-between text-xs mb-1"><span style="color: #d1d5db">{app_name}</span><span style="color: #9ca3af">{app_time}</span></div>'
 
         screentime_html = f'''
-            <div class="rounded-lg p-3" style="background: {bg_color}; border: 1px solid {border_color};">
+            <div class="rounded-lg p-3" style="background: {bg_color}; border: 2px solid {border_color};">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-sm font-semibold" style="color: {text_color}">📱 Screen Time (7-day avg){warning_emoji}</p>
                     <p class="text-2xl font-bold" style="color: {text_color}">{avg_time}</p>
                 </div>
-                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.2);">' + today_apps_html + '</div>') if today_apps_html else ''}
-                <div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.2);">
+                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.4);">' + today_apps_html + '</div>') if today_apps_html else ''}
+                <div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.4);">
                     <p class="text-xs mb-2" style="color: #9ca3af">Yesterday by category:</p>
                     {category_html if category_html else '<p class="text-xs" style="color: #6b7280">No data</p>'}
                 </div>
@@ -5465,20 +5487,20 @@ def generate_html(data):
         # Context switches with explanation
         switches_warning = ""
         if switches > 20:
-            switches_warning = f'<div class="rounded p-2 mt-2" style="background: rgba(120,53,15,0.1); border-left: 2px solid #d4b896"><p class="text-xs" style="color: #d4b896">⚠️ {switches} app switches today (avg {round(total_mins / max(switches, 1), 1)}m per app)</p></div>'
+            switches_warning = f'<div class="rounded p-2 mt-2" style="background: rgba(120,53,15,0.1); border: 2px solid #d4b896"><p class="text-xs" style="color: #d4b896">⚠️ {switches} app switches today (avg {round(total_mins / max(switches, 1), 1)}m per app)</p></div>'
 
         afk_note = ""
         removed_mins = float(raw_total_mins or 0) - float(total_mins or 0)
         if afk_filter_applied and removed_mins > 5:
             afk_note = (
-                '<div class="rounded p-2 mt-2" style="background: rgba(17,24,39,0.45); border-left: 2px solid #a7d8c4">'
+                '<div class="rounded p-2 mt-2" style="background: rgba(17,24,39,0.45); border: 2px solid #a7d8c4">'
                 f'<p class="text-xs" style="color: #a7d8c4">✅ Idle filtered: {_mins_display(raw_total_mins)} raw → {total_display} active'
                 f' (−{_mins_display(removed_mins)} AFK/sleep)</p>'
                 '</div>'
             )
 
         activitywatch_html = f'''
-            <div class="rounded-lg p-3" style="background: {config['bg']}; border: 1px solid {config['color']}33;">
+            <div class="rounded-lg p-3" style="background: {config['bg']}; border: 2px solid {config['color']}8c;">
                 <div class="flex items-center justify-between mb-2">
                     <div>
                         <p class="text-sm font-semibold" style="color: {config['color']}">{config['emoji']} Focus: {focus_state.upper()}</p>
@@ -5491,10 +5513,10 @@ def generate_html(data):
                 </div>
                 {afk_note}
                 {switches_warning}
-                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.2);"><p class="text-xs mb-2" style="color: #9ca3af">💼 Job applications: ' + str(int(job_mins)) + 'm</p></div>') if job_mins > 0 else ''}
-                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.2);"><p class="text-xs mb-2" style="color: #9ca3af">✅ Productive: ' + str(int(prod_mins)) + 'm</p></div>') if prod_mins > 0 else ''}
-                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.2);"><p class="text-xs mb-2" style="color: #9ca3af">Top apps:</p>' + apps_html + '</div>') if apps_html else ''}
-                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.2);"><p class="text-xs mb-2" style="color: #9ca3af">Top websites:</p>' + sites_html + '</div>') if sites_html else ''}
+                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.4);"><p class="text-xs mb-2" style="color: #9ca3af">💼 Job applications: ' + str(int(job_mins)) + 'm</p></div>') if job_mins > 0 else ''}
+                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.4);"><p class="text-xs mb-2" style="color: #9ca3af">✅ Productive: ' + str(int(prod_mins)) + 'm</p></div>') if prod_mins > 0 else ''}
+                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.4);"><p class="text-xs mb-2" style="color: #9ca3af">Top apps:</p>' + apps_html + '</div>') if apps_html else ''}
+                {('<div class="mt-2 pt-2" style="border-top: 1px solid rgba(75,85,99,0.4);"><p class="text-xs mb-2" style="color: #9ca3af">Top websites:</p>' + sites_html + '</div>') if sites_html else ''}
             </div>'''
     else:
         status_labels = {
@@ -5522,7 +5544,7 @@ def generate_html(data):
             hint = "Dashboard will fill this section automatically when data arrives."
 
         activitywatch_html = f'''
-            <div class="rounded-lg p-3" style="background: rgba(55,65,81,0.15); border: 1px solid rgba(156,163,175,0.25);">
+            <div class="rounded-lg p-3" style="background: rgba(55,65,81,0.15); border: 2px solid rgba(156,163,175,0.55);">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-sm font-semibold" style="color: {status_color}">📡 Status: {status_label}</p>
                 </div>
@@ -5558,7 +5580,7 @@ def generate_html(data):
             _tldr_safe = html.escape(_tldr) if _tldr else ""
             if _tldr_safe:
                 _parts.append(
-                    f'<div class="rounded p-2.5 mb-3" style="background:rgba(6,95,70,0.12);border-left:2px solid rgba(110,231,183,0.5);">'
+                    f'<div class="rounded p-2.5 mb-3" style="background:rgba(6,95,70,0.12);border:2px solid rgba(110,231,183,0.55);">'
                     f'<p class="text-xs font-semibold mb-1" style="color:#a7d8c4">📋 Morning Brief</p>'
                     f'<p class="text-sm" style="color:#d1d5db;line-height:1.5;">{_tldr_safe}</p>'
                     f'</div>'
@@ -5576,7 +5598,7 @@ def generate_html(data):
 
         if _parts:
             pieces_html = (
-                '<div class="rounded-lg p-3" style="background:rgba(88,28,135,0.1);border:1px solid rgba(196,181,253,0.18);">'
+                '<div class="rounded-lg p-3" style="background:rgba(88,28,135,0.1);border:2px solid rgba(196,181,253,0.55);">'
                 + "".join(_parts)
                 + "</div>"
             )
@@ -5610,7 +5632,7 @@ def generate_html(data):
             for line in lines[:3]
         )
         return (
-            f'<div class="rounded-lg p-3 mb-2" style="background:{bg_color};border-left:3px solid {accent_color};">'
+            f'<div class="rounded-lg p-3 mb-2" style="background:{bg_color};border:2px solid {accent_color};">'
             f'<p class="text-xs font-semibold mb-2" style="color:{accent_color}">{emoji} {title}</p>'
             f'<ul style="margin:0;padding-left:1.1rem">{bullets}</ul>'
             '</div>'
@@ -5646,7 +5668,7 @@ def generate_html(data):
             '<div style="margin: -0.25rem 0 0.75rem;">'
             f'<span class="optional-pill text-caption" style="display:inline-flex;align-items:center;gap:0.35rem;'
             f'padding:0.2rem 0.55rem;border-radius:999px;'
-            f'border:1px solid {border_color};background:{bg_color};'
+            f'border:2px solid {border_color};background:{bg_color};'
             f'color:#d1d5db;line-height:1.2;">'
             f'{emoji} {html.escape(tag.title())}'
             '</span></div>'
@@ -5684,7 +5706,7 @@ def generate_html(data):
     if morning.get("grateful"):
         grateful_content = _render_grateful_as_list(morning.get("grateful", ""))
         morning_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(6,95,70,0.1); border-left: 3px solid #a7d8c4">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(6,95,70,0.1); border: 2px solid #a7d8c4">
                 <p class="text-xs mb-1" style="color: #a7d8c4">🙏 Grateful for</p>
                 <div class="text-sm" style="color: #e5e7eb">{grateful_content}</div>
             </div>'''
@@ -5692,7 +5714,7 @@ def generate_html(data):
     if morning.get("intent"):
         intent_emoji = _pick_content_emoji(morning.get("intent", ""))
         morning_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border-left: 3px solid #c4b8e0">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border: 2px solid #c4b8e0">
                 <p class="text-xs mb-1" style="color: #c4b8e0">🎯 Intent</p>
                 <p class="text-sm" style="color: #e5e7eb">{intent_emoji} {morning.get("intent", "")}</p>
             </div>'''
@@ -5700,7 +5722,7 @@ def generate_html(data):
     if morning.get("affirmation"):
         affirm_emoji = _pick_content_emoji(morning.get("affirmation", ""))
         morning_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(249,168,212,0.1); border-left: 3px solid #fbcfe8">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(249,168,212,0.1); border: 2px solid #fbcfe8">
                 <p class="text-xs mb-1" style="color: #fbcfe8">✨ Affirmation</p>
                 <p class="text-sm" style="color: #e5e7eb">{affirm_emoji} {morning.get("affirmation", "")}</p>
             </div>'''
@@ -5708,7 +5730,7 @@ def generate_html(data):
     if morning.get("body_check"):
         body_emoji = _pick_content_emoji(morning.get("body_check", ""))
         morning_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(167,243,208,0.08); border-left: 3px solid rgba(167,243,208,0.5)">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(167,243,208,0.08); border: 2px solid rgba(167,243,208,0.55)">
                 <p class="text-xs mb-1" style="color: rgba(167,243,208,0.7)">🧘 Body check</p>
                 <p class="text-sm" style="color: #e5e7eb">{body_emoji} {morning.get("body_check", "")}</p>
             </div>'''
@@ -5716,7 +5738,7 @@ def generate_html(data):
     if morning.get("letting_go"):
         letting_emoji = _pick_content_emoji(morning.get("letting_go", ""))
         morning_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(196,181,253,0.08); border-left: 3px solid rgba(196,181,253,0.5)">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(196,181,253,0.08); border: 2px solid rgba(196,181,253,0.55)">
                 <p class="text-xs mb-1" style="color: rgba(196,181,253,0.7)">🍃 Letting go</p>
                 <p class="text-sm" style="color: #e5e7eb">{letting_emoji} {morning.get("letting_go", "")}</p>
             </div>'''
@@ -5731,7 +5753,7 @@ def generate_html(data):
         emotional_summary = morning_api_entries[0].get("emotional_summary", "")
         if emotional_summary:
             morning_ai_html = f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.08); border-left: 3px solid rgba(196,181,253,0.5)">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.08); border: 2px solid rgba(196,181,253,0.55)">
                 <p class="text-xs mb-1" style="color: rgba(196,181,253,0.7)">🔮 Emotional tone</p>
                 <p class="text-sm" style="color: #e5e7eb">{emotional_summary}</p>
             </div>'''
@@ -5749,7 +5771,7 @@ def generate_html(data):
             _mb2_tldr = _truncate_sentence_safe(_mb2_md.split("###")[0].strip(), max_len=400)
         if _mb2_tldr:
             _pieces_morning_brief_html = (
-                '<div class="rounded-lg p-3 mb-2" style="background:rgba(88,28,135,0.12);border-left:3px solid rgba(196,181,253,0.6);">'
+                '<div class="rounded-lg p-3 mb-2" style="background:rgba(88,28,135,0.12);border:2px solid rgba(196,181,253,0.6);">'
                 '<p class="text-xs font-semibold mb-1" style="color:#c4b8e0">📋 Morning Brief</p>'
                 f'<p class="text-sm" style="color:#e5e7eb;line-height:1.5;">{html.escape(_mb2_tldr)}</p>'
                 '</div>'
@@ -5863,7 +5885,7 @@ def generate_html(data):
             updates_card_html = f'''
     <div class="card mb-4">
         <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">📝 Updates</h3>
-        <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border-left: 3px solid #60a5fa">
+        <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border: 2px solid #60a5fa">
             <p class="text-sm mb-2" style="color: #e5e7eb">{updates_emoji} {updates_preview_html}</p>
             <p class="text-xs" style="color: #a8c4e0">Condensed for readability.</p>
         </div>
@@ -5878,7 +5900,7 @@ def generate_html(data):
             updates_card_html = f'''
     <div class="card mb-4">
         <h3 class="text-lg font-semibold mb-3" style="color: #a8c4e0">📝 Updates</h3>
-        <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border-left: 3px solid #60a5fa">
+        <div class="rounded-lg p-3" style="background: rgba(30,64,175,0.12); border: 2px solid #60a5fa">
             <p class="text-sm" style="color: #e5e7eb">{updates_emoji} {updates_text_html}</p>
         </div>
     </div>'''
@@ -5904,7 +5926,7 @@ def generate_html(data):
             things_emoji = _pick_content_emoji(things_text)
             things_html = f'<p class="text-sm" style="color: #e5e7eb">{things_emoji} {things_text}</p>'
         evening_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border-left: 3px solid #c4b8e0">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.1); border: 2px solid #c4b8e0">
                 <p class="text-xs mb-1" style="color: #c4b8e0">🌟 Three good things</p>
                 {things_html}
             </div>'''
@@ -5913,7 +5935,7 @@ def generate_html(data):
         tomorrow_short = tomorrow  # No truncation — full-length display
         tomorrow_emoji = _pick_content_emoji(tomorrow_short)
         evening_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(131,24,67,0.1); border-left: 3px solid #d4a8b8">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(131,24,67,0.1); border: 2px solid #d4a8b8">
                 <p class="text-xs mb-1" style="color: #d4a8b8">🌅 Tomorrow</p>
                 <p class="text-sm" style="color: #e5e7eb">{tomorrow_emoji} {tomorrow_short}</p>
             </div>'''
@@ -5960,14 +5982,14 @@ def generate_html(data):
             items = _eve_grouped[itype]
             icon, label, color, bg = type_config.get(itype, ("💡", itype.title(), "#9ca3af", "rgba(75,85,99,0.1)"))
             evening_ai_html += f'''
-            <div class="rounded-lg p-4 mb-3" style="background: {bg}; border-left: 3px solid {color}">
+            <div class="rounded-lg p-4 mb-3" style="background: {bg}; border: 2px solid {color}">
                 <p class="text-xs font-bold mb-3 uppercase tracking-wider" style="color: {color}; letter-spacing: 0.08em;">{icon} {label}</p>'''
             for idx, insight in enumerate(items):
                 text = insight.get("text", "")
                 # Break long insights into lead sentence + supporting detail
                 emoji = _pick_insight_emoji(text)
                 sentences = re.split(r'(?<=[.!?])\s+', text)
-                wrapper_attrs = ' class="mt-3 pt-3" style="border-top: 1px solid rgba(75,85,99,0.15);"' if idx > 0 else ""
+                wrapper_attrs = f' style="border:2px solid {color}66;border-radius:0.45rem;padding:0.5rem 0.65rem;margin-top:0.5rem;"' if idx > 0 else f' style="border:2px solid {color}66;border-radius:0.45rem;padding:0.5rem 0.65rem;"'
                 if len(sentences) > 1 and len(text) > 120:
                     lead = sentences[0]
                     rest = ' '.join(sentences[1:])
@@ -5988,7 +6010,7 @@ def generate_html(data):
     brave_text = evening.get("brave", "")
     if brave_text:
         evening_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(6,95,70,0.1); border-left: 3px solid #34d399">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(6,95,70,0.1); border: 2px solid #34d399">
                 <p class="text-xs mb-1" style="color: #34d399">💪 Brave moment</p>
                 <p class="text-sm" style="color: #e5e7eb">{brave_text}</p>
             </div>'''
@@ -5997,7 +6019,7 @@ def generate_html(data):
     evening_reflections_text = _clean_evening_reflections_text(evening.get("evening_reflections", ""))
     if evening_reflections_text:
         evening_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.08); border-left: 3px solid rgba(196,181,253,0.5)">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(88,28,135,0.08); border: 2px solid rgba(196,181,253,0.55)">
                 <p class="text-xs mb-1" style="color: rgba(196,181,253,0.7)">🌙 Evening reflections</p>
                 <p class="text-sm" style="color: #e5e7eb">{html.escape(evening_reflections_text)}</p>
             </div>'''
@@ -6007,7 +6029,7 @@ def generate_html(data):
     if remember_tomorrow_text:
         remember_emoji = _pick_content_emoji(remember_tomorrow_text)
         evening_raw_html += f'''
-            <div class="rounded-lg p-3 mb-2" style="background: rgba(131,24,67,0.08); border-left: 3px solid rgba(249,168,212,0.5)">
+            <div class="rounded-lg p-3 mb-2" style="background: rgba(131,24,67,0.08); border: 2px solid rgba(249,168,212,0.55)">
                 <p class="text-xs mb-1" style="color: rgba(249,168,212,0.7)">📌 Remember for tomorrow</p>
                 <p class="text-sm" style="color: #e5e7eb">{remember_emoji} {remember_tomorrow_text}</p>
             </div>'''
@@ -6015,7 +6037,7 @@ def generate_html(data):
     if carrying:
         carry_emoji = _pick_content_emoji(carrying)
         evening_raw_html += f'''
-            <div class="rounded-lg p-3" style="background: rgba(120,53,15,0.1); border-left: 3px solid #d4b896">
+            <div class="rounded-lg p-3" style="background: rgba(120,53,15,0.1); border: 2px solid #d4b896">
                 <p class="text-xs mb-1" style="color: #d4b896">📌 Carrying forward</p>
                 <p class="text-sm" style="color: #e5e7eb">{carry_emoji} {carrying}</p>
             </div>'''
@@ -6201,7 +6223,7 @@ def generate_html(data):
                 if tomorrow_is_weekend:
                     tomorrow_subnote = "Weekend mode active: recovery/family actions prioritised."
                 suggestions_html = f'''
-    <div class="card" style="border: 1px solid rgba(167,243,208,0.1)">
+    <div class="card" style="border: 2px solid rgba(167,243,208,0.55)">
         <h3 class="text-sm font-semibold mb-2" style="color: rgba(167,243,208,0.6)">🌅 Tomorrow\'s Guidance</h3>
         <p class="text-xs mb-3" style="color: #6b7280">{tomorrow_subnote}</p>
         {tomorrow_items_html}
@@ -6230,13 +6252,13 @@ def generate_html(data):
                 continue
             if g_text:
                 guidance_items_html += f'''
-                <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.5rem 0.65rem;border-radius:0.65rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.5rem 0.65rem;border-radius:0.65rem;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.55);margin-bottom:0.4rem;">
                     <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(196,184,224,0.12);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;margin-top:0.1rem;">{g_emoji}</div>
                     <p class="text-sm" style="color: #e5e7eb; line-height: 1.6">{g_text}</p>
                 </div>'''
         if guidance_items_html or state_of_day_html:
             todays_guidance_html = f'''
-    <div class="card" style="border: 1px solid rgba(196,181,253,0.15)">
+    <div class="card" style="border: 2px solid rgba(196,181,253,0.55)">
         <h3 class="text-sm font-semibold mb-3" style="color: #c4b8e0">💡 Today\'s Guidance</h3>
         {state_of_day_html}
         {guidance_items_html}
@@ -6298,11 +6320,11 @@ def generate_html(data):
         _alert_open = " open" if _has_high else ""
         _alert_items = ""
         _severity_styles = {
-            "high":   {"color": "#d4a0a0", "bg": "rgba(212,160,160,0.09)", "border": "rgba(212,160,160,0.2)"},
-            "medium": {"color": "#d8c8a0", "bg": "rgba(216,200,160,0.09)", "border": "rgba(216,200,160,0.2)"},
-            "low":    {"color": "#bae6fd", "bg": "rgba(186,230,253,0.09)", "border": "rgba(186,230,253,0.2)"},
+            "high":   {"color": "#d4a0a0", "bg": "rgba(212,160,160,0.09)", "border": "rgba(212,160,160,0.6)"},
+            "medium": {"color": "#d8c8a0", "bg": "rgba(216,200,160,0.09)", "border": "rgba(216,200,160,0.55)"},
+            "low":    {"color": "#bae6fd", "bg": "rgba(186,230,253,0.09)", "border": "rgba(186,230,253,0.55)"},
         }
-        _sev_default = {"color": "#cbd5e1", "bg": "rgba(203,213,225,0.09)", "border": "rgba(203,213,225,0.2)"}
+        _sev_default = {"color": "#cbd5e1", "bg": "rgba(203,213,225,0.09)", "border": "rgba(203,213,225,0.55)"}
         for _al in _active_alerts[:4]:
             _sev = str(_al.get("severity", "low")).strip().lower()
             _ss = _severity_styles.get(_sev, _sev_default)
@@ -6310,13 +6332,13 @@ def generate_html(data):
             _al_detail_html = f'<br><span class="text-xs" style="color:#94a3b8">{html.escape(_al_detail)}</span>' if _al_detail else ""
             _alert_items += (
                 f'<li class="text-sm mb-2" style="color:{_ss["color"]};line-height:1.45;">'
-                f'<span class="inline-pill" style="border:1px solid {_ss["border"]};background:{_ss["bg"]};color:{_ss["color"]};margin-right:0.25rem;">{html.escape(_sev)}</span>'
+                f'<span class="inline-pill" style="border:2px solid {_ss["border"]};background:{_ss["bg"]};color:{_ss["color"]};margin-right:0.25rem;">{html.escape(_sev)}</span>'
                 f'{html.escape(str(_al.get("message", "")))}{_al_detail_html}</li>'
             )
         _alert_count = len(_active_alerts)
         _alert_label = f"{_alert_count} alert{'s' if _alert_count != 1 else ''} active"
         alerts_html = f'''
-        <div class="card rounded-xl p-4 mb-3" style="background:rgba(127,29,29,0.14);border:1px solid rgba(252,165,165,0.2);">
+        <div class="card rounded-xl p-4 mb-3" style="background:rgba(127,29,29,0.14);border:2px solid rgba(252,165,165,0.6);">
             <details{_alert_open}>
                 <summary class="text-xs cursor-pointer font-semibold" style="color:#d4a0a0;user-select:none;">&#9888; {html.escape(_alert_label)}</summary>
                 <ul class="mt-2" style="margin:0;padding-left:1rem;">{_alert_items}</ul>
@@ -6334,14 +6356,14 @@ def generate_html(data):
                 continue
             _trend = str(_pp.get("trend", "")).strip()
             _trend_styles = {
-                "escalating":       {"color": "#d4a0a0", "bg": "rgba(212,160,160,0.08)", "border": "rgba(212,160,160,0.27)"},
-                "stable":           {"color": "#d8c8a0", "bg": "rgba(216,200,160,0.08)", "border": "rgba(216,200,160,0.27)"},
-                "declining":        {"color": "#b8d8c8", "bg": "rgba(184,216,200,0.08)", "border": "rgba(184,216,200,0.27)"},
-                "insufficient_data": {"color": "#94a3b8", "bg": "rgba(148,163,184,0.08)", "border": "rgba(148,163,184,0.27)"},
+                "escalating":       {"color": "#d4a0a0", "bg": "rgba(212,160,160,0.08)", "border": "rgba(212,160,160,0.55)"},
+                "stable":           {"color": "#d8c8a0", "bg": "rgba(216,200,160,0.08)", "border": "rgba(216,200,160,0.55)"},
+                "declining":        {"color": "#b8d8c8", "bg": "rgba(184,216,200,0.08)", "border": "rgba(184,216,200,0.55)"},
+                "insufficient_data": {"color": "#94a3b8", "bg": "rgba(148,163,184,0.08)", "border": "rgba(148,163,184,0.55)"},
             }
             _ts = _trend_styles.get(_trend, _trend_styles["insufficient_data"])
             _plc_pills += (
-                f'<span class="optional-pill inline-pill" style="border:1px solid {_ts["border"]};background:{_ts["bg"]};color:{_ts["color"]};padding:0.15rem 0.55rem;">'
+                f'<span class="optional-pill inline-pill" style="border:2px solid {_ts["border"]};background:{_ts["bg"]};color:{_ts["color"]};padding:0.15rem 0.55rem;">'
                 f'{html.escape(str(_pp.get("pattern", ""))[:30])} {html.escape(_trend)}</span>'
             )
         _plc_insights = ""
@@ -6457,18 +6479,22 @@ def generate_html(data):
         # Evening emotional summary (rich prose — primary)
         if eve_felt_summary:
             felt_parts += f'''
-            <p class="text-sm mb-3" style="color: #e5e7eb; line-height: 1.6">{eve_felt_summary}</p>'''
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+                <p class="text-sm" style="color: #e5e7eb; line-height: 1.6">{eve_felt_summary}</p>
+            </div>'''
 
         # Latest overall summary (secondary)
         if emotional_summary and emotional_summary != eve_felt_summary:
             felt_parts += f'''
-            <p class="text-sm mb-3" style="color: #d1d5db; line-height: 1.6">{emotional_summary}</p>'''
+            <div class="rounded-lg px-3 py-2.5 mb-3" style="border:2px solid rgba(196,181,253,0.5);background:rgba(88,28,135,0.06);">
+                <p class="text-sm" style="color: #d1d5db; line-height: 1.6">{emotional_summary}</p>
+            </div>'''
 
         # Key patterns from evening
         if eve_patterns:
             for p in eve_patterns:
                 felt_parts += f'''
-            <div class="flex items-start gap-2 mb-2">
+            <div class="flex items-start gap-2 mb-2 rounded-lg px-3 py-2" style="border:2px solid rgba(196,181,253,0.5);background:rgba(196,181,253,0.06);">
                 <span style="color: #c4b8e0">🔄</span>
                 <p class="text-sm" style="color: #d1d5db">{p.get("text", "")}</p>
             </div>'''
@@ -6477,7 +6503,7 @@ def generate_html(data):
         if eve_signals:
             for s in eve_signals:
                 felt_parts += f'''
-            <div class="flex items-start gap-2 mb-2">
+            <div class="flex items-start gap-2 mb-2 rounded-lg px-3 py-2" style="border:2px solid rgba(251,191,36,0.5);background:rgba(251,191,36,0.06);">
                 <span style="color: #d4b896">⚠️</span>
                 <p class="text-sm" style="color: #d1d5db">{s.get("text", "")}</p>
             </div>'''
@@ -6497,13 +6523,14 @@ def generate_html(data):
 
         how_felt_body_html = felt_parts
         how_felt_html = f'''
-    <div class="card" style="border: 1px solid rgba(196,181,253,0.1)">
+    <div class="card" style="border: 2px solid rgba(196,181,253,0.55)">
         <h3 class="text-lg font-semibold mb-3" style="color: #c4b8e0">💭 How Today Felt</h3>
         {felt_parts}
     </div>'''
 
     # Open beads snapshot (collapsed at bottom)
     backlog_html = ""
+    os3_more_beads_html = ""
     try:
         import subprocess
         # Optional backlog section should never block dashboard generation.
@@ -6579,9 +6606,12 @@ def generate_html(data):
                 bead_id = html.escape(str(bead.get("id", "")))
                 title = html.escape(str(bead.get("title", "") or "").strip())
                 beads_lines.append(
-                    f'<div class="text-xs py-1.5" style="color:#9ca3af;border-bottom:1px solid rgba(75,85,99,0.2)">'
+                    f'<a href="http://127.0.0.1:3010/#/issues?issue={bead_id}" target="_blank" rel="noopener noreferrer" '
+                    f'style="display:block;text-decoration:none;color:inherit;">'
+                    f'<div class="text-xs py-1.5" style="color:#9ca3af;border-bottom:1px solid rgba(75,85,99,0.2);cursor:pointer;" '
+                    f'onmouseover="this.style.background=\'rgba(148,163,184,0.08)\'" onmouseout="this.style.background=\'\'">'
                     f'<span style="display:inline-block;min-width:3.5rem;color:{repo_color};font-weight:600">{repo}</span> '
-                    f'{icon} {bead_id}: {title}</div>'
+                    f'{icon} {bead_id}: {title}</div></a>'
                 )
 
             hidden_count = max(0, len(all_beads) - len(featured))
@@ -6589,7 +6619,7 @@ def generate_html(data):
             extra_note = f'<p class="text-xs mt-2" style="color:#6b7280">+ {hidden_count} more open beads</p>' if hidden_count else ""
             counts_note = f'<p class="text-xs mt-1" style="color:#6b7280">{html.escape(counts_text)}</p>' if counts_text else ""
             backlog_html = f'''
-    <details class="card" style="border: 1px solid rgba(75,85,99,0.15)">
+    <details class="card" style="border: 3px solid rgba(196, 181, 253, 0.55)">
         <summary class="cursor-pointer text-sm" style="color: #6b7280">🎯 Open Beads ({len(all_beads)} open)</summary>
         <div class="mt-3">
             {counts_note}
@@ -6598,6 +6628,63 @@ def generate_html(data):
             <p class="text-xs mt-3" style="color: #4b5563">Live from bead DBs across TODO / HEALTH / WORK.</p>
         </div>
     </details>'''
+            repo_groups = {name: [] for name, _ in project_defs}
+            for bead in all_beads:
+                repo_groups.setdefault(str(bead.get("_repo", "")).strip().upper() or "TODO", []).append(bead)
+
+            column_html = []
+            for repo_name, _ in project_defs:
+                repo_rows = repo_groups.get(repo_name, [])
+                repo_color = repo_colors.get(repo_name, "#94a3b8")
+                cards = []
+                for bead in repo_rows[:5]:
+                    icon = type_icons.get(bead.get("issue_type", "task"), "📋")
+                    priority = str(bead.get("priority", "") or "").strip()
+                    bead_id = html.escape(str(bead.get("id", "")))
+                    title = html.escape(str(bead.get("title", "") or "").strip())
+                    priority_chip = (
+                        f'<span class="text-xs" style="padding:0.12rem 0.4rem;border-radius:999px;'
+                        f'background:rgba(148,163,184,0.12);color:#cbd5e1;border:1px solid rgba(148,163,184,0.35);">P{html.escape(priority)}</span>'
+                        if priority else ""
+                    )
+                    cards.append(
+                        f'<div class="os-surface" style="padding:0.55rem 0.65rem;">'
+                        f'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;">'
+                        f'<div style="min-width:0;"><p class="text-xs" style="color:{repo_color};font-weight:700;margin:0 0 0.2rem">{icon} {bead_id}</p>'
+                        f'<a href="http://127.0.0.1:3010/#/issues?issue={bead_id}" target="_blank" rel="noopener noreferrer" '
+                        f'style="display:block;color:#e5e7eb;line-height:1.4;margin:0;text-decoration:none;">{title}</a></div>'
+                        f'{priority_chip}</div></div>'
+                    )
+                more_note = ""
+                if len(repo_rows) > 5:
+                    more_note = f'<p class="text-xs mt-2" style="color:#94a3b8">+ {len(repo_rows) - 5} more</p>'
+                if not cards:
+                    cards = ['<div class="os-surface"><p class="text-sm" style="color:#94a3b8">No open beads.</p></div>']
+                column_html.append(
+                    f'<div class="os-card" style="padding:0.85rem;">'
+                    f'<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.6rem;">'
+                    f'<h4 class="text-sm font-semibold" style="color:{repo_color}">{repo_name}</h4>'
+                    f'<span class="text-xs" style="padding:0.15rem 0.5rem;border-radius:999px;background:rgba(148,163,184,0.12);color:#cbd5e1;">{len(repo_rows)} open</span>'
+                    f'</div>{"".join(cards)}{more_note}</div>'
+                )
+
+            os3_more_beads_html = f'''
+                <details class="os-card">
+                    <summary class="cursor-pointer" style="display:flex;align-items:center;justify-content:space-between;gap:0.65rem;">
+                        <span class="text-sm font-semibold" style="color:#f5d0fe">🎯 Beads board</span>
+                        <span class="text-xs" style="color:#94a3b8">{len(all_beads)} open</span>
+                    </summary>
+                    <div class="mt-3">
+                        {counts_note}
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
+                            {"".join(column_html)}
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.85rem;">
+                            <a href="http://127.0.0.1:3010/" target="_blank" rel="noopener noreferrer" class="btn btn--blue">Open backup Beads UI</a>
+                        </div>
+                        <p class="text-xs mt-2" style="color:#94a3b8">Backup Beads UI now runs on 127.0.0.1:3010 to avoid local port conflicts.</p>
+                    </div>
+                </details>'''
     except Exception:
         # Keep this card optional and silent on failure.
         pass
@@ -6630,8 +6717,8 @@ def generate_html(data):
                     f'data-file-src="{html.escape(file_url, quote=True)}" '
                     f'data-remote-src="{html.escape(remote_url, quote=True)}" '
                     'alt="Today" class="rounded-2xl object-cover flex-shrink-0" '
-                    'style="width: 100px; height: 100px; border: 2px solid rgba(249,168,212,0.3);" '
-                    'onerror="this.style.display=\'none\'"/>'
+                    'style="width: 100px; height: 100px; border: 2px solid rgba(249,168,212,0.55);" '
+                    'loading="eager" decoding="async"/>'
                 )
 
     system_status_html = ""
@@ -6975,7 +7062,7 @@ def generate_html(data):
             _qa_arrow = "📉" if _qa_delta > 0 else "📈" if _qa_delta < 0 else "➡️"  # higher anxiety = worse
             qa_target_line = f'<br><span style="color:#9ca3af">Last week: {qa_prior_week_avg:g} → Target: {_qa_target:g} {_qa_arrow}</span>'
         qa_week_summary_html = f'''
-            <div class="mt-2 rounded px-2 py-2" style="background: rgba(30,41,59,0.45); border: 1px solid rgba(251,191,36,0.15);">
+            <div class="mt-2 rounded-xl px-3 py-2.5" style="background: rgba(30,41,59,0.45); border: 2px solid rgba(251,191,36,0.55);">
                 <p class="text-xs" style="color: #d4c090">📊 This week avg: <span class="font-semibold">{qa_week_avg:g} / 10</span>{qa_target_line}</p>
                 <p class="text-xs mt-1" style="color: #9ca3af">Trend: <span style="letter-spacing: 1px">{qa_spark}</span></p>
                 <p class="text-xs mt-1" style="color: #6b7280">{' • '.join(qa_history_items) if qa_history_items else 'No scored days yet.'}</p>
@@ -6983,7 +7070,7 @@ def generate_html(data):
         '''
     else:
         qa_week_summary_html = '''
-            <div class="mt-2 rounded px-2 py-2" style="background: rgba(30,41,59,0.45); border: 1px solid rgba(251,191,36,0.12);">
+            <div class="mt-2 rounded-xl px-3 py-2.5" style="background: rgba(30,41,59,0.45); border: 2px solid rgba(251,191,36,0.55);">
                 <p class="text-xs" style="color: #9ca3af">📊 This week avg: — / 10</p>
                 <p class="text-xs mt-1" style="color: #6b7280">Add a score to start the weekly trend.</p>
             </div>
@@ -7031,7 +7118,7 @@ def generate_html(data):
             loop_emoji = _pick_content_emoji(loop_text)
             loop_compact = _compact_task_text(loop_text, max_len=120)
             qa_loop_rows_html += f'''
-            <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="loop" style="background: rgba(120,53,15,0.28); border: 1px solid rgba(251,191,36,0.25);">
+            <div class="rounded-lg px-3 py-2.5 mb-2 flex items-start gap-2" data-qa-row="loop" style="background: rgba(120,53,15,0.28); border: 2px solid rgba(251,191,36,0.55);">
                 <span class="text-sm" style="line-height: 1.4;">{loop_emoji}</span>
                 <span class="text-sm font-medium flex-1" title="{html.escape(loop_text, quote=True)}" style="color: #d8c8a0; line-height: 1.45;">{html.escape(loop_compact)}</span>
                 <button onclick="qaCompleteLoopFromButton(this)" data-text="{html.escape(loop_text, quote=True)}" class="btn btn--primary">Close</button>
@@ -7057,7 +7144,7 @@ def generate_html(data):
         one_emoji = _pick_content_emoji(one_text)
         one_compact = _compact_task_text(one_text, max_len=155)
         qa_one_thing_html = f'''
-        <div data-qa-one-thing="1" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26);">
+        <div data-qa-one-thing="1" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(6,95,70,0.2); border: 2px solid rgba(110,231,183,0.55);">
             <p class="text-xs font-semibold mb-1" style="color: #b8d8c8">🎯 One Thing Now</p>
             <p data-qa-one-thing-text="1" class="text-sm mb-2" title="{html.escape(one_text, quote=True)}" style="color: #b8d8c8; line-height: 1.45;">{one_emoji} {html.escape(one_compact)}</p>
             <div data-qa-one-thing-actions="1" style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:flex-start;margin-top:0.35rem;">
@@ -7144,7 +7231,7 @@ def generate_html(data):
     if qa_yoga_prompt_needed and not _yoga_nudge_muted:
         _nudge_record("yoga_feedback")
         qa_yoga_nudge_html = f'''
-        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="true" style="background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
+        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="true" style="background: rgba(30,64,175,0.16); border: 2px solid rgba(147,197,253,0.55);">
             <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">{html.escape(qa_prompt_title)}</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">{html.escape(qa_prompt_hint)}</span> <span id="qa-yoga-feedback-missing">{html.escape(qa_yoga_missing_text)}</span></p>
             <button onclick="qaOpenWorkoutChecklist(true)" class="btn btn--blue btn--sm">Open workout checklist</button>
@@ -7152,7 +7239,7 @@ def generate_html(data):
         '''
     else:
         qa_yoga_nudge_html = '''
-        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="false" style="display:none; background: rgba(30,64,175,0.16); border: 1px solid rgba(147,197,253,0.3);">
+        <div id="qa-yoga-feedback-nudge" class="rounded-lg px-3 py-3 mb-3" data-needed="false" style="display:none; background: rgba(30,64,175,0.16); border: 2px solid rgba(147,197,253,0.55);">
             <p id="qa-yoga-feedback-title" class="text-xs font-semibold mb-1" style="color: #b0c8d8">🧾 Workout details available to log</p>
             <p class="text-xs mb-2" style="color: #cbd5e1"><span id="qa-yoga-feedback-hint">What I need:</span> <span id="qa-yoga-feedback-missing"></span></p>
             <button onclick="qaOpenWorkoutChecklist(true)" class="btn btn--blue btn--sm">Open workout checklist</button>
@@ -7171,7 +7258,7 @@ def generate_html(data):
     if qa_quick_workout_trackable:
         qa_quick_workout_checked = "checked" if qa_quick_workout_done else ""
         qa_quick_workout_html = f'''
-                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 1px solid rgba(110,231,183,0.26); color: #c8e0d4;">
+                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(6,95,70,0.2); border: 2px solid rgba(110,231,183,0.55); color: #c8e0d4;">
                         <input id="qa-quick-workout-check" type="checkbox" {qa_quick_workout_checked} onchange="qaQuickToggleWorkout(this)" class="h-3.5 w-3.5">
                         💪 {html.escape(qa_quick_workout_title)}
                     </label>
@@ -7183,7 +7270,7 @@ def generate_html(data):
     qa_quick_end_day_opacity = "0.72" if qa_end_day_done_today else "1"
     if is_evening:
         qa_quick_end_day_html = f'''
-            <button id="qa-quick-end-day" onclick="qaRunEndDay(this)" {qa_quick_end_day_disabled} class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(120,53,15,0.35); color: #d8c8a0; border: 1px solid rgba(251,191,36,0.35); opacity: {qa_quick_end_day_opacity};">
+            <button id="qa-quick-end-day" onclick="qaRunEndDay(this)" {qa_quick_end_day_disabled} class="rounded px-2 py-1 text-xs font-semibold" style="background: rgba(120,53,15,0.35); color: #d8c8a0; border: 2px solid rgba(251,191,36,0.55); opacity: {qa_quick_end_day_opacity};">
                 {qa_quick_end_day_label}
             </button>
         '''
@@ -7192,7 +7279,7 @@ def generate_html(data):
     qa_quick_mood_checked = "checked" if qa_quick_mood_done else ""
     qa_checkins_summary = qa_quick_meta
     qa_quick_bar_html = f'''
-        <details id="qa-checkins-section" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(30,64,175,0.14); border: 1px solid rgba(147,197,253,0.24);" {'open' if (qa_quick_done_count < qa_quick_done_total or qa_yoga_prompt_needed) else ''}>
+        <details id="qa-checkins-section" class="rounded-lg px-3 py-3 mb-3" style="background: rgba(88,28,135,0.08); border: 2px solid rgba(224,187,228,0.55);" {'open' if (qa_quick_done_count < qa_quick_done_total or qa_yoga_prompt_needed) else ''}>
             <summary class="flex items-center justify-between gap-3 cursor-pointer" style="list-style: none;">
                 <span class="text-xs font-semibold" style="color: #b0c8d8">⚡ Check-ins &amp; follow-through</span>
                 <span id="qa-checkins-summary" class="text-xs" style="color: #a8c4e0">{qa_quick_done_count}/{qa_quick_done_total}</span>
@@ -7200,11 +7287,11 @@ def generate_html(data):
             <div class="mt-3">
                 <div class="flex flex-wrap gap-2">
                     {qa_quick_workout_html}
-                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(88,28,135,0.2); border: 1px solid rgba(196,181,253,0.26); color: #d8c8e0;">
+                    <label class="rounded px-2 py-1 text-xs flex items-center gap-1.5" style="background: rgba(88,28,135,0.2); border: 2px solid rgba(196,181,253,0.55); color: #d8c8e0;">
                         <input id="qa-quick-mood-check" type="checkbox" {qa_quick_mood_checked} onchange="qaToggleMoodQuick(this)" class="h-3.5 w-3.5">
                         🙂 {html.escape(qa_quick_mood_habit)}
                     </label>
-                    <span id="qa-mood-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
+                    <span id="qa-mood-save-state" hidden="hidden" class="text-xs rounded px-2 py-1" style="color: #94a3b8; border: 2px solid rgba(148,163,184,0.55); background: rgba(15,23,42,0.45);">synced</span>
                     {qa_quick_end_day_html}
                 </div>
                 <p id="qa-quick-done-meta" class="text-xs mt-2" style="color: #a8c4e0" hidden="hidden">{html.escape(qa_quick_meta)}</p>
@@ -7219,27 +7306,28 @@ def generate_html(data):
         '''
 
     qa_evening_unlock_hidden_attr = "" if is_evening else ' hidden="hidden"'
-    # Context-aware anxiety relief: show when anxiety detected, not just evening
+    # Context-aware anxiety relief: daytime surfacing is intentionally stricter.
+    # We only surface it outside the evening if signals are high-confidence or the
+    # user has already explicitly saved an anxiety score today.
     _anxiety_in_tone = tone in {"anxious", "frustrated"}
     _anxiety_in_signals = "anxiety" in support_triggers
     _hl_for_hrv = data.get("health_live", {}) if isinstance(data.get("health_live"), dict) else {}
     _hrv_low = isinstance(_hl_for_hrv.get("hrv_latest"), (int, float)) and _hl_for_hrv["hrv_latest"] < 30
+    _anxiety_saved_today = bool(qa_workout_signals_state.get("anxiety_saved_today", False))
+    _daytime_anxiety_confidence = int(_anxiety_in_tone) + int(_anxiety_in_signals) + int(_hrv_low)
+    _daytime_anxiety_high_confidence = _anxiety_saved_today or _daytime_anxiety_confidence >= 2
     qa_anxiety_visible = (
         is_evening
-        or qa_mindfulness_done
-        or qa_workout_signals_state.get("anxiety_saved_today", False)
-        or _anxiety_in_tone
-        or _anxiety_in_signals
-        or _hrv_low
+        or _daytime_anxiety_high_confidence
     )
     qa_anxiety_hidden_attr = "" if qa_anxiety_visible else ' hidden="hidden"'
     qa_anxiety_relief_html = f'''
-    <div id="qa-anxiety-relief-wrap" class="card rounded-xl mb-4"{qa_anxiety_hidden_attr} style="background: rgba(120,53,15,0.10); border: 1px solid rgba(251,191,36,0.15); padding: 0.85rem 1rem;">
-        <label class="text-xs block mb-2" style="color: #d4b896">📉 Anxiety relief</label>
+    <div id="qa-anxiety-relief-wrap" class="card rounded-xl mb-4" data-daytime-base-visible="{'1' if _daytime_anxiety_high_confidence else '0'}"{qa_anxiety_hidden_attr} style="background: rgba(88,28,135,0.08); border: 3px solid rgba(252, 211, 177, 0.55); padding: 0.85rem 1rem;">
+        <label class="text-xs block mb-2" style="color: #fcd3b1">📉 Anxiety relief</label>
         <div class="flex items-center gap-3">
             <input id="qa-anxiety-score" type="range" min="0" max="10" step="1" value="{qa_slider_value}" class="flex-1" style="accent-color: #d97706;" oninput="qaOnAnxietyInput(this)" onchange="qaOnAnxietyInput(this, true)">
             <span id="qa-anxiety-score-val" class="text-lg font-bold" style="color: #fbbf24; min-width: 1.5rem; text-align: center;">{qa_slider_value}</span>
-            <span id="qa-anxiety-save-state" hidden="hidden" class="text-xs rounded px-2 py-0.5" style="color: #94a3b8; border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.45);">synced</span>
+            <span id="qa-anxiety-save-state" hidden="hidden" class="text-xs rounded px-2 py-0.5" style="color: #94a3b8; border: 2px solid rgba(148,163,184,0.55); background: rgba(15,23,42,0.45);">synced</span>
         </div>
         {qa_yoga_evening_hint_html}
         {qa_week_summary_html}
@@ -7303,7 +7391,7 @@ def generate_html(data):
         for idx, para in enumerate(paras):
             bg, border, colour = palette[idx % len(palette)]
             rows.append(
-                f'<div class="rounded-lg px-4 py-3 mb-3" style="background:{bg}; border-left:3px solid {border}; color:{colour}; line-height:1.75;">'
+                f'<div class="qa-report-prose-block rounded-lg px-4 py-3 mb-3" style="background:{bg}; border-color:{border}; color:{colour};">'
                 f'{html.escape(para)}'
                 f'</div>'
             )
@@ -7322,25 +7410,25 @@ def generate_html(data):
     daily_report_html = ""
     if daily_report_story_text or daily_report_tomorrow_text:
         daily_report_html = f'''
-        <div class="card" style="border: 1px solid rgba(110,231,183,0.18); background: rgba(15,23,42,0.74);">
+        <div class="qa-report-card qa-report-card--mint">
             <div class="flex items-center justify-between gap-3 mb-3">
                 <div>
-                    <h3 class="text-lg font-semibold" style="color:#b8d8c8">📖 Daily report</h3>
+                    <h3 class="qa-report-heading text-lg font-semibold" style="color:#b8d8c8">📖 Daily report</h3>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                    <button type="button" onclick="qaExitReportFocus()" class="rounded px-2.5 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.22); color:#b0c8d8; border:1px solid rgba(147,197,253,0.28);">🌐 Dashboard</button>
+                    <button type="button" onclick="qaExitReportFocus()" class="rounded px-2.5 py-1.5 text-xs font-semibold" style="background: rgba(30,64,175,0.22); color:#b0c8d8; border:2px solid rgba(147,197,253,0.55);">🌐 Dashboard</button>
                 </div>
             </div>
             {daily_report_meta_html}
-            <div class="mb-4">
-                <p class="text-xs font-semibold mb-2" style="color:#a7d8c4">📖 Today&apos;s story</p>
+            <div class="mb-4 qa-report-body qa-report-copy">
+                <p class="qa-report-kicker text-xs font-semibold mb-2" style="color:#a7d8c4">📖 Today&apos;s story</p>
                 {_daily_report_prose_html(daily_report_story_text, _daily_story_palette)}
             </div>
-            {f'<div class="mb-4 pt-3" style="border-top:1px solid rgba(196,181,253,0.1)"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💭 How today felt</p>{felt_parts}</div>' if felt_parts else ''}
-            <div>
-                <p class="text-xs font-semibold mb-2" style="color:#d4a8b8">🌅 Tomorrow</p>
+            {f'<div class="mb-4 pt-3 qa-report-divider qa-report-copy" style="border-top-color:rgba(196,181,253,0.5)"><p class="qa-report-kicker text-xs font-semibold mb-2" style="color:#c4b8e0">💭 How today felt</p>{felt_parts}</div>' if felt_parts else ''}
+            <div class="qa-report-body qa-report-copy">
+                <p class="qa-report-kicker text-xs font-semibold mb-2" style="color:#d4a8b8">🌅 Tomorrow</p>
                 {_daily_report_prose_html(daily_report_tomorrow_text, _daily_tomorrow_palette)}
-                {f'<div class="mt-4 pt-3" style="border-top:1px solid rgba(249,168,212,0.12)">{tomorrow_items_html}</div>' if is_evening and tomorrow_items_html else ''}
+                {f'<div class="mt-4 pt-3 qa-report-divider qa-report-copy" style="border-top-color:rgba(249,168,212,0.4)">{tomorrow_items_html}</div>' if is_evening and tomorrow_items_html else ''}
             </div>
         </div>
         '''
@@ -7358,19 +7446,19 @@ def generate_html(data):
     schedule_insight_html = ""
     if _schedule_insight and _sa_today:
         _risk_styles = {
-            "low":    {"bg": "rgba(6,95,70,0.2)",    "border": "rgba(110,231,183,0.26)", "text": "#b8d8c8", "dot": "🟢"},
-            "medium": {"bg": "rgba(120,53,15,0.2)",  "border": "rgba(251,191,36,0.26)",  "text": "#d8c8a0", "dot": "🟡"},
-            "high":   {"bg": "rgba(153,27,27,0.2)",  "border": "rgba(248,113,113,0.26)", "text": "#d4a0a0", "dot": "🔴"},
+            "low":    {"bg": "rgba(6,95,70,0.2)",    "border": "rgba(110,231,183,0.55)", "text": "#b8d8c8", "dot": "🟢"},
+            "medium": {"bg": "rgba(120,53,15,0.2)",  "border": "rgba(251,191,36,0.55)",  "text": "#d8c8a0", "dot": "🟡"},
+            "high":   {"bg": "rgba(153,27,27,0.2)",  "border": "rgba(248,113,113,0.6)", "text": "#d4a0a0", "dot": "🔴"},
         }
         _rs = _risk_styles.get(_burnout_risk, _risk_styles["low"])
         _density_txt = _schedule_density.capitalize() if _schedule_density else ""
         _density_badge = (
             f' <span class="rounded px-1.5 py-0.5 text-xs" style="background:rgba(148,163,184,0.18);'
-            f'color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">'
+            f'color:#cbd5e1;border:2px solid rgba(148,163,184,0.55);">'
             f'{html.escape(_density_txt)}</span>'
         ) if _density_txt else ""
         schedule_insight_html = f'''
-        <div class="rounded-lg px-3 py-2.5 mb-3" style="background:{_rs["bg"]};border:1px solid {_rs["border"]};">
+        <div class="rounded-lg px-3 py-2.5 mb-3" style="background:{_rs["bg"]};border:2px solid {_rs["border"]};">
             <p class="text-xs font-semibold mb-1" style="color:{_rs["text"]}">{_rs["dot"]} Schedule{_density_badge}</p>
             <p class="text-sm" style="color:{_rs["text"]};line-height:1.45;">{html.escape(_schedule_insight)}</p>
         </div>'''
@@ -7479,14 +7567,7 @@ def generate_html(data):
             _matched_existing = bool(_item.get("matched_existing", False))
             _esc_type = html.escape(_item_type)
             _esc_id = html.escape(_item_id)
-            # Truncate context to first sentence — full paragraphs are too verbose
-            _ctx_short = _ctx
-            if _ctx_short and len(_ctx_short) > 100:
-                _sentence_end = re.search(r'[.;!?]\s', _ctx_short[:120])
-                if _sentence_end:
-                    _ctx_short = _ctx_short[:_sentence_end.end()].strip()
-                else:
-                    _ctx_short = _ctx_short[:100].rsplit(' ', 1)[0] + '…'
+            _ctx_short = _truncate_sentence_safe(_ctx, max_len=100) if _ctx else ""
             _ctx_html = f'<p class="text-caption" style="margin:0.2rem 0 0;color:#94a3b8;line-height:1.35">{html.escape(_ctx_short)}</p>' if _ctx_short else ""
 
             if _todoist_task_id:
@@ -7537,7 +7618,7 @@ def generate_html(data):
             ) if _sync_note_parts else ""
 
             _bell_rows.append(
-                f'<div id="bell-item-{_idx}" data-bell-item-index="{_idx}" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;">'
+                f'<div id="bell-item-{_idx}" data-bell-item-index="{_idx}" style="background:var(--panel);border:2px solid rgba(148,163,184,0.5);border-radius:0.75rem;padding:0.65rem 0.85rem;margin-bottom:0.45rem;">'
                 f'<div style="display:flex;align-items:flex-start;gap:0.5rem;">'
                 f'<div style="flex:1;min-width:0;">'
                 f'<p style="font-size:0.875rem;color:#e5e7eb;margin:0">{_icon} {html.escape(_display_text)}</p>{_ctx_html}{_sync_note_html}'
@@ -7582,7 +7663,7 @@ def generate_html(data):
     if focus_state == "scattered" and not _nudge_should_mute("focus_suggest_density", cooldown_hours=6):
         _nudge_record("focus_suggest_density")
         _focus_nudge_html = '''
-    <div id="focus-nudge" class="rounded-lg px-3 py-2 mb-3" style="background: rgba(120,53,15,0.12); border: 1px solid rgba(212,184,150,0.2);">
+    <div id="focus-nudge" class="rounded-lg px-3 py-2 mb-3" style="background: rgba(120,53,15,0.12); border: 2px solid rgba(212,184,150,0.55);">
         <p class="text-xs" style="color: #d4b896">💫 Focus is scattered today — <a href="#" id="focus-nudge-switch" style="color: #fbbf24; text-decoration: underline;">switch to Focus mode</a>? <button type="button" id="focus-nudge-dismiss" style="color: #6b7280; margin-left: 4px; cursor: pointer; background: transparent; border: 0; padding: 0;">dismiss</button></p>
     </div>'''
 
@@ -7651,28 +7732,28 @@ def generate_html(data):
                 if _due_dt:
                     try:
                         _dt = datetime.fromisoformat(_due_dt.replace("Z", "+00:00"))
-                        _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{_dt.strftime("%H:%M")}</span>'
+                        _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:2px solid rgba(148,163,184,0.55);">{_dt.strftime("%H:%M")}</span>'
                     except Exception:
                         _due_html = ""
                 elif _due_date and _due_date != _effective:
-                    _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:1px solid rgba(148,163,184,0.24);">{html.escape(_due_date)}</span>'
+                    _due_html = f'<span class="inline-pill" style="background:rgba(148,163,184,0.18);color:#cbd5e1;border:2px solid rgba(148,163,184,0.55);">{html.escape(_due_date)}</span>'
 
                 _dur_html = ""
                 if _dur:
                     _dur_label = f"{_dur}m" if _dur_unit == "minute" else f"{_dur}d"
-                    _dur_html = f'<span class="inline-pill" style="background:rgba(88,28,135,0.15);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2);">⏱ {_dur_label}</span>'
+                    _dur_html = f'<span class="inline-pill" style="background:rgba(88,28,135,0.15);color:#c4b5fd;border:2px solid rgba(139,92,246,0.55);">⏱ {_dur_label}</span>'
 
                 _project_html = ""
                 if _project_name.lower() != "inbox":
                     _pc = _proj_colors.get(_project_name.lower(), _proj_default_color)
                     _project_html = (
                         f'<span class="inline-pill" style="background:{_pc["bg"]};color:{_pc["color"]};'
-                        f'border:1px solid rgba(148,163,184,0.18);font-weight:600;">{html.escape(_project_name)}</span>'
+                        f'border:2px solid rgba(148,163,184,0.55);font-weight:600;">{html.escape(_project_name)}</span>'
                     )
 
                 _labels_html = ""
                 for _lbl in _labels[:3]:
-                    _labels_html += f'<span class="inline-pill" style="background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.16);font-weight:500;">{html.escape(str(_lbl))}</span>'
+                    _labels_html += f'<span class="inline-pill" style="background:rgba(148,163,184,0.1);color:#94a3b8;border:2px solid rgba(148,163,184,0.55);font-weight:500;">{html.escape(str(_lbl))}</span>'
 
                 _meta_parts = []
                 if _project_html:
@@ -7741,7 +7822,7 @@ def generate_html(data):
             _task_word = "task" if _count == 1 else "tasks"
             _empty = f'<p class="text-sm" style="color: #9ca3af">{empty_text}</p>' if not _count else ""
             return (
-                f'<div class="card rounded-xl px-4 py-3 mb-3" style="background: {background}; border: 1px solid {border_color};">\n'
+                f'<div class="card rounded-xl px-4 py-3 mb-3" style="background: {background}; border: 2px solid {border_color};">\n'
                 f'    <div class="flex items-center gap-2 mb-2"><h3 class="text-base font-semibold" style="color: {accent_color}">{icon} {html.escape(title)} '
                 f'<span class="text-xs font-normal" style="color: #94a3b8">{_count} {_task_word}{summary_suffix}</span>'
                 f'</h3><a href="{html.escape(open_url, quote=True)}" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.4;transition:opacity 0.15s;margin-left:auto;">{_TODOIST_ICON_SVG}</a></div>\n'
@@ -7809,21 +7890,21 @@ def generate_html(data):
             '<div id="qa-todoist-done-list" style="margin-top:0.35rem;"></div>'
             '</details></div>'
         )
-        _today_card_style = 'background: rgba(30,58,138,0.12); border: 1px solid rgba(147,197,253,0.2); padding: 0.85rem 1.15rem 1.15rem;'
+        _today_card_style = 'background: rgba(6,95,70,0.1); border: 2px solid rgba(181,255,217,0.55); padding: 0.85rem 1.15rem 1.15rem;'
         _today_title_html = f'<h3 class="font-semibold" style="color: #B5FFD9; font-size: 0.95rem; margin: 0;">📋 Today <span class="text-xs font-normal" style="color: #94a3b8">{html.escape(_today_summary_text)}</span></h3>'
         _today_link_html = f'<a href="https://app.todoist.com/app/today" title="Open Todoist" style="display:inline-flex;align-items:center;opacity:0.5;transition:opacity 0.15s;">{_TODOIST_ICON_SVG}</a>'
         if _today_collapse:
             _today_card_html = (
                 f'<details class="card rounded-xl mb-4" style="{_today_card_style}">'
                 f'<summary class="flex items-center justify-between gap-3" style="cursor:pointer;flex-wrap:wrap;">{_today_title_html}{_today_link_html}</summary>'
-                f'<div style="margin-top:0.65rem;">{_today_inner}</div>'
+                f'<div class="card-scrollable" style="margin-top:0.65rem;">{_today_inner}</div>'
                 '</details>'
             )
         else:
             _today_card_html = (
                 f'<div class="card rounded-xl mb-4" style="{_today_card_style}">'
                 f'<div class="flex items-center justify-between gap-3 mb-1.5" style="flex-wrap:wrap;">{_today_title_html}{_today_link_html}</div>'
-                f'{_today_inner}'
+                f'<div class="card-scrollable">{_today_inner}</div>'
                 '</div>'
             )
 
@@ -7836,7 +7917,7 @@ def generate_html(data):
 
     # Action buttons — placed inside the Controls <details> section
     _controls_action_buttons_html = f'''
-        <div class="grid gap-2 mt-2" style="grid-template-columns:1fr 1fr 1fr;">
+        <div class="qa-controls-grid mt-2">
             {qa_end_day_controls_html}
             <div id="qa-daily-report-focus-wrap"{daily_report_control_hidden_attr}>
                 {qa_daily_report_focus_btn_html}
@@ -7854,16 +7935,16 @@ def generate_html(data):
     {notifications_bell_html}
     {_recall_html}
     {_focus_nudge_html}
-    <div class="card rounded-xl p-5 mb-4" style="background: rgba(131,24,67,0.15); border: 1px solid rgba(249,168,212,0.2);">
+    <div class="card rounded-xl p-5 mb-4" style="background: rgba(131,24,67,0.15); border: 2px solid rgba(249,168,212,0.55);">
         <h3 class="text-lg font-semibold mb-2" style="color: #fbcfe8">✅ Action Items</h3>
         {qa_quick_bar_html}
         {qa_yoga_nudge_html}
         {qa_counts_html}
         {schedule_insight_html}
         {qa_one_thing_html}
-        {action_items_list_html}
+        <div class="card-scrollable">{action_items_list_html}</div>
 
-        <details class="mt-4 pt-4" style="border-top: 1px solid rgba(251,191,36,0.16);">
+        <details class="mt-4 pt-4" style="border-top: 2px solid rgba(251,191,36,0.5);">
             <summary class="text-xs font-semibold cursor-pointer" style="color: #d8c8a0">🔄 Open Loops ({len(qa_loop_options)})</summary>
             <p class="text-xs mt-2 mb-2" style="color: rgba(253,230,138,0.65)">Items still taking mental space.</p>
             <div class="mb-2">
@@ -7872,16 +7953,16 @@ def generate_html(data):
             {qa_loop_hidden_note_html}
         </details>
 
-        <details class="mt-4 pt-4" style="border-top: 1px solid rgba(148,163,184,0.16);">
+        <details class="mt-4 pt-4" style="border-top: 2px solid rgba(148,163,184,0.5);">
             <summary class="text-xs font-semibold cursor-pointer" style="color: #94a3b8">Manual close</summary>
             <div class="mt-2 space-y-2">
                 <div class="flex gap-2">
-                    <input id="qa-todo-text" type="text" placeholder="Action item text..." class="flex-1 rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.7); border: 1px solid rgba(249,168,212,0.3); color: #e5e7eb;">
-                    <button onclick="qaCompleteTodo()" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(131,24,67,0.35); color: #fbcfe8; border: 1px solid rgba(249,168,212,0.35);">Done</button>
+                    <input id="qa-todo-text" type="text" placeholder="Action item text..." class="flex-1 rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.7); border: 2px solid rgba(249,168,212,0.55); color: #e5e7eb;">
+                    <button onclick="qaCompleteTodo()" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(131,24,67,0.35); color: #fbcfe8; border: 2px solid rgba(249,168,212,0.55);">Done</button>
                 </div>
                 <div class="flex gap-2">
-                    <input id="qa-loop-text" type="text" placeholder="Open loop text..." class="flex-1 rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.7); border: 1px solid rgba(110,231,183,0.25); color: #e5e7eb;">
-                    <button onclick="qaCompleteLoop()" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.35); color: #a7d8c4; border: 1px solid rgba(110,231,183,0.35);">Close</button>
+                    <input id="qa-loop-text" type="text" placeholder="Open loop text..." class="flex-1 rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.7); border: 2px solid rgba(110,231,183,0.55); color: #e5e7eb;">
+                    <button onclick="qaCompleteLoop()" class="rounded px-3 py-2 text-sm font-semibold" style="background: rgba(6,95,70,0.35); color: #a7d8c4; border: 2px solid rgba(110,231,183,0.55);">Close</button>
                 </div>
             </div>
         </details>
@@ -8259,6 +8340,73 @@ def generate_html(data):
         }}
         qaAkiflowTimeGate();
         setInterval(qaAkiflowTimeGate, 30000);
+
+        /* Live timeline: reclassify schedule rows based on current time */
+        function qaTimelineUpdate() {{
+            const timeline = document.querySelector(".os-timeline");
+            if (!timeline) return;
+            const rows = timeline.querySelectorAll(".os-timeline-row[data-start]");
+            if (!rows.length) return;
+            const now = new Date();
+            const nowMins = now.getHours() * 60 + now.getMinutes();
+            let foundCurrent = false;
+            let doneCount = 0;
+            let totalCount = rows.length;
+            rows.forEach(row => {{
+                const startStr = row.getAttribute("data-start") || "";
+                const endStr = row.getAttribute("data-end") || "";
+                const sm = startStr.match(/(\d{{1,2}}):(\d{{2}})/);
+                if (!sm) return;
+                const startMins = parseInt(sm[1]) * 60 + parseInt(sm[2]);
+                let endMins = startMins + 60;
+                const em = endStr.match(/(\d{{1,2}}):(\d{{2}})/);
+                if (em) endMins = parseInt(em[1]) * 60 + parseInt(em[2]);
+                row.classList.remove("is-now", "is-done");
+                row.style.display = "";
+                const surface = row.querySelector(".os-surface");
+                const timeP = surface ? surface.querySelector("p:first-child") : null;
+                const eventP = surface ? surface.querySelector("p:nth-child(2)") : null;
+                const oldSub = surface ? surface.querySelector(".qa-live-sub") : null;
+                if (oldSub) oldSub.remove();
+                if (nowMins >= startMins && nowMins < endMins && !foundCurrent) {{
+                    row.classList.add("is-now");
+                    foundCurrent = true;
+                    if (eventP) eventP.style.color = "#b8d8c8";
+                    if (timeP) timeP.style.color = "#b8d8c8";
+                    const minsLeft = endMins - nowMins;
+                    if (surface && minsLeft > 0) {{
+                        const sub = document.createElement("p");
+                        sub.className = "text-xs mt-1 qa-live-sub";
+                        sub.style.color = "#b8d8c8";
+                        sub.textContent = "Live now \u00b7 " + minsLeft + "m left";
+                        surface.appendChild(sub);
+                    }}
+                }} else if (nowMins >= endMins) {{
+                    row.classList.add("is-done");
+                    row.style.display = "none";
+                    doneCount++;
+                }} else {{
+                    if (eventP) eventP.style.color = "#e5e7eb";
+                    if (timeP) timeP.style.color = "#94a3b8";
+                }}
+            }});
+            /* Compact done summary or schedule complete */
+            let banner = timeline.querySelector(".qa-timeline-summary");
+            if (banner) banner.remove();
+            if (doneCount > 0) {{
+                banner = document.createElement("div");
+                banner.className = "qa-timeline-summary";
+                banner.style.cssText = "padding:0.4rem 0.75rem;margin-bottom:0.5rem;border-radius:0.5rem;background:rgba(30,41,59,0.3);";
+                if (doneCount === totalCount) {{
+                    banner.innerHTML = '<p class="text-xs" style="color:#94a3b8">\u2705 Schedule complete \u00b7 ' + totalCount + ' blocks done</p>';
+                }} else {{
+                    banner.innerHTML = '<p class="text-xs" style="color:#94a3b8">' + doneCount + '/' + totalCount + ' done</p>';
+                }}
+                timeline.insertBefore(banner, timeline.firstChild);
+            }}
+        }}
+        qaTimelineUpdate();
+        setInterval(qaTimelineUpdate, 60000);
     }});
     if (typeof window !== "undefined") {{
         window.addEventListener("online", () => {{ qaRetryPendingScratch(); }});
@@ -8535,11 +8683,10 @@ def generate_html(data):
         const unlocked = qaIsEveningUnlockOpen();
         const anxietyWrap = document.getElementById("qa-anxiety-relief-wrap");
         if (anxietyWrap) {{
-            // Anxiety slider visible when: evening OR mindfulness done OR score already saved
-            const mindfulnessCheck = document.getElementById("qa-mindfulness-check");
-            const mindfulnessDone = mindfulnessCheck ? mindfulnessCheck.checked : false;
+            // Keep daytime visibility aligned with server-side confidence gating.
+            const daytimeBaseVisible = anxietyWrap.dataset.daytimeBaseVisible === "1";
             const anxietySaved = Boolean(qaCurrentAnxietyScore !== null);
-            anxietyWrap.hidden = !(unlocked || mindfulnessDone || anxietySaved);
+            anxietyWrap.hidden = !(unlocked || daytimeBaseVisible || anxietySaved);
         }}
         const endDayWrap = document.getElementById("qa-end-day-wrap");
         if (endDayWrap) {{
@@ -8548,7 +8695,7 @@ def generate_html(data):
         // Daily report visible all day (no evening gate)
         const reportButtonWrap = document.getElementById("qa-daily-report-focus-wrap");
         if (reportButtonWrap) {{
-            reportButtonWrap.hidden = !unlocked;
+            reportButtonWrap.hidden = !reportButtonWrap.querySelector("button");
         }}
     }}
 
@@ -9754,7 +9901,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             const reasonHtml = (staleReason && (level === "warn" || level === "error"))
                 ? `<p class="text-xs mt-1" style="color:#d4c090">${{qaEscapeHtml(staleReason)}}</p>`
                 : "";
-            return `<div class="rounded-lg px-3 py-2.5" style="border:1px solid ${{tone[3]}}; background:${{tone[2]}};">`
+            return `<div class="rounded-lg px-3 py-2.5" style="border:2px solid ${{tone[3]}}; background:${{tone[2]}};">`
                 + `<div class="flex items-center gap-2 flex-wrap"><span class="text-xs font-semibold" style="color:${{tone[1]}}">${{tone[0]}} ${{qaEscapeHtml(item.label || item.id || "Section")}}</span></div>`
                 + `<p class="text-xs mt-1" style="color:#e5e7eb">${{qaEscapeHtml(item.line || "No freshness note.")}}</p>`
                 + metaHtml
@@ -9763,7 +9910,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}).join("");
         const countsLabel = `ok ${{counts.ok || 0}} • info ${{counts.info || 0}} • warn ${{counts.warn || 0}} • error ${{counts.error || 0}}`;
         const openAttr = attentionCount ? " open" : "";
-        return `<div class="card mt-2" style="border: 1px solid rgba(148,163,184,0.24); background: rgba(15,23,42,0.58);">`
+        return `<div class="card mt-2" style="border: 2px solid rgba(148,163,184,0.55); background: rgba(15,23,42,0.58);">`
             + `<details${{openAttr}}>`
             + `<summary class="text-sm font-semibold cursor-pointer" style="color: ${{summaryColour}};">${{qaEscapeHtml(summaryLabel)}}</summary>`
             + `<p class="text-xs mt-2" style="color:#94a3b8">Every major card now reports its own freshness state • ${{qaEscapeHtml(countsLabel)}}</p>`
@@ -10454,7 +10601,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             undoBtn.style.cssText = "margin-left:auto;flex-shrink:0;";
             undoBtn.onclick = function() {{ qaTodoistUncompleteFromRow(row); }};
             /* Restyle row as compact done row */
-            row.style.cssText = "padding:6px 12px;margin-bottom:4px;background:transparent;border:1px solid rgba(148,163,184,0.08);border-radius:8px;display:flex;align-items:center;gap:8px;";
+            row.style.cssText = "padding:6px 12px;margin-bottom:4px;background:transparent;border:2px solid rgba(148,163,184,0.5);border-radius:8px;display:flex;align-items:center;gap:8px;";
             const body = row.querySelector(".todo-body");
             if (body) body.after(undoBtn);
             else row.appendChild(undoBtn);
@@ -10584,7 +10731,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             row.style.padding = "";
             row.style.marginBottom = "";
             row.style.background = "rgba(15,23,42,0.6)";
-            row.style.border = "1px solid rgba(148,163,184,0.24)";
+            row.style.border = "2px solid rgba(148,163,184,0.55)";
             row.style.display = "";
             row.style.alignItems = "";
             row.style.gap = "";
@@ -11992,9 +12139,19 @@ function qaApplyTaDahFromScratch(scratchText) {{
     async function qaGenerateWeeklyDigest(button) {{
         const status = document.getElementById("qa-status");
         const badge = document.getElementById("qa-weekly-digest-status");
-        const currentLink = document.getElementById("qa-weekly-digest-current-link");
-        const latestLink = document.getElementById("qa-weekly-digest-latest-link");
         const meta = document.getElementById("qa-weekly-digest-meta");
+        const renderWeeklyLinks = (slot, fileName, fileUrl, color) => {{
+            const nodes = document.querySelectorAll(`[data-qa-weekly-link-slot="${{slot}}"]`);
+            if (!nodes.length) return;
+            const safeName = qaEscapeHtml(String(fileName || "weekly digest"));
+            const safeUrl = qaEscapeHtml(String(fileUrl || "").trim());
+            const markup = safeUrl
+                ? `<a href="${{safeUrl}}" style="color: ${{color}}">${{safeName}}</a>`
+                : `<span style="color: #6b7280">${{safeName}}</span>`;
+            nodes.forEach((node) => {{
+                node.innerHTML = markup;
+            }});
+        }};
         if (button) {{
             button.disabled = true;
             button.textContent = "Generating...";
@@ -12012,16 +12169,8 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 if (!fileUrl && rawPath) {{
                     fileUrl = `file://${{rawPath}}`;
                 }}
-                if (currentLink) {{
-                    currentLink.textContent = fileName;
-                    if (fileUrl) currentLink.href = fileUrl;
-                    currentLink.style.color = "#b8d8c8";
-                }}
-                if (latestLink) {{
-                    latestLink.textContent = fileName;
-                    if (fileUrl) latestLink.href = fileUrl;
-                    latestLink.style.color = "#a8c4e0";
-                }}
+                renderWeeklyLinks("current", fileName, fileUrl, "#b8d8c8");
+                renderWeeklyLinks("latest", fileName, fileUrl, "#a8c4e0");
                 if (badge) {{
                     badge.textContent = "✅ Ready";
                     badge.style.color = "#a7d8c4";
@@ -12282,7 +12431,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             data-storage-key="{html.escape(storage_key)}"
             data-section="{sid}"
             class="mt-1 w-full rounded px-2 py-1.5 text-xs"
-            style="background: rgba(15,23,42,0.85); border: 1px solid rgba(148,163,184,0.24); color: #e5e7eb; resize: vertical; font-family: inherit;"
+            style="background: rgba(15,23,42,0.85); border: 2px solid rgba(148,163,184,0.55); color: #e5e7eb; resize: vertical; font-family: inherit;"
             placeholder="Quick notes..."
             oninput="qaSaveScratchPad(this)"></textarea>
         <div class="mt-1 flex items-center gap-2">
@@ -12502,70 +12651,197 @@ function qaApplyTaDahFromScratch(scratchText) {{
         ),
         None,
     )
-    os3_next_action = next(
-        (
-            row for row in display_action_items
-            if isinstance(row, dict)
-            and not bool(row.get("done"))
-            and str(row.get("task", "")).strip()
-        ),
-        None,
-    )
+    def _os3_parse_action_minutes(raw_value):
+        raw = str(raw_value or "").strip().lower()
+        if not raw:
+            return None
+        colon_match = re.match(r"^(\d+):(\d+)$", raw)
+        if colon_match:
+            return int(colon_match.group(1)) * 60 + int(colon_match.group(2))
+        hours = 0
+        minutes = 0
+        hour_match = re.search(r"(\d+)\s*h", raw)
+        minute_match = re.search(r"(\d+)\s*m", raw)
+        if hour_match:
+            hours = int(hour_match.group(1))
+        if minute_match:
+            minutes = int(minute_match.group(1))
+        if hour_match or minute_match:
+            return (hours * 60) + minutes
+        bare_minutes = re.match(r"^(\d+)$", raw)
+        if bare_minutes:
+            return int(bare_minutes.group(1))
+        return None
+
+    def _os3_priority_score(raw_priority):
+        raw = str(raw_priority or "").strip().lower()
+        if not raw:
+            return 0
+        mapping = {
+            "p1": 3, "urgent": 3, "high": 2,
+            "p2": 2, "medium": 1,
+            "p3": 1, "low": 0,
+            "p4": 0,
+        }
+        if raw in mapping:
+            return mapping[raw]
+        try:
+            numeric = int(raw)
+        except Exception:
+            return 0
+        return {4: 3, 3: 2, 2: 1, 1: 0}.get(numeric, 0)
+
+    _os3_minutes_until_next_event = None
+    if os3_next_event and os3_next_event.get("start"):
+        try:
+            _os3_minutes_until_next_event = max(
+                0,
+                int((os3_next_event["start"] - os3_now_dt).total_seconds() / 60),
+            )
+        except Exception:
+            _os3_minutes_until_next_event = None
+
+    def _os3_select_next_action():
+        best_row = None
+        best_score = None
+        best_reasons = []
+        for row in display_action_items:
+            if not isinstance(row, dict) or bool(row.get("done")):
+                continue
+            task_text = str(row.get("task", "")).strip()
+            if not task_text:
+                continue
+            score = 0.0
+            reasons = []
+            task_key = _task_match_key(task_text)
+            feasibility = str(_feasibility_map.get(task_key, "") or "").strip().lower()
+            minutes = _os3_parse_action_minutes(row.get("time", ""))
+            category = str(row.get("category", "standard") or "standard").strip().lower()
+            priority_score = _os3_priority_score(row.get("priority", ""))
+
+            score += priority_score * 1.8
+            if priority_score >= 2:
+                reasons.append("higher priority")
+
+            if category == "quick_win":
+                score += 1.8
+                reasons.append("quick win")
+            elif category == "maintenance":
+                score -= 0.6
+
+            if feasibility == "ok":
+                score += 2.0
+                reasons.append("fits today")
+            elif feasibility == "tight":
+                score -= 0.8
+            elif feasibility == "overloaded":
+                score -= 4.0
+
+            if minutes is not None:
+                if minutes <= 15:
+                    score += 1.8
+                    reasons.append("short enough")
+                elif minutes <= 30:
+                    score += 0.9
+                elif minutes >= 60:
+                    score -= 1.0
+
+                if os3_body_battery < 40 and minutes > 30:
+                    score -= 2.2
+                elif os3_body_battery < 55 and minutes > 45:
+                    score -= 1.2
+
+                if _os3_minutes_until_next_event is not None:
+                    _fit_budget = max(_os3_minutes_until_next_event - 5, 0)
+                    if _fit_budget and minutes <= _fit_budget:
+                        score += 1.5
+                        reasons.append("fits before next block")
+                    elif _os3_minutes_until_next_event < 45 and minutes > _fit_budget:
+                        score -= 3.0
+            elif _os3_minutes_until_next_event is not None and _os3_minutes_until_next_event < 30:
+                score -= 0.8
+
+            if str(row.get("source", "")).strip().lower() == "system":
+                score -= 0.5
+
+            if best_score is None or score > best_score:
+                best_row = row
+                best_score = score
+                best_reasons = reasons
+        return best_row, best_reasons, best_score
+
+    os3_next_action, _os3_action_reasons, _os3_action_score = _os3_select_next_action()
+    _os3_next_action_minutes = _os3_parse_action_minutes(os3_next_action.get("time", "")) if isinstance(os3_next_action, dict) else None
 
     # Support mode chip (steady/progress/ease)
     _support_meta = data.get("support_mode_meta", {}) if isinstance(data.get("support_mode_meta", {}), dict) else {}
     _support_mode = str(_support_meta.get("mode", "")).strip().lower()
     _support_mode_colors = {
-        "steady": ("rgba(167,216,196,0.12)", "rgba(167,216,196,0.3)", "#b8d8c8"),
-        "progress": ("rgba(224,187,228,0.12)", "rgba(224,187,228,0.3)", "#E0BBE4"),
-        "ease": ("rgba(249,192,208,0.12)", "rgba(249,192,208,0.3)", "#f9c0d0"),
+        "steady": ("rgba(167,216,196,0.12)", "rgba(167,216,196,0.55)", "#b8d8c8"),
+        "progress": ("rgba(224,187,228,0.12)", "rgba(224,187,228,0.55)", "#E0BBE4"),
+        "ease": ("rgba(249,192,208,0.12)", "rgba(249,192,208,0.55)", "#f9c0d0"),
     }
-    _sm_bg, _sm_border, _sm_color = _support_mode_colors.get(_support_mode, ("rgba(148,163,184,0.12)", "rgba(148,163,184,0.2)", "#94a3b8"))
+    _sm_bg, _sm_border, _sm_color = _support_mode_colors.get(_support_mode, ("rgba(148,163,184,0.12)", "rgba(148,163,184,0.55)", "#94a3b8"))
     os3_support_mode_chip = (
-        f'<span class="os-chip" style="background:{_sm_bg};border:1px solid {_sm_border};color:{_sm_color};">{html.escape(_support_mode.title())}</span>'
+        f'<span class="os-chip" style="background:{_sm_bg};border:2px solid {_sm_border};color:{_sm_color};">{html.escape(_support_mode.title())}</span>'
         if _support_mode else ""
     )
 
     os3_hero_source = "empty"
     os3_hero_title = "You're clear right now."
-    os3_hero_meta = "No active block detected."
-    os3_hero_subtitle = "Choose the gentlest next useful thing when you're ready."
+    os3_hero_meta = "No live calendar block right now."
+    os3_hero_subtitle = "Pick the easiest useful next step when you're ready."
     _os3_hour = os3_now_dt.hour
+    _os3_energy_note_plain = ""
     _os3_energy_note_hero = ""
     if os3_body_battery < 40:
         _os3_energy_note_hero = " · Energy is low — pace gently."
+        _os3_energy_note_plain = "Energy is low, so shorter/lighter work is a better fit."
     elif os3_body_battery < 55:
         _os3_energy_note_hero = " · Moderate energy — steady pace."
+        _os3_energy_note_plain = "Energy is moderate, so keeping friction low matters."
     if _os3_hour >= 20:
         os3_hero_source = "winddown"
         _os3_wins_count = len(tadah_flat)
         os3_hero_title = "Wind down"
         os3_hero_meta = f"{_os3_wins_count} win{'s' if _os3_wins_count != 1 else ''} today"
-        os3_hero_subtitle = "Close the day gently. Anything left can wait."
+        os3_hero_subtitle = "After 8pm, closing loops beat starting something new."
     elif os3_current_event:
         os3_hero_source = "calendar"
         os3_hero_title = str(os3_current_event.get("event", "")).strip() or "Current focus"
         os3_hero_meta = f"Calendar · {html.escape(str(os3_current_event.get('time', 'Now')))}"
+        _calendar_why = "This block is already underway, so sticking with it is the easiest move."
         if os3_current_event.get("end"):
-            os3_hero_subtitle = f"{_pick_content_emoji(os3_hero_title)} Ends in {_os3_minutes_label((os3_current_event['end'] - os3_now_dt).total_seconds() / 60)}.{_os3_energy_note_hero}"
-        else:
-            os3_hero_subtitle = f"Stay with the current block until it naturally closes.{_os3_energy_note_hero}"
-    elif os3_next_event and os3_next_event.get("start") and (os3_next_event["start"] - os3_now_dt).total_seconds() < 1800:
-        # Upcoming calendar event within 30 min takes priority over action items
+            _calendar_why = f"{_calendar_why} Ends in {_os3_minutes_label((os3_current_event['end'] - os3_now_dt).total_seconds() / 60)}."
+        os3_hero_subtitle = _calendar_why + (f" {_os3_energy_note_plain}" if _os3_energy_note_plain else "")
+    elif (
+        os3_next_event
+        and _os3_minutes_until_next_event is not None
+        and (
+            _os3_minutes_until_next_event <= 20
+            or (
+                _os3_next_action_minutes is not None
+                and _os3_minutes_until_next_event <= 40
+                and _os3_next_action_minutes > max(_os3_minutes_until_next_event - 5, 0)
+            )
+        )
+    ):
+        # Upcoming calendar event only takes over when it is genuinely imminent or
+        # the best remaining action no longer fits cleanly before it.
         os3_hero_source = "upcoming"
         os3_hero_title = str(os3_next_event.get("event", "")).strip() or "Next scheduled block"
         os3_hero_meta = f"Coming up · {str(os3_next_event.get('time', '')).strip()}"
-        os3_hero_subtitle = ""
+        os3_hero_subtitle = "It starts soon, so a new task probably will not land cleanly before it."
     elif os3_next_action:
         os3_hero_source = "action"
         os3_hero_title = str(os3_next_action.get("task", "")).strip()
-        os3_hero_meta = "One thing at a time"
+        _os3_action_meta_bits = ["Next step"]
         _os3_action_time = str(os3_next_action.get("time", "")).strip()
-        os3_hero_subtitle = (
-            f"{_os3_action_time}{_os3_energy_note_hero}"
-            if _os3_action_time else
-            f"{_os3_energy_note_hero}".strip()
-        )
+        if _os3_action_time:
+            _os3_action_meta_bits.append(_os3_action_time)
+        os3_hero_meta = " · ".join(_os3_action_meta_bits)
+        _os3_reason_text = ", ".join(_os3_action_reasons[:2]) if _os3_action_reasons else "best balance of urgency and effort"
+        os3_hero_subtitle = f"Why now: {_os3_reason_text}." + (f" {_os3_energy_note_plain}" if _os3_energy_note_plain else "")
     elif _todoist_hero_task:
         os3_hero_source = "todoist"
         os3_hero_title = str(_todoist_hero_task.get("content", "")).strip()[:80]
@@ -12574,14 +12850,15 @@ function qaApplyTaDahFromScratch(scratchText) {{
         os3_hero_meta = f"Todoist{(' · ' + _tht_pri_label) if _tht_pri_label else ''}"
         _tht_due_time = str(_todoist_hero_task.get("due_datetime", "") or "").strip()
         os3_hero_subtitle = (
-            f"{_tht_due_time[11:16]}{_os3_energy_note_hero}" if len(_tht_due_time) >= 16 else
-            f"Next on your list.{_os3_energy_note_hero}"
+            f"Why now: Todoist still has this near the top of your stack at {_tht_due_time[11:16]}."
+            if len(_tht_due_time) >= 16 else
+            "Why now: this is the highest-priority Todoist item still open."
         )
     elif os3_next_event:
         os3_hero_source = "upcoming"
         os3_hero_title = str(os3_next_event.get("event", "")).strip() or "Next scheduled block"
         os3_hero_meta = "Next up"
-        os3_hero_subtitle = str(os3_next_event.get("time", "")).strip() or "Scheduled later today."
+        os3_hero_subtitle = "Scheduled later today, so you can work towards it without rushing."
 
     os3_focus_support_html = "".join(
         f'<div class="os-surface"><p class="text-xs font-semibold mb-1" style="color:#bae6fd">{html.escape(str(step.get("label", "")))}</p><p class="text-sm" style="color:#e5e7eb">{html.escape(str(step.get("text", "")))}</p></div>'
@@ -12598,11 +12875,13 @@ function qaApplyTaDahFromScratch(scratchText) {{
             subline = ""
             if row_status == "now" and row.get("end"):
                 subline = f'<p class="text-xs mt-1" style="color:#b8d8c8">Live now · {_os3_minutes_label((row["end"] - os3_now_dt).total_seconds() / 60)} left</p>'
+            _row_time_str = str(row.get("time", ""))
+            _row_end_str = row["end"].strftime("%H:%M") if row.get("end") else ""
             os3_timeline_html += (
-                f'<div class="os-timeline-row {row_class}">'
+                f'<div class="os-timeline-row {row_class}" data-start="{html.escape(_row_time_str)}" data-end="{html.escape(_row_end_str)}">'
                 f'<div class="os-timeline-dot"></div>'
                 f'<div class="os-surface">'
-                f'<p class="text-xs font-semibold" style="color:#94a3b8">{html.escape(str(row.get("time", "")))}</p>'
+                f'<p class="text-xs font-semibold" style="color:#94a3b8">{html.escape(_row_time_str)}</p>'
                 f'<p class="text-sm font-semibold mt-1" style="color:{tone}">{html.escape(str(row.get("event", "")))}</p>'
                 f'{subline}'
                 f'</div></div>'
@@ -12614,19 +12893,19 @@ function qaApplyTaDahFromScratch(scratchText) {{
         <div class="os-card">
             <p class="text-sm font-semibold mb-3" style="color:#e5e7eb">Quick actions</p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
-                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(224,187,228,0.08);border:1px solid rgba(224,187,228,0.15);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="journal-mood-card">
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(224,187,228,0.08);border:2px solid rgba(224,187,228,0.55);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="journal-mood-card">
                     <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(224,187,228,0.15);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">😊</div>
                     <span class="text-xs font-semibold" style="color:#e5e7eb">Log Mood</span>
                 </button>
-                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(181,255,217,0.06);border:1px solid rgba(181,255,217,0.12);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(181,255,217,0.06);border:2px solid rgba(181,255,217,0.55);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
                     <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(181,255,217,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✍️</div>
                     <span class="text-xs font-semibold" style="color:#e5e7eb">Reflect</span>
                 </button>
-                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(255,209,220,0.06);border:1px solid rgba(255,209,220,0.12);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="health" data-target-sub="overview" data-focus-target="health-selfcare">
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(255,209,220,0.06);border:2px solid rgba(255,209,220,0.55);cursor:pointer;transition:all 0.15s ease;" data-os-nav-action="health" data-target-sub="overview" data-focus-target="health-selfcare">
                     <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(255,209,220,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🧘</div>
                     <span class="text-xs font-semibold" style="color:#e5e7eb">Self-care</span>
                 </button>
-                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(125,211,252,0.06);border:1px solid rgba(125,211,252,0.12);cursor:pointer;transition:all 0.15s ease;" onclick="qaOpenWorkoutChecklist(true)">
+                <button type="button" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:0.85rem 0.5rem;border-radius:0.85rem;background:rgba(125,211,252,0.06);border:2px solid rgba(125,211,252,0.55);cursor:pointer;transition:all 0.15s ease;" onclick="qaOpenWorkoutChecklist(true)">
                     <div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;background:rgba(125,211,252,0.12);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🏋️</div>
                     <span class="text-xs font-semibold" style="color:#e5e7eb">Workout</span>
                 </button>
@@ -12642,7 +12921,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
     if system_needs_attention:
         os3_now_attention_lines.append(cache_fresh_line)
     os3_now_attention_html = (
-        '<div class="os-banner" style="border-left:2px solid rgba(251,191,36,0.3)">'
+        '<div class="os-banner" style="border:2px solid rgba(251,191,36,0.55)">'
         + "".join(f'<p class="text-xs" style="color:#cbd5e1">{html.escape(line)}</p>' for line in os3_now_attention_lines[:2])
         + "</div>"
     ) if os3_now_attention_lines else ""
@@ -12669,7 +12948,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
     ) or ''
 
     os3_review_today_attention_html = (
-        f'<div class="os-banner" style="border-left:2px solid rgba(196,181,253,0.3)"><p class="text-xs" style="color:#cbd5e1">{html.escape(weekly_hint)}</p></div>'
+        f'<div class="os-banner" style="border:2px solid rgba(196,181,253,0.55)"><p class="text-xs" style="color:#cbd5e1">{html.escape(weekly_hint)}</p></div>'
         if weekly_needs_regeneration else ""
     )
 
@@ -12679,7 +12958,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
     os3_review_story_html = f'<p class="text-sm mb-3" style="color:#e5e7eb; line-height:1.65">{html.escape(_synthesis_story)}</p>' if _synthesis_story else ""
     _comp_signals_raw = [str(item).strip() for item in (state_vector_payload.get("compounding_signals", []) if isinstance(state_vector_payload.get("compounding_signals", []), list) else [])[:3] if str(item).strip()]
     os3_compounding_signals_html = "".join(
-        f'<div style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.3rem 0.65rem;border-radius:999px;background:rgba(147,197,253,0.08);border:1px solid rgba(147,197,253,0.18);margin:0.2rem 0.25rem 0.2rem 0;font-size:0.8rem;color:#dbeafe;">🔗 {html.escape(item)}</div>'
+        f'<div style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.3rem 0.65rem;border-radius:999px;background:rgba(147,197,253,0.08);border:2px solid rgba(147,197,253,0.55);margin:0.2rem 0.25rem 0.2rem 0;font-size:0.8rem;color:#dbeafe;">🔗 {html.escape(item)}</div>'
         for item in _comp_signals_raw
     )
     # Build synthesis sections with clear visual separation
@@ -12687,11 +12966,11 @@ function qaApplyTaDahFromScratch(scratchText) {{
     if os3_review_story_html:
         _synth_sections.append(os3_review_story_html)
     if how_felt_body_html:
-        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">How today felt</p>{how_felt_body_html}</div>')
+        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:2px solid rgba(148,163,184,0.5);"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">How today felt</p>{how_felt_body_html}</div>')
     elif not os3_review_story_html:
         _synth_sections.append('<p class="text-sm" style="color:#cbd5e1">Waiting for diary data.</p>')
     if os3_compounding_signals_html:
-        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.14);"><p class="text-xs font-semibold mb-2" style="color:#E0BBE4">Signals to carry</p><div style="display:flex;flex-wrap:wrap;">{os3_compounding_signals_html}</div></div>')
+        _synth_sections.append(f'<div class="mt-3 pt-3" style="border-top:2px solid rgba(148,163,184,0.5);"><p class="text-xs font-semibold mb-2" style="color:#E0BBE4">Signals to carry</p><div style="display:flex;flex-wrap:wrap;">{os3_compounding_signals_html}</div></div>')
 
     os3_review_synthesis_html = f'''
         <div class="os-card">
@@ -12803,8 +13082,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             </div>
             <textarea id="qa-weekly-reflection"
                 data-week-key="{html.escape(os3_week_key)}"
-                class="w-full rounded px-3 py-3 text-sm"
-                style="min-height: 8rem; background: rgba(15,23,42,0.66); border: 1px solid rgba(148,163,184,0.22); color: #e5e7eb; resize: vertical;"
+                class="qa-report-textarea w-full rounded px-3 py-3 text-sm"
                 placeholder="How did this week actually feel? What mattered, what dragged, what should carry forward?">{html.escape(os3_week_reflection_text)}</textarea>
         </div>
     '''
@@ -12857,43 +13135,78 @@ function qaApplyTaDahFromScratch(scratchText) {{
         '<div class="os-surface"><p class="text-sm" style="color:#94a3b8">No health data synced yet.</p></div>'
     )
 
-    # Build 7-day sparkline bar charts for steps and HRV
-    _dow_labels = ["M", "T", "W", "T", "F", "S", "S"]
-    def _build_sparkline_bars(values, label, color, max_val=None):
-        if not values or len(values) < 2:
+    # Build 7-day sparkline bar charts for steps/HRV/sleep using actual metric dates.
+    def _os3_parse_metric_date(raw_value):
+        raw = str(raw_value or "").strip()
+        if not raw:
+            return None
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(raw, fmt).date()
+            except Exception:
+                continue
+        return None
+
+    def _build_sparkline_bars(points, label, color, max_val=None, decimals=0):
+        valid_points = [
+            (day_dt, float(value))
+            for day_dt, value in points
+            if day_dt and isinstance(value, (int, float))
+        ]
+        if len(valid_points) < 2:
             return ""
-        max_v = max_val or max(values)
+        valid_points = sorted(valid_points, key=lambda row: row[0])[-7:]
+        max_v = max_val or max(value for _, value in valid_points)
         if max_v <= 0:
             return ""
         bars = ""
         day_html = ""
-        _today_dow = datetime.now().weekday()
-        _start_dow = (_today_dow - len(values[-7:]) + 1) % 7
-        for i, v in enumerate(values[-7:]):
-            pct = min(100, int((v / max_v) * 100)) if max_v > 0 else 0
-            bars += f'<div style="flex:1;background:{color};height:{max(2, pct)}%;border-radius:2px;min-width:4px;" title="{v:,.0f}"></div>'
-            day_html += f'<span style="flex:1;text-align:center;">{_dow_labels[(_start_dow + i) % 7]}</span>'
-        return f'''<div class="mt-3"><p class="text-xs mb-1" style="color:#94a3b8">{label} (7d)</p><div style="display:flex;align-items:flex-end;gap:3px;height:32px;">{bars}</div><div style="display:flex;gap:3px;margin-top:2px;font-size:0.6rem;color:#64748b;font-weight:600;">{day_html}</div></div>'''
+        gaps_present = any(
+            (valid_points[idx][0] - valid_points[idx - 1][0]).days > 1
+            for idx in range(1, len(valid_points))
+        )
+        for day_dt, value in valid_points:
+            value_label = f"{value:,.{decimals}f}" if decimals else f"{int(round(value)):,}"
+            pct = min(100, int((value / max_v) * 100)) if max_v > 0 else 0
+            day_title = html.escape(day_dt.strftime("%a %d %b"), quote=True)
+            bars += f'<div style="flex:1;background:{color};height:{max(2, pct)}%;border-radius:2px;min-width:4px;" title="{day_title} · {value_label}"></div>'
+            day_html += f'<span style="flex:1;text-align:center;" title="{day_title}">{day_dt.strftime("%a")[0]}</span>'
+        _range_label = f'{valid_points[0][0].strftime("%d %b")}–{valid_points[-1][0].strftime("%d %b")}'
+        _gap_label = " · gaps in data" if gaps_present else ""
+        return (
+            f'''<div class="mt-3"><p class="text-xs mb-1" style="color:#94a3b8">{label} (7d)</p>'''
+            f'''<div style="display:flex;align-items:flex-end;gap:3px;height:32px;">{bars}</div>'''
+            f'''<div style="display:flex;gap:3px;margin-top:2px;font-size:0.6rem;color:#64748b;font-weight:600;">{day_html}</div>'''
+            f'''<p class="text-xs mt-1" style="color:#64748b">{_range_label}{_gap_label}</p></div>'''
+        )
 
     _hf_daily = data.get("healthfit", {}).get("daily_metrics", []) if isinstance(data.get("healthfit", {}), dict) else []
-    _spark_steps = [float(d.get("steps", 0)) for d in _hf_daily[:7] if isinstance(d, dict) and isinstance(d.get("steps"), (int, float))]
-    _spark_hrv = [float(d.get("hrv", 0)) for d in _hf_daily[:7] if isinstance(d, dict) and isinstance(d.get("hrv"), (int, float)) and d.get("hrv", 0) > 0]
-    _spark_steps.reverse()
-    _spark_hrv.reverse()
+    _spark_steps = []
+    _spark_hrv = []
+    for _daily_row in _hf_daily:
+        if not isinstance(_daily_row, dict):
+            continue
+        _daily_date = _os3_parse_metric_date(_daily_row.get("date", ""))
+        _daily_steps = _daily_row.get("steps")
+        _daily_hrv = _daily_row.get("hrv")
+        if _daily_date and isinstance(_daily_steps, (int, float)):
+            _spark_steps.append((_daily_date, float(_daily_steps)))
+        if _daily_date and isinstance(_daily_hrv, (int, float)) and _daily_hrv > 0:
+            _spark_hrv.append((_daily_date, float(_daily_hrv)))
     _hf_sleep_list = data.get("healthfit", {}).get("sleep", []) if isinstance(data.get("healthfit", {}), dict) else []
     _spark_sleep = []
     for _sl in _hf_sleep_list[:7]:
         if not isinstance(_sl, dict):
             continue
+        _sleep_date = _os3_parse_metric_date(_sl.get("date", ""))
         _asleep_raw = str(_sl.get("asleep", ""))
         _sm = re.match(r"(\d+)h:(\d+)m", _asleep_raw)
-        if _sm:
-            _spark_sleep.append(int(_sm.group(1)) + int(_sm.group(2)) / 60)
-    _spark_sleep.reverse()
+        if _sleep_date and _sm:
+            _spark_sleep.append((_sleep_date, int(_sm.group(1)) + int(_sm.group(2)) / 60))
     os3_health_sparklines_html = (
         _build_sparkline_bars(_spark_steps, "Steps", "rgba(125,211,252,0.6)", max_val=20000)
         + _build_sparkline_bars(_spark_hrv, "HRV", "rgba(167,216,196,0.6)", max_val=120)
-        + _build_sparkline_bars(_spark_sleep, "Sleep", "rgba(196,181,253,0.6)", max_val=10)
+        + _build_sparkline_bars(_spark_sleep, "Sleep", "rgba(196,181,253,0.6)", max_val=10, decimals=1)
     )
 
     os3_integrations_rows = [
@@ -12964,7 +13277,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
 
     os3_review_today_panel_html = f'''
         {os3_review_today_attention_html}
-        {(f'<section id="daily-report" class="os-card" style="border-left:3px solid rgba(224,187,228,0.5);margin-bottom:1rem;"><div class="flex items-center gap-3 mb-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#E0BBE4;"></div><h3 class="text-base font-bold" style="color:#E0BBE4">Today\'s Story</h3></div><div>{daily_report_html}</div></section>') if daily_report_html else ''}
+        {(f'<section id="daily-report" class="os-card" style="margin-bottom:1rem;"><div class="flex items-center gap-3 mb-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#E0BBE4;"></div><h3 class="text-base font-bold" style="color:#E0BBE4">Today\'s Story</h3></div><div class="card-scrollable">{daily_report_html}</div></section>') if daily_report_html else ''}
         <div class="os-layout">
             <div class="os-main-stack">
                 {os3_review_synthesis_html}
@@ -12976,7 +13289,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                         <h3 class="text-base font-bold" style="color:#B5FFD9">Ta-Dah</h3>
                         <span class="text-xs" style="background:rgba(181,255,217,0.12);color:#B5FFD9;padding:0.15rem 0.5rem;border-radius:999px;font-weight:700;">{len(tadah_flat)} wins</span>
                     </div>
-                    <div class="space-y-1" id="qa-tadah-list">{tadah_html}</div>
+                    <div class="space-y-1 card-scrollable" id="qa-tadah-list">{tadah_html}</div>
                     {yesterday_tadah_html}
                 </section>
                 {qa_anxiety_relief_html if qa_anxiety_visible else ''}
@@ -13009,6 +13322,13 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 <button type="button" class="os-tab-btn" data-os-tab-btn="health">Health</button>
                 <button type="button" class="os-tab-btn" data-os-tab-btn="more">More</button>
             </nav>
+            <div class="os-view-modes" aria-label="Dashboard presets">
+                <span class="os-view-modes-label">Modes</span>
+                <button type="button" class="os-mode-btn" data-ui-preset-btn="style" title="Border-forward styling with standard density">🎨 Style</button>
+                <button type="button" class="os-mode-btn" data-ui-preset-btn="noise" title="Lower-stim, fewer extras, focus density">🔇 Quiet</button>
+                <button type="button" class="os-mode-btn" data-ui-preset-btn="ease" title="Larger targets and roomier spacing">👐 Easy</button>
+            </div>
+            <p id="os-mode-note" class="os-mode-note" aria-live="polite">Preset: Style • Tone: Standard • Density: Standard • Spacing: Standard.</p>
         </div>
 
         <section data-os-tab="now" class="os-tab-panel">
@@ -13020,17 +13340,18 @@ function qaApplyTaDahFromScratch(scratchText) {{
                             <div>
                                 <div class="flex items-center gap-2 mb-2">
                                     {os3_support_mode_chip}
-                                    <span class="os-chip" style="background:rgba(196,181,253,0.12);border:1px solid rgba(196,181,253,0.24);color:#c4b8e0;">{html.escape(os3_hero_source.title())}</span>
+                                    <span class="os-chip" style="background:rgba(196,181,253,0.12);border:2px solid rgba(196,181,253,0.55);color:#c4b8e0;">{html.escape(os3_hero_source.title())}</span>
                                 </div>
                                 <p class="text-lg font-semibold" style="color:#f8fafc">{html.escape(os3_hero_title)}</p>
                                 <p class="text-xs mt-1" style="color:#94a3b8">{os3_hero_meta}</p>
+                                {f'<p class="text-xs mt-2" style="color:#cbd5e1;line-height:1.5">{html.escape(os3_hero_subtitle)}</p>' if os3_hero_subtitle else ''}
                             </div>
                             <div style="flex-shrink:0;">
                                 <button type="button" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.5rem;background:rgba(181,255,217,0.9);color:#0a0a0c;border:none;border-radius:0.75rem;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s ease;box-shadow:0 0 12px rgba(181,255,217,0.15);" data-os-focus-enter="true">⚡ Focus</button>
                             </div>
                         </div>
                     </section>
-                    <section id="schedule" class="os-card" style="border-left:3px solid rgba(181,255,217,0.35);">
+                    <section id="schedule" class="os-card">
                         <div class="flex items-center justify-between gap-3 mb-3">
                             <div>
                                 <div class="flex items-center gap-3"><div style="width:3px;height:1.5rem;border-radius:3px;background:#B5FFD9;"></div><h3 class="text-base font-bold" style="color:#B5FFD9">Today&apos;s schedule</h3></div>
@@ -13041,8 +13362,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     <section id="actions">{action_items_html}</section>
                 </div>
                 <aside class="os-side-stack">
-                    {qa_anxiety_relief_html if qa_anxiety_visible and not is_evening else ''}
-                    {(f'<section id="guidance" class="os-card" style="border-left:3px solid rgba(224,187,228,0.35);"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
+                    {(f'<section id="guidance" class="os-card"><p class="text-xs font-semibold mb-2" style="color:#c4b8e0">💡 Today\'s Guidance</p>{guidance_section_html}</section>') if guidance_section_html else ''}
                     {os3_quick_actions_html}
                     <section class="os-card">
                         <div class="flex items-center gap-3 mb-2">
@@ -13100,41 +13420,41 @@ function qaApplyTaDahFromScratch(scratchText) {{
             </div>
             <section id="morning" class="os-subpanel" data-os-journal-panel="morning">
                 {morning_mood_pill_html}
-                {f'<div class="os-card" style="border-left:3px solid var(--mint);margin-top:0.75rem;">{morning_insights_html}</div>' if morning_insights_html else ''}
+                {f'<div class="os-card" style="border:3px solid rgba(147,197,253,0.55);margin-top:0.75rem;"><div class="card-scrollable">{morning_insights_html}</div></div>' if morning_insights_html else ''}
                 <div class="os-card" style="margin-top:0.75rem;">
                     <details>
                         <summary class="flex items-center gap-2 cursor-pointer" style="color:#94a3b8">
                             <span style="font-size:1.1rem;">📓</span>
                             <span class="text-sm font-semibold">My entries</span>
                         </summary>
-                        <div class="mt-3">{morning_card_html}</div>
+                        <div class="mt-3 card-scrollable">{morning_card_html}</div>
                     </details>
                 </div>
                 <div class="os-card" style="margin-top:0.75rem;">{_scratch_pad_html("morning", "Morning", effective_today)}</div>
             </section>
             <section id="updates" class="os-subpanel" data-os-journal-panel="day" hidden>
-                {f'<div class="os-card" style="border-left:3px solid #E0BBE4;margin-top:0.75rem;">{updates_insights_html}</div>' if updates_insights_html else ''}
+                {f'<div class="os-card" style="border:3px solid rgba(224,187,228,0.55);margin-top:0.75rem;"><div class="card-scrollable">{updates_insights_html}</div></div>' if updates_insights_html else ''}
                 <div class="os-card" style="margin-top:0.75rem;">
                     <details>
                         <summary class="flex items-center gap-2 cursor-pointer" style="color:#94a3b8">
                             <span style="font-size:1.1rem;">📓</span>
                             <span class="text-sm font-semibold">My entries</span>
                         </summary>
-                        <div class="mt-3">{updates_card_html}</div>
+                        <div class="mt-3 card-scrollable">{updates_card_html}</div>
                     </details>
                 </div>
                 <div class="os-card" style="margin-top:0.75rem;">{_scratch_pad_html("updates", "Updates", effective_today)}</div>
             </section>
             <section id="evening" class="os-subpanel" data-os-journal-panel="evening" hidden>
                 {evening_mood_pill_html}
-                {f'<div class="os-card" style="border-left:3px solid var(--purple);margin-top:0.75rem;">{evening_insights_html}</div>' if evening_insights_html else ''}
+                {f'<div class="os-card" style="border:3px solid rgba(196,181,253,0.55);margin-top:0.75rem;"><div class="card-scrollable">{evening_insights_html}</div></div>' if evening_insights_html else ''}
                 <div class="os-card" style="margin-top:0.75rem;">
                     <details>
                         <summary class="flex items-center gap-2 cursor-pointer" style="color:#94a3b8">
                             <span style="font-size:1.1rem;">📓</span>
                             <span class="text-sm font-semibold">My entries</span>
                         </summary>
-                        <div class="mt-3">{evening_card_html}</div>
+                        <div class="mt-3 card-scrollable">{evening_card_html}</div>
                     </details>
                 </div>
                 <div class="os-card" style="margin-top:0.75rem;">{_scratch_pad_html("evening", "Evening", effective_today)}</div>
@@ -13173,13 +13493,13 @@ function qaApplyTaDahFromScratch(scratchText) {{
             </div>
             <div class="os-subpanel" data-os-health-panel="overview">
                 <div class="os-two-col mb-4">
-                    <section class="os-card" style="background:linear-gradient(135deg, rgba(30,28,45,0.8), rgba(6,95,70,0.15));border:1px solid rgba(181,255,217,0.1);">
+                    <section class="os-card" style="background:linear-gradient(135deg, rgba(30,28,45,0.8), rgba(6,95,70,0.15));border:3px solid rgba(181,255,217,0.55);">
                         <p class="text-xs font-bold uppercase" style="color:var(--mint);letter-spacing:0.1em;opacity:0.8;">Body Battery</p>
                         <p class="font-black mt-2" style="font-size:2.5rem;color:var(--mint);line-height:1;">{os3_body_battery}%</p>
                         <div class="mt-3">{_os3_progress_bar(os3_body_battery)}</div>
                         <p class="text-xs mt-2" style="color:#94a3b8">🌙 {os3_sleep_display} sleep · 💓 HRV {os3_hrv_display}</p>
                     </section>
-                    <section class="os-card" style="background:linear-gradient(135deg, rgba(30,28,45,0.8), rgba(88,28,135,0.15));border:1px solid rgba(224,187,228,0.1);">
+                    <section class="os-card" style="background:linear-gradient(135deg, rgba(30,28,45,0.8), rgba(88,28,135,0.15));border:3px solid rgba(224,187,228,0.55);">
                         <p class="text-xs font-bold uppercase" style="color:var(--purple);letter-spacing:0.1em;opacity:0.8;">Focus Potential</p>
                         <p class="font-black mt-2" style="font-size:2.5rem;color:var(--purple);line-height:1;">{html.escape(os3_focus_label)}</p>
                         <div class="mt-3">
@@ -13206,15 +13526,15 @@ function qaApplyTaDahFromScratch(scratchText) {{
                         <section class="os-card">
                             <h3 class="text-sm font-semibold mb-3" style="color:#b8d8c8">Quick launchers</h3>
                             <div style="display:flex;flex-direction:column;gap:0.5rem;">
-                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.15);cursor:pointer;transition:all 0.15s ease;text-align:left;" onclick="qaOpenWorkoutChecklist(true)">
+                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(125,211,252,0.08);border:2px solid rgba(125,211,252,0.55);cursor:pointer;transition:all 0.15s ease;text-align:left;" onclick="qaOpenWorkoutChecklist(true)">
                                     <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(125,211,252,0.15);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">🏋️</div>
                                     <span class="text-sm font-semibold" style="color:#e5e7eb">Workout checklist</span>
                                 </button>
-                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(181,255,217,0.06);border:1px solid rgba(181,255,217,0.12);cursor:pointer;transition:all 0.15s ease;text-align:left;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
+                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(181,255,217,0.06);border:2px solid rgba(181,255,217,0.55);cursor:pointer;transition:all 0.15s ease;text-align:left;" data-os-nav-action="journal" data-target-sub="day" data-focus-target="qa-scratch-updates">
                                     <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(181,255,217,0.12);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">✍️</div>
                                     <span class="text-sm font-semibold" style="color:#e5e7eb">Quick reflection</span>
                                 </button>
-                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(224,187,228,0.06);border:1px solid rgba(224,187,228,0.12);cursor:pointer;transition:all 0.15s ease;text-align:left;" data-os-nav-action="health" data-target-sub="activity" data-focus-target="health-digital">
+                                <button type="button" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:0.75rem;background:rgba(224,187,228,0.06);border:2px solid rgba(224,187,228,0.55);cursor:pointer;transition:all 0.15s ease;text-align:left;" data-os-nav-action="health" data-target-sub="activity" data-focus-target="health-digital">
                                     <div style="width:2.2rem;height:2.2rem;border-radius:0.65rem;background:rgba(224,187,228,0.12);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">📱</div>
                                     <span class="text-sm font-semibold" style="color:#e5e7eb">Digital activity</span>
                                 </button>
@@ -13277,7 +13597,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     </section>
                 </div>
                 <aside class="os-side-stack">
-                    {(f'<section class="os-card"><div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;"><div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(212,168,184,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔧</div><h3 class="text-sm font-semibold" style="color:#d4a8b8">Maintenance</h3></div>{_claude_section_html}</section>') if _claude_section_html else ''}
+                    {(f'<section class="os-card"><div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;"><div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(212,168,184,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔧</div><h3 class="text-sm font-semibold" style="color:#d4a8b8">Maintenance</h3></div>{_claude_section_html}{os3_more_beads_html}</section>') if (_claude_section_html or os3_more_beads_html) else ''}
                     <section class="os-card">
                         <div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.65rem;">
                             <div style="width:2rem;height:2rem;border-radius:0.6rem;background:rgba(167,216,196,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">🔌</div>
@@ -13391,21 +13711,49 @@ function qaApplyTaDahFromScratch(scratchText) {{
             --transition-normal: 180ms ease;
         }}
         * {{ box-sizing: border-box; }}
-        html {{ font-size: 17px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }}
+        html {{ font-size: 17px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-size-adjust: 100%; }}
         body {{
             margin: 0;
             background: var(--bg);
             color: var(--text);
-            font-family: -apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-            line-height: 1.6;
-            letter-spacing: -0.011em;
+            font-family: "Aptos", "Segoe UI", "Trebuchet MS", "Verdana", system-ui, sans-serif;
+            line-height: 1.78;
+            letter-spacing: 0.009em;
+            word-spacing: 0.06em;
+            text-rendering: optimizeLegibility;
+            font-kerning: normal;
         }}
         a {{ color: inherit; text-decoration: none; }}
         a:hover {{ color: var(--focus); }}
         .dashboard-shell {{
-            max-width: 1600px;
+            max-width: 1520px;
             margin: 0 auto;
             padding: 1.25rem 1rem 3rem;
+        }}
+        .dashboard-header {{
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }}
+        .dashboard-header-main {{
+            flex: 1 1 220px;
+            min-width: 0;
+        }}
+        .dashboard-header-calm {{
+            text-align: center;
+            flex-shrink: 0;
+            padding: 0.35rem 0;
+            margin-left: auto;
+        }}
+        .qa-controls-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.5rem;
+        }}
+        .qa-controls-grid > * {{
+            min-width: 0;
         }}
         @media (min-width: 768px) {{
             .dashboard-shell {{ padding: 1.75rem 2rem 3.5rem; }}
@@ -13415,16 +13763,18 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .card {{
             background: var(--bg-primary);
-            border: 1px solid var(--border-subtle);
+            border: 3px solid rgba(148, 163, 184, 0.45);
+            border-width: 3px !important;
             border-radius: var(--radius-lg);
             padding: var(--space-5);
             margin-bottom: var(--space-4);
             box-shadow: var(--shadow-card);
+            line-height: 1.72;
             transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
         }}
         .card:hover {{
-            border-color: var(--border-default);
-            box-shadow: var(--shadow-hover);
+            border-color: rgba(181, 255, 217, 0.62);
+            box-shadow: 0 2px 10px rgba(181, 255, 217, 0.08);
         }}
         .card--green  {{ border-left: 3px solid var(--semantic-green); }}
         .card--purple {{ border-left: 3px solid var(--semantic-purple); }}
@@ -13446,7 +13796,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             gap: 0.22rem;
             padding: 0.18rem 0.48rem;
             border-radius: 999px;
-            border: 1px solid rgba(148,163,184,0.2);
+            border: 2px solid rgba(148,163,184,0.5);
             background: rgba(15,23,42,0.46);
             color: #cbd5e1;
             font-size: 0.72rem;
@@ -13456,9 +13806,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
         /* Mood emoji selector */
         .mood-emojis {{ display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }}
         .mood-btn {{ font-size: 1.6rem; background: none; border: 2px solid transparent; border-radius: 8px; cursor: pointer; padding: 4px; transition: all 0.2s; }}
-        .mood-btn:hover, .mood-btn.selected {{ border-color: var(--focus); background: rgba(110,231,183,0.08); transform: scale(1.15); }}
+        .mood-btn:hover, .mood-btn.selected {{ border-color: var(--focus); background: rgba(110,231,183,0.08); transform: scale(1.05); }}
         .mood-context-btns {{ display: flex; gap: 6px; margin: 6px 0; }}
-        .mood-ctx {{ font-size: 0.75rem; padding: 2px 10px; border-radius: 12px; border: 1px solid var(--panel-border); background: none; cursor: pointer; color: var(--muted); }}
+        .mood-ctx {{ font-size: 0.75rem; padding: 2px 10px; border-radius: 12px; border: 2px solid rgba(148,163,184,0.5); background: none; cursor: pointer; color: var(--muted); }}
         .mood-ctx.active {{ background: var(--focus); color: #0f172a; border-color: var(--focus); }}
         .mood-timeline {{ font-size: 0.8rem; color: var(--muted); margin-top: 6px; }}
         .mood-pill {{ background: var(--panel); border-radius: 10px; padding: 2px 6px; }}
@@ -13468,7 +13818,17 @@ function qaApplyTaDahFromScratch(scratchText) {{
         body[data-optional-pills="off"] .mood-pill {{ display: none !important; }}
         body[data-optional-pills="off"] #status-legend-wrap {{ display: none !important; }}
 
-        .card h3 {{ line-height: 1.35; letter-spacing: 0.01em; }}
+        h1, h2, h3, h4 {{
+            margin: 0;
+            line-height: 1.24;
+            letter-spacing: -0.016em;
+            text-wrap: balance;
+        }}
+        .card h3 {{
+            line-height: 1.3;
+            letter-spacing: -0.012em;
+            font-size: 1.14rem;
+        }}
         /* Muted collapsed sections — less visual noise */
         details.card:not([open]) {{
             opacity: 0.55;
@@ -13501,7 +13861,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .settings-rail {{
             border-radius: 0.7rem;
-            border: 1px solid rgba(148,163,184,0.2);
+            border: 2px solid rgba(148,163,184,0.5);
             background: rgba(15,23,42,0.5);
             padding: 0.22rem 0.38rem;
             min-height: 2.05rem;
@@ -13536,6 +13896,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             white-space: nowrap;
             cursor: pointer;
             user-select: none;
+            font-size: 0.94rem;
         }}
         .toolbar-summary-pill {{
             flex: 0 0 auto;
@@ -13549,7 +13910,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             gap: 0.34rem;
             padding-top: 0.34rem;
             margin-top: 0.34rem;
-            border-top: 1px solid rgba(148,163,184,0.16);
+            border-top: 1px solid rgba(148,163,184,0.5);
         }}
         .quick-nav {{
             display: flex;
@@ -13575,9 +13936,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
         .settings-inline-label,
         .focus-label {{
             color: #B5FFD9;
-            font-size: 0.72rem;
+            font-size: 0.76rem;
             font-weight: 700;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.04em;
             display: inline-flex;
             align-items: center;
             flex: 0 0 auto;
@@ -13585,7 +13946,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             margin-right: 0.1rem;
             line-height: 1.14;
             border-radius: 0.5rem;
-            border: 1px solid rgba(125,211,252,0.24);
+            border: 2px solid rgba(125,211,252,0.55);
             background: rgba(2,132,199,0.12);
         }}
         .quick-nav a,
@@ -13596,13 +13957,13 @@ function qaApplyTaDahFromScratch(scratchText) {{
             align-items: center;
             justify-content: center;
             padding: 0.15rem 0.34rem;
-            font-size: 0.73rem;
+            font-size: 0.77rem;
             font-weight: 600;
             color: #cbd5e1;
             border-radius: 0.45rem;
-            border: 1px solid rgba(148,163,184,0.2);
+            border: 2px solid rgba(148,163,184,0.5);
             background: rgba(15,23,42,0.34);
-            line-height: 1.14;
+            line-height: 1.22;
             min-height: 1.56rem;
             white-space: nowrap;
             flex: 0 0 auto;
@@ -13658,12 +14019,12 @@ function qaApplyTaDahFromScratch(scratchText) {{
             align-items: center;
             justify-content: center;
             padding: 0.15rem 0.34rem;
-            font-size: 0.72rem;
+            font-size: 0.76rem;
             font-weight: 700;
             border-radius: 0.45rem;
-            line-height: 1.14;
+            line-height: 1.22;
             min-height: 1.56rem;
-            border: 1px solid rgba(148,163,184,0.2);
+            border: 2px solid rgba(148,163,184,0.5);
             color: #cbd5e1;
             background: rgba(15,23,42,0.34);
             flex: 0 0 auto;
@@ -13698,18 +14059,18 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .status-legend-summary {{
             color: #b8d8c8;
-            font-size: 0.72rem;
+            font-size: 0.76rem;
             font-weight: 700;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.04em;
             display: inline-flex;
             align-items: center;
             gap: 0.22rem;
-            line-height: 1.14;
+            line-height: 1.24;
             cursor: pointer;
             user-select: none;
             border-radius: 0.5rem;
             padding: 0.15rem 0.24rem;
-            border: 1px solid rgba(125,211,252,0.24);
+            border: 2px solid rgba(125,211,252,0.55);
             background: rgba(2,132,199,0.12);
         }}
         .status-caret {{
@@ -13738,12 +14099,12 @@ function qaApplyTaDahFromScratch(scratchText) {{
             align-items: center;
             justify-content: center;
             padding: 0.15rem 0.34rem;
-            font-size: 0.72rem;
+            font-size: 0.76rem;
             font-weight: 600;
             border-radius: 0.45rem;
-            line-height: 1.14;
+            line-height: 1.22;
             min-height: 1.56rem;
-            border: 1px solid rgba(148,163,184,0.2);
+            border: 2px solid rgba(148,163,184,0.5);
             color: #d1d5db;
             background: rgba(15,23,42,0.34);
             flex: 0 0 auto;
@@ -13789,12 +14150,12 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .focus-hidden {{ display: none !important; }}
         .section-label {{
-            font-size: 0.7rem;
+            font-size: 0.76rem;
             font-weight: 700;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: var(--text-muted);
-            margin: 0 0 0.4rem 0.15rem;
+            color: #b7c6d8;
+            margin: 0 0 0.48rem 0.15rem;
         }}
         .section-label-morning {{ color: var(--color-morning); opacity: 0.7; }}
         .section-label-day {{ color: var(--color-day); opacity: 0.7; }}
@@ -13899,6 +14260,62 @@ function qaApplyTaDahFromScratch(scratchText) {{
         body[data-low-stim=\"on\"] * {{
             transition: none !important;
         }}
+        body[data-ui-preset=\"style\"] .os-card,
+        body[data-ui-preset=\"style\"] .card {{
+            border-color: rgba(181,255,217,0.34);
+        }}
+        body[data-ui-preset=\"noise\"] .os-card,
+        body[data-ui-preset=\"noise\"] .card {{
+            box-shadow: none;
+            background: rgba(15,23,42,0.88);
+        }}
+        body[data-ui-preset=\"noise\"] .os-chip,
+        body[data-ui-preset=\"noise\"] .backend-pill,
+        body[data-ui-preset=\"noise\"] .status-chip {{
+            background: rgba(15,23,42,0.56);
+            border-color: rgba(148,163,184,0.34);
+            color: #cbd5e1;
+        }}
+        body[data-ease-use=\"on\"] .dashboard-shell {{
+            padding-top: 1.4rem;
+            padding-bottom: 3.4rem;
+        }}
+        body[data-ease-use=\"on\"] .os-topbar {{
+            gap: 1rem;
+            padding: 0.95rem 1.3rem;
+        }}
+        body[data-ease-use=\"on\"] .os-card,
+        body[data-ease-use=\"on\"] .card {{
+            border-radius: 1.25rem;
+        }}
+        body[data-ease-use=\"on\"] .os-tab-btn,
+        body[data-ease-use=\"on\"] .os-subtab-btn,
+        body[data-ease-use=\"on\"] .os-mode-btn,
+        body[data-ease-use=\"on\"] button,
+        body[data-ease-use=\"on\"] input[type=\"text\"],
+        body[data-ease-use=\"on\"] select {{
+            min-height: 2.35rem;
+            font-size: 0.96rem;
+        }}
+        body[data-ease-use=\"on\"] .text-xs {{
+            font-size: 0.84rem !important;
+            line-height: 1.32rem !important;
+        }}
+        body[data-ease-use=\"on\"] .text-sm {{
+            font-size: 0.97rem !important;
+            line-height: 1.56rem !important;
+        }}
+        body[data-ease-use=\"on\"] .text-lg {{
+            font-size: 1.14rem !important;
+            line-height: 1.62rem !important;
+        }}
+        body[data-ease-use=\"on\"] p,
+        body[data-ease-use=\"on\"] li {{
+            line-height: 1.82;
+        }}
+        body[data-ease-use=\"on\"] .os-mode-note {{
+            font-size: 0.82rem;
+        }}
         /* Density mode: focus = essentials only, everything = all open */
         body[data-density=\"focus\"] .dashboard-section:not([data-density-keep]) {{
             display: none !important;
@@ -13921,17 +14338,30 @@ function qaApplyTaDahFromScratch(scratchText) {{
             outline-offset: 2px;
             border-color: rgba(203,239,223,0.58) !important;
         }}
-        .text-xs {{ font-size: 0.78rem !important; line-height: 1.18rem !important; }}
-        .text-sm {{ font-size: 0.9rem !important; line-height: 1.4rem !important; }}
-        .text-lg {{ font-size: 1.08rem !important; line-height: 1.38rem !important; }}
-        .text-2xl {{ font-size: 1.35rem !important; }}
+        .text-xs {{ font-size: 0.82rem !important; line-height: 1.38rem !important; letter-spacing: 0.012em; }}
+        .text-sm {{ font-size: 0.98rem !important; line-height: 1.64rem !important; }}
+        .text-lg {{ font-size: 1.16rem !important; line-height: 1.76rem !important; }}
+        .text-2xl {{ font-size: 1.5rem !important; line-height: 1.18 !important; }}
         button, input[type="text"], select {{ font-size: 1rem; }}
         button {{ min-height: 2rem; }}
         input[type="range"] {{ min-height: 1.8rem; }}
-        p {{ margin: 0; }}
-        li {{ line-height: 1.5; }}
-        details > summary {{ list-style: none; }}
+        textarea {{ font: inherit; line-height: 1.72; letter-spacing: 0.008em; word-spacing: 0.045em; }}
+        p {{ margin: 0; max-width: 66ch; text-wrap: pretty; }}
+        li {{ line-height: 1.76; max-width: 62ch; margin: 0.24rem 0; }}
+        ul, ol {{ margin: 0.42rem 0 0.68rem; padding-left: 1.25rem; }}
+        details > summary {{ list-style: none; line-height: 1.48; }}
         details > summary::-webkit-details-marker {{ display: none; }}
+        .card p + p,
+        .os-card p + p,
+        .qa-report-copy p + p {{
+            margin-top: 0.52rem;
+        }}
+        .card ul,
+        .card ol,
+        .os-card ul,
+        .os-card ol {{
+            margin-top: 0.45rem;
+        }}
         #dashboard-controls[open] .controls-arrow {{ transform: rotate(90deg); }}
         .os-topbar {{
             display: flex;
@@ -13942,11 +14372,34 @@ function qaApplyTaDahFromScratch(scratchText) {{
             margin-bottom: 1.25rem;
             padding: 0.75rem 1.15rem;
             border-radius: 1.1rem;
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            background: rgba(15, 23, 42, 0.65);
+            border: 2px solid rgba(148, 163, 184, 0.5);
+            background: rgba(15, 23, 42, 0.78);
             backdrop-filter: blur(18px) saturate(1.2);
             -webkit-backdrop-filter: blur(18px) saturate(1.2);
-            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }}
+        .os-view-modes {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.42rem;
+        }}
+        .os-view-modes-label {{
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }}
+        .os-mode-note {{
+            flex: 1 1 100%;
+            margin: 0;
+            text-align: center;
+            font-size: 0.76rem;
+            line-height: 1.45;
+            color: #a8c4e0;
+            letter-spacing: 0.01em;
         }}
         .os-brand {{ display: none; }}
         .os-brand-dot {{ display: none; }}
@@ -13959,7 +14412,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-tab-btn,
         .os-subtab-btn {{
-            border: 1px solid rgba(148, 163, 184, 0.1);
+            border: 2px solid rgba(148, 163, 184, 0.5);
             background: transparent;
             color: #94a3b8;
             border-radius: 999px;
@@ -13969,9 +14422,21 @@ function qaApplyTaDahFromScratch(scratchText) {{
             cursor: pointer;
             transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
         }}
+        .os-mode-btn {{
+            border: 2px solid rgba(148, 163, 184, 0.5);
+            background: rgba(15, 23, 42, 0.32);
+            color: #cbd5e1;
+            border-radius: 999px;
+            padding: 0.42rem 0.9rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }}
         @media (hover: hover) {{
             .os-tab-btn:hover,
-            .os-subtab-btn:hover {{
+            .os-subtab-btn:hover,
+            .os-mode-btn:hover {{
                 color: #cbd5e1;
                 background: rgba(148, 163, 184, 0.08);
             }}
@@ -13983,6 +14448,27 @@ function qaApplyTaDahFromScratch(scratchText) {{
             background: rgba(69, 204, 144, 0.1);
             box-shadow: 0 0 0 1px rgba(69, 204, 144, 0.08) inset;
         }}
+        .os-mode-btn.is-active {{
+            color: #ecfeff;
+            border-color: rgba(181, 255, 217, 0.5);
+            background: rgba(69, 204, 144, 0.14);
+            box-shadow: 0 0 0 1px rgba(181, 255, 217, 0.1) inset;
+        }}
+        body[data-ui-preset="style"] .os-mode-btn[data-ui-preset-btn="style"].is-active {{
+            border-color: rgba(181, 255, 217, 0.58);
+            background: rgba(181, 255, 217, 0.16);
+            color: #dff7ea;
+        }}
+        body[data-ui-preset="noise"] .os-mode-btn[data-ui-preset-btn="noise"].is-active {{
+            border-color: rgba(148, 163, 184, 0.52);
+            background: rgba(148, 163, 184, 0.14);
+            color: #e2e8f0;
+        }}
+        body[data-ui-preset="ease"] .os-mode-btn[data-ui-preset-btn="ease"].is-active {{
+            border-color: rgba(147, 197, 253, 0.55);
+            background: rgba(147, 197, 253, 0.16);
+            color: #e0f2fe;
+        }}
         .os-tab-panel[hidden],
         .os-subpanel[hidden],
         .os-focus-view[hidden] {{
@@ -13990,8 +14476,8 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-focus-view {{
             border-left: 4px solid rgba(181, 255, 217, 0.6);
-            background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(6, 95, 70, 0.12));
-            box-shadow: 0 4px 30px rgba(181, 255, 217, 0.08);
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(6, 95, 70, 0.08));
+            box-shadow: 0 2px 18px rgba(181, 255, 217, 0.06);
         }}
         .os-layout {{
             display: grid;
@@ -14015,22 +14501,141 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-card {{
             border-radius: 1rem;
-            border: 1px solid rgba(148, 163, 184, 0.14);
+            border: 3px solid rgba(148, 163, 184, 0.45);
+            border-width: 3px !important;
             background: var(--surface);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             padding: 1.25rem 1.5rem;
             text-align: left;
+            line-height: 1.74;
             transition: border-color 0.15s ease;
         }}
+        .os-card h2,
+        .os-card h3,
+        .os-card h4 {{
+            line-height: 1.28;
+            letter-spacing: -0.014em;
+        }}
+        .os-card h2 {{
+            font-size: 1.24rem;
+        }}
+        .os-card h3 {{
+            font-size: 1.12rem;
+        }}
+        .os-card summary {{
+            font-size: 0.98rem;
+        }}
+        .qa-report-card {{
+            border: 3px solid rgba(181, 255, 217, 0.55);
+            border-radius: 1rem;
+            background: rgba(15, 23, 42, 0.88);
+            padding: 1.2rem 1.25rem;
+            box-shadow: 0 6px 18px rgba(2, 6, 23, 0.2);
+        }}
+        .qa-report-card--mint {{ border-color: rgba(181, 255, 217, 0.55); }}
+        .qa-report-card--pink {{ border-color: rgba(255, 209, 220, 0.55); }}
+        .qa-report-heading {{
+            font-size: 1.12rem;
+            line-height: 1.32;
+            letter-spacing: -0.012em;
+            margin: 0;
+        }}
+        .qa-report-kicker {{
+            font-size: 0.8rem;
+            line-height: 1.28rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }}
+        .qa-report-body {{
+            max-width: 66ch;
+        }}
+        .qa-report-copy {{
+            font-size: 0.98rem;
+            line-height: 1.84;
+            letter-spacing: 0.008em;
+            word-spacing: 0.05em;
+        }}
+        .qa-report-divider {{
+            border-top: 2px solid rgba(196, 181, 253, 0.48);
+        }}
+        .qa-report-prose-block {{
+            border-radius: 0.85rem;
+            padding: 1rem 1.1rem;
+            margin-bottom: 0.75rem;
+            border: 2px solid rgba(148, 163, 184, 0.5);
+            line-height: 1.94;
+            font-size: 1rem;
+            letter-spacing: 0.008em;
+            word-spacing: 0.05em;
+        }}
+        .qa-report-prose-block:last-child {{
+            margin-bottom: 0;
+        }}
+        .qa-report-textarea {{
+            min-height: 8rem;
+            background: rgba(15, 23, 42, 0.72);
+            font-size: 0.98rem;
+            line-height: 1.78;
+            letter-spacing: 0.008em;
+            word-spacing: 0.045em;
+            border: 3px solid rgba(196, 181, 253, 0.55);
+            color: #e5e7eb;
+            resize: vertical;
+            line-height: 1.68;
+            letter-spacing: 0.006em;
+            word-spacing: 0.04em;
+        }}
+        /* AuDHD visual separation — no two adjacent sections share a colour
+           Palette: mint=#B5FFD9 lavender=#E0BBE4 pink=#FFD1DC sky=#93C5FD
+                    lilac=#C4B5FD peach=#FCD3B1 seafoam=#A7F3D0 */
+        /* ── Now tab main ── */
+        .os-card.os-hero {{ border-color: rgba(181,255,217,0.6); }}
+        #schedule {{ border-color: rgba(224,187,228,0.55); }}
+        #actions .card, #actions .os-card {{ border-color: rgba(147,197,253,0.55); }}
+        #daily-report {{ border-color: rgba(255,209,220,0.55); }}
+        /* ── Now tab sidebar ── */
+        .os-side-stack > :nth-child(1) {{ border-color: rgba(196,181,253,0.55); }}
+        .os-side-stack > :nth-child(2) {{ border-color: rgba(252,211,177,0.55); }}
+        .os-side-stack > :nth-child(3) {{ border-color: rgba(147,197,253,0.55); }}
+        .os-side-stack > :nth-child(4) {{ border-color: rgba(255,209,220,0.55); }}
+        .os-side-stack > :nth-child(5) {{ border-color: rgba(224,187,228,0.55); }}
+        .os-side-stack > :nth-child(6) {{ border-color: rgba(167,243,208,0.55); }}
+        .os-side-stack > :nth-child(n+7) {{ border-color: rgba(196,181,253,0.55); }}
+        /* ── Journal tab — lavender / lilac / pink / peach ── */
+        [data-os-tab="journal"] > .os-card {{ border-color: rgba(224,187,228,0.55); }}
+        [data-os-tab="journal"] .os-subpanel > :nth-child(3n+1) {{ border-color: rgba(196,181,253,0.55); }}
+        [data-os-tab="journal"] .os-subpanel > :nth-child(3n+2) {{ border-color: rgba(255,209,220,0.55); }}
+        [data-os-tab="journal"] .os-subpanel > :nth-child(3n+3) {{ border-color: rgba(252,211,177,0.55); }}
+        /* ── Review tab — seafoam / lilac / peach ── */
+        [data-os-tab="review"] > .os-card {{ border-color: rgba(167,243,208,0.55); }}
+        [data-os-tab="review"] .os-subpanel > .os-card:nth-child(3n+1) {{ border-color: rgba(196,181,253,0.55); }}
+        [data-os-tab="review"] .os-subpanel > .os-card:nth-child(3n+2) {{ border-color: rgba(252,211,177,0.55); }}
+        [data-os-tab="review"] .os-subpanel > .os-card:nth-child(3n+3) {{ border-color: rgba(147,197,253,0.55); }}
+        [data-os-tab="review"] .os-subpanel > .card:nth-child(3n+1) {{ border-color: rgba(255,209,220,0.55); }}
+        [data-os-tab="review"] .os-subpanel > .card:nth-child(3n+2) {{ border-color: rgba(224,187,228,0.55); }}
+        [data-os-tab="review"] .os-subpanel > .card:nth-child(3n+3) {{ border-color: rgba(167,243,208,0.55); }}
+        /* ── Health tab — pink / sky / lilac / peach ── */
+        [data-os-tab="health"] > .os-card {{ border-color: rgba(255,209,220,0.55); }}
+        [data-os-tab="health"] .os-main-stack > :nth-child(odd) {{ border-color: rgba(255,209,220,0.55); }}
+        [data-os-tab="health"] .os-main-stack > :nth-child(even) {{ border-color: rgba(147,197,253,0.55); }}
+        [data-os-tab="health"] .os-side-stack > :nth-child(odd) {{ border-color: rgba(196,181,253,0.55); }}
+        [data-os-tab="health"] .os-side-stack > :nth-child(even) {{ border-color: rgba(252,211,177,0.55); }}
+        /* ── More tab — lilac / peach / pink ── */
+        [data-os-tab="more"] .os-main-stack > :nth-child(3n+1) {{ border-color: rgba(196,181,253,0.55); }}
+        [data-os-tab="more"] .os-main-stack > :nth-child(3n+2) {{ border-color: rgba(252,211,177,0.55); }}
+        [data-os-tab="more"] .os-main-stack > :nth-child(3n+3) {{ border-color: rgba(255,209,220,0.55); }}
+        [data-os-tab="more"] .os-side-stack > :nth-child(odd) {{ border-color: rgba(147,197,253,0.55); }}
+        [data-os-tab="more"] .os-side-stack > :nth-child(even) {{ border-color: rgba(224,187,228,0.55); }}
         @media (hover: hover) {{
-            .os-card:hover {{
-                border-color: rgba(148, 163, 184, 0.28);
+            .os-card:hover, .card:hover {{
+                border-color: rgba(181, 255, 217, 0.62) !important;
+                box-shadow: 0 0 8px rgba(181, 255, 217, 0.1);
             }}
         }}
-        .os-hero {{
-            border-color: rgba(181, 255, 217, 0.25);
-            border-left: 4px solid rgba(181, 255, 217, 0.7);
+        .os-card.os-hero {{
+            border: 3px solid rgba(181, 255, 217, 0.6);
             background: linear-gradient(145deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.65));
             box-shadow: 0 2px 20px rgba(69, 204, 144, 0.08);
             backdrop-filter: blur(12px) saturate(1.15);
@@ -14048,7 +14653,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             gap: 0;
             position: relative;
             padding-left: 1rem;
-            border-left: 2px solid rgba(148, 163, 184, 0.12);
+            border-left: 2px solid rgba(148, 163, 184, 0.5);
         }}
         .os-timeline-row {{
             display: grid;
@@ -14080,7 +14685,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         .os-timeline-row.is-now {{
             background: rgba(181, 255, 217, 0.04);
             border-radius: 0.5rem;
-            border: 1px solid rgba(181, 255, 217, 0.22);
+            border: 2px solid rgba(181, 255, 217, 0.55);
         }}
         .os-timeline-row.is-done {{
             opacity: 0.45;
@@ -14107,7 +14712,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-banner {{
             border-radius: 0.75rem;
-            border: 1px solid rgba(148, 163, 184, 0.08);
+            border: 2px solid rgba(148, 163, 184, 0.5);
             padding: 0.55rem 0.85rem;
             margin-bottom: 0.75rem;
             background: rgba(30, 41, 59, 0.35);
@@ -14126,7 +14731,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             padding: 0.55rem 0.75rem;
             border-radius: 0.65rem;
             background: rgba(30, 41, 59, 0.35);
-            border: 1px solid rgba(148, 163, 184, 0.08);
+            border: 2px solid rgba(148, 163, 184, 0.5);
             transition: background 0.12s ease;
         }}
         @media (hover: hover) {{
@@ -14169,9 +14774,13 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         .os-surface {{
             border-radius: 0.85rem;
-            border: 1px solid rgba(148, 163, 184, 0.16);
+            border: 2px solid rgba(148, 163, 184, 0.5);
             background: rgba(30, 41, 59, 0.4);
             padding: 0.85rem;
+        }}
+        .os-timeline .os-surface {{
+            border: none;
+            background: rgba(30, 41, 59, 0.25);
         }}
         @media (max-width: 960px) {{
             .os-layout,
@@ -14185,9 +14794,101 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 flex-direction: column;
             }}
         }}
+        /* ── Scrollable text-heavy cards ── */
+        /* Apply .card-scrollable to AI insights, journal entries, todos
+           so they scroll rather than becoming walls of text */
+        .card-scrollable {{
+            max-height: 420px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148,163,184,0.3) transparent;
+            -webkit-overflow-scrolling: touch;
+        }}
+        .card-scrollable::-webkit-scrollbar {{
+            width: 5px;
+        }}
+        .card-scrollable::-webkit-scrollbar-track {{
+            background: transparent;
+        }}
+        .card-scrollable::-webkit-scrollbar-thumb {{
+            background: rgba(148,163,184,0.3);
+            border-radius: 999px;
+        }}
+
+        /* ── List item breathing room ── */
+        /* Ensure at least 0.4em gap between list items inside cards */
+        .card li,
+        .os-card li {{
+            margin-top: 0.4em;
+            margin-bottom: 0.4em;
+        }}
+
+        /* ── Prose line-length cap on wide screens ── */
+        /* p and li already have max-width; extend to prose containers */
+        .card-prose,
+        .os-card-prose {{
+            max-width: 680px;
+        }}
+
+        /* ── Mobile: 768px breakpoint (tablets, large phones) ── */
+        @media (max-width: 768px) {{
+            .card {{
+                padding: var(--space-4);
+                margin-bottom: var(--space-3);
+            }}
+            .os-card {{
+                padding: 1rem 0.95rem;
+            }}
+            /* Ensure tap targets meet 44px minimum on touch screens */
+            button,
+            .os-tab-btn,
+            .os-subtab-btn,
+            .os-mode-btn,
+            input[type="text"],
+            select,
+            summary {{
+                min-height: 2.75rem;
+            }}
+            .btn {{
+                height: 2.75rem;
+                padding: 0 1rem;
+                font-size: 0.9rem;
+            }}
+            .btn--sm {{
+                height: 2.2rem;
+                min-width: auto;
+            }}
+            .mood-btn {{
+                min-height: 2.75rem;
+                min-width: 2.75rem;
+            }}
+            /* Scrollable cards get a smaller cap on mobile */
+            .card-scrollable {{
+                max-height: 320px;
+            }}
+            /* Side stack stacks below main on tablet */
+            .os-layout {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
         @media (max-width: 640px) {{
             html {{ font-size: 16px; }}
             .dashboard-shell {{ padding: 0.65rem 0.75rem 2rem; }}
+            .dashboard-header {{
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+            }}
+            .dashboard-header-calm {{
+                width: 100%;
+                margin-left: 0;
+                text-align: left;
+                padding: 0;
+            }}
+            .qa-controls-grid {{
+                grid-template-columns: 1fr;
+            }}
             #diarium-header-image {{ width: 72px !important; height: 72px !important; }}
             .quick-nav a:nth-of-type(n+7) {{ display: none; }}
             .settings-stack {{ margin-bottom: 0.55rem; }}
@@ -14219,11 +14920,15 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 width: 100%;
                 justify-content: center;
                 text-align: center;
-                padding: 0.38rem 0.5rem;
+                padding: 0.55rem 0.5rem;
                 font-size: 0.78rem;
+                min-height: 2.75rem;
             }}
             .os-chip-row {{
                 width: 100%;
+            }}
+            .card {{
+                padding: 0.75rem 0.7rem;
             }}
             .os-card,
             .os-hero {{
@@ -14240,20 +14945,28 @@ function qaApplyTaDahFromScratch(scratchText) {{
             .os-inline-list .row {{
                 padding: 0.5rem 0.65rem;
             }}
+            /* Tighter line-length on small screens */
+            p, li {{
+                max-width: 100%;
+            }}
+            /* Scrollable cards: compact on small phone */
+            .card-scrollable {{
+                max-height: 260px;
+            }}
         }}
     </style>
 </head>
-<body data-optional-pills="{optional_pills_attr}" data-energy-low="{'on' if _energy_low else 'off'}">
+<body data-optional-pills="{optional_pills_attr}" data-energy-low="{'on' if _energy_low else 'off'}" data-ui-preset="style" data-ease-use="off">
     <main class="dashboard-shell">
     <!-- Header -->
-    <header style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem;">
+    <header class="dashboard-header">
         {diarium_image_tag}
-        <div style="flex: 1; min-width: 0;">
-            <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--focus-soft); letter-spacing: -0.025em; margin: 0; line-height: 1.2;">{data.get("date", "")}</h1>
-            <p class="text-caption" style="color: var(--muted);  margin: 0.2rem 0 0;">{data.get("time", "")}</p>
+        <div class="dashboard-header-main">
+            <h1 style="font-size: 1.72rem; font-weight: 700; color: var(--focus-soft); letter-spacing: -0.032em; margin: 0; line-height: 1.12;">{data.get("date", "")}</h1>
+            <p class="text-caption" style="color: var(--muted); margin: 0.28rem 0 0; font-size: 0.92rem; line-height: 1.45; letter-spacing: 0.01em;">{data.get("time", "")}</p>
             {context_bar_html}
         </div>
-        <div style="text-align: center; flex-shrink: 0; padding: 0.35rem 0;">
+        <div class="dashboard-header-calm">
             <p style="font-size: 1.6rem; font-weight: 700; color: #a7d8c4; margin: 0; line-height: 1;">{data.get("sleepCalm", 0)}</p>
             <p class="text-micro" style=" color: rgba(110,231,183,0.4); margin: 0.15rem 0 0; text-transform: uppercase; letter-spacing: 0.05em;">calm</p>
         </div>
@@ -14267,12 +14980,17 @@ function qaApplyTaDahFromScratch(scratchText) {{
             <button type="button" data-focus-btn="evening">Evening</button>
             <button type="button" id="focus-report-chip" data-focus-btn="report"{daily_report_control_hidden_attr}>Report</button>
         </div>
+        <div class="focus-meta" aria-hidden="true">
+            <button type="button" data-ui-preset-btn="style">Style</button>
+            <button type="button" data-ui-preset-btn="noise">Quiet</button>
+            <button type="button" data-ui-preset-btn="ease">Easy</button>
+        </div>
         <button type="button" id="expand-all-toggle">Expand</button>
         <button type="button" id="low-stim-toggle">Low stim</button>
         <button type="button" id="compact-toggle">Compact</button>
         <button type="button" id="density-toggle">Focus</button>
         <p id="focus-mode-note">All sections visible.</p>
-        <p id="focus-meta-note">Style: Standard • Density: Standard.</p>
+        <p id="focus-meta-note">Preset: Style • Tone: Standard • Density: Standard • Spacing: Standard.</p>
     </div>
 
     {_auth_alert_html}
@@ -14280,9 +14998,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
 
     <div id="cmd-palette" class="focus-hidden" style="position: fixed; inset: 0; z-index: 1000; background: rgba(2,6,23,0.72);">
         <div style="max-width: 680px; margin: 8vh auto 0; padding: 0 1rem;">
-            <div class="card" style="padding: 0.8rem; border: 1px solid rgba(147,197,253,0.28); background: rgba(15,23,42,0.96);">
+            <div class="card" style="padding: 0.8rem; border: 2px solid rgba(147,197,253,0.55); background: rgba(15,23,42,0.96);">
                 <p class="text-xs mb-2" style="color: #a8c4e0">⌨️ Command Palette</p>
-                <input id="cmd-input" type="text" placeholder="Type command... (focus day, open health, refresh, self-heal)" class="w-full rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.85); border: 1px solid rgba(147,197,253,0.3); color: #e5e7eb;">
+                <input id="cmd-input" type="text" placeholder="Type command... (focus day, open health, refresh, self-heal)" class="w-full rounded px-3 py-2 text-sm" style="background: rgba(15,23,42,0.85); border: 2px solid rgba(147,197,253,0.55); color: #e5e7eb;">
                 <div id="cmd-list" class="mt-2 space-y-1"></div>
                 <p class="text-xs mt-2" style="color: #6b7280">Enter to run • Esc to close • Cmd/Ctrl+K to open</p>
             </div>
@@ -14467,7 +15185,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 undoBtn.className = "btn btn--xs btn--amber";
                 undoBtn.style.cssText = "margin-left:auto;flex-shrink:0;";
                 undoBtn.onclick = function() {{ window.qaTodoistUncompleteFromRow(row); }};
-                row.style.cssText = "padding:6px 12px;margin-bottom:4px;background:transparent;border:1px solid rgba(148,163,184,0.08);border-radius:8px;display:flex;align-items:center;gap:8px;";
+                row.style.cssText = "padding:6px 12px;margin-bottom:4px;background:transparent;border:2px solid rgba(148,163,184,0.5);border-radius:8px;display:flex;align-items:center;gap:8px;";
                 const body = row.querySelector(".todo-body");
                 if (body) body.after(undoBtn);
                 else row.appendChild(undoBtn);
@@ -14511,7 +15229,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 row.style.padding = "";
                 row.style.marginBottom = "";
                 row.style.background = "rgba(15,23,42,0.6)";
-                row.style.border = "1px solid rgba(148,163,184,0.24)";
+                row.style.border = "2px solid rgba(148,163,184,0.55)";
                 row.style.display = "";
                 row.style.alignItems = "";
                 row.style.gap = "";
@@ -14703,12 +15421,14 @@ function qaApplyTaDahFromScratch(scratchText) {{
 
         const sections = Array.from(document.querySelectorAll(".dashboard-section[data-focus]"));
         const buttons = Array.from(document.querySelectorAll("[data-focus-btn]"));
+        const presetButtons = Array.from(document.querySelectorAll("[data-ui-preset-btn]"));
         const note = document.getElementById("focus-mode-note");
         const lowStimButton = document.getElementById("low-stim-toggle");
         const compactButton = document.getElementById("compact-toggle");
         const dashboardControlsWrap = document.getElementById("dashboard-controls");
         const statusLegendWrap = document.getElementById("status-legend-wrap");
         const focusMetaNote = document.getElementById("focus-meta-note");
+        const focusMetaNoteVisible = document.getElementById("os-mode-note");
         const cmdPalette = document.getElementById("cmd-palette");
         const cmdInput = document.getElementById("cmd-input");
         const cmdList = document.getElementById("cmd-list");
@@ -14728,10 +15448,39 @@ function qaApplyTaDahFromScratch(scratchText) {{
             const protocol = (window.location.protocol || "").toLowerCase();
             const remoteSrc = headerImage.getAttribute("data-remote-src") || "";
             const fileSrc = headerImage.getAttribute("data-file-src") || "";
-            if ((protocol === "http:" || protocol === "https:") && remoteSrc) {{
-                headerImage.src = remoteSrc;
-            }} else if (protocol === "file:" && fileSrc) {{
-                headerImage.src = fileSrc;
+            const remoteAbsolute = remoteSrc
+                ? (/^https?:/i.test(remoteSrc) ? remoteSrc : `${{settingsApiBase}}${{remoteSrc.startsWith("/") ? remoteSrc : `/${{remoteSrc}}`}}`)
+                : "";
+            const candidates = [];
+            if (protocol === "http:" || protocol === "https:") {{
+                if (remoteSrc) candidates.push(remoteSrc);
+            }} else if (protocol === "file:") {{
+                // file:// on desktop can often load the direct file path, but iPhone/iPad
+                // copies of the dashboard cannot access a Mac-local file:// path. Try both.
+                if (fileSrc) candidates.push(fileSrc);
+                if (remoteAbsolute && remoteAbsolute !== fileSrc) candidates.push(remoteAbsolute);
+            }} else {{
+                if (remoteAbsolute) candidates.push(remoteAbsolute);
+                if (fileSrc) candidates.push(fileSrc);
+            }}
+            if (candidates.length) {{
+                let idx = 0;
+                const tryNextSource = () => {{
+                    if (idx >= candidates.length) {{
+                        headerImage.style.display = "none";
+                        return;
+                    }}
+                    const nextSrc = candidates[idx++];
+                    headerImage.onerror = tryNextSource;
+                    headerImage.onload = () => {{
+                        headerImage.style.display = "";
+                        headerImage.onerror = null;
+                    }};
+                    headerImage.src = nextSrc;
+                }};
+                tryNextSource();
+            }} else {{
+                headerImage.style.display = "none";
             }}
         }}
 
@@ -14809,6 +15558,15 @@ function qaApplyTaDahFromScratch(scratchText) {{
             }}
         }}
 
+        const UI_PRESET_KEY = "dashboard.ui.preset.v1";
+        const EASE_USE_KEY = "dashboard.ease.use.v1";
+        const UI_PRESETS = {{
+            style: {{ label: "Style", lowStim: false, compact: false, density: "standard", easeUse: false, optionalPills: "on" }},
+            noise: {{ label: "Noise reduction", lowStim: true, compact: false, density: "focus", easeUse: false, optionalPills: "off" }},
+            ease: {{ label: "Ease of use", lowStim: false, compact: false, density: "standard", easeUse: true, optionalPills: "on" }},
+        }};
+        let suspendPresetSync = false;
+
         function setLowStim(enabled, persist = true) {{
             const on = Boolean(enabled);
             document.body.dataset.lowStim = on ? "on" : "off";
@@ -14816,12 +15574,12 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 lowStimButton.classList.toggle("is-active", on);
                 lowStimButton.textContent = on ? "🧘 Low: On" : "🧘 Low: Off";
             }}
-            updateFocusMeta();
             if (persist) {{
                 try {{
                     localStorage.setItem(LOW_STIM_KEY, on ? "on" : "off");
                 }} catch (_err) {{}}
             }}
+            if (!suspendPresetSync) syncUiPresetUI(persist);
         }}
 
         function setCompact(enabled, persist = true) {{
@@ -14831,12 +15589,12 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 compactButton.classList.toggle("is-active", on);
                 compactButton.textContent = on ? "📚 Compact: On" : "📚 Compact: Off";
             }}
-            updateFocusMeta();
             if (persist) {{
                 try {{
                     localStorage.setItem(COMPACT_KEY, on ? "on" : "off");
                 }} catch (_err) {{}}
             }}
+            if (!suspendPresetSync) syncUiPresetUI(persist);
         }}
 
         const DENSITY_KEY = "dashboard.density.mode.v1";
@@ -14860,13 +15618,77 @@ function qaApplyTaDahFromScratch(scratchText) {{
             if (m === "everything") {{
                 document.querySelectorAll("details.card").forEach((d) => {{ d.open = true; }});
             }}
-            updateFocusMeta();
             syncFocusNudgeVisibility();
             if (persist) {{
                 try {{
                     localStorage.setItem(DENSITY_KEY, m);
                 }} catch (_err) {{}}
             }}
+            if (!suspendPresetSync) syncUiPresetUI(persist);
+        }}
+        function setEaseUse(enabled, persist = true) {{
+            const on = Boolean(enabled);
+            document.body.dataset.easeUse = on ? "on" : "off";
+            if (persist) {{
+                try {{
+                    localStorage.setItem(EASE_USE_KEY, on ? "on" : "off");
+                }} catch (_err) {{}}
+            }}
+            if (!suspendPresetSync) syncUiPresetUI(persist);
+        }}
+        function inferUiPreset() {{
+            const lowStimOn = document.body.dataset.lowStim === "on";
+            const compactOn = document.body.dataset.compact === "on";
+            const densityMode = document.body.dataset.density || "standard";
+            const easeOn = document.body.dataset.easeUse === "on";
+            if (!lowStimOn && !compactOn && densityMode === "standard" && !easeOn) return "style";
+            if (lowStimOn && !compactOn && densityMode === "focus" && !easeOn) return "noise";
+            if (!lowStimOn && !compactOn && densityMode === "standard" && easeOn) return "ease";
+            return "custom";
+        }}
+        function updateFocusMeta() {{
+            const lowStimOn = document.body.dataset.lowStim === "on";
+            const compactOn = document.body.dataset.compact === "on";
+            const densityMode = document.body.dataset.density || "standard";
+            const easeOn = document.body.dataset.easeUse === "on";
+            const preset = inferUiPreset();
+            const presetText = preset === "style" ? "Style" : (preset === "noise" ? "Noise reduction" : (preset === "ease" ? "Ease of use" : "Custom"));
+            const toneText = lowStimOn ? "Low stimulation" : "Standard";
+            const densityText = DENSITY_LABELS[densityMode] || densityMode;
+            const spacingText = compactOn ? "Compact" : (easeOn ? "Roomier" : "Standard");
+            const metaText = `Preset: ${{presetText}} • Tone: ${{toneText}} • Density: ${{densityText}} • Spacing: ${{spacingText}}.`;
+            [focusMetaNote, focusMetaNoteVisible].filter(Boolean).forEach((node) => {{
+                node.textContent = metaText;
+            }});
+        }}
+        function syncUiPresetUI(persist = true) {{
+            const preset = inferUiPreset();
+            document.body.dataset.uiPreset = preset;
+            presetButtons.forEach((button) => {{
+                const active = button.dataset.uiPresetBtn === preset;
+                button.classList.toggle("is-active", active);
+                button.setAttribute("aria-pressed", active ? "true" : "false");
+            }});
+            updateFocusMeta();
+            if (persist) {{
+                try {{
+                    localStorage.setItem(UI_PRESET_KEY, preset);
+                }} catch (_err) {{}}
+            }}
+        }}
+        function applyDashboardPreset(preset, persist = true) {{
+            const config = UI_PRESETS[preset];
+            if (!config) return;
+            suspendPresetSync = true;
+            setLowStim(config.lowStim, persist);
+            setCompact(config.compact, persist);
+            setDensity(config.density, persist);
+            setEaseUse(config.easeUse, persist);
+            if (config.optionalPills) {{
+                document.body.dataset.optionalPills = config.optionalPills;
+            }}
+            suspendPresetSync = false;
+            syncUiPresetUI(persist);
         }}
         function cycleDensity() {{
             const current = document.body.dataset.density || "standard";
@@ -14907,15 +15729,6 @@ function qaApplyTaDahFromScratch(scratchText) {{
                     localStorage.setItem(STATUS_LEGEND_KEY, open ? "open" : "closed");
                 }} catch (_err) {{}}
             }}
-        }}
-
-        function updateFocusMeta() {{
-            if (!focusMetaNote) return;
-            const lowStimOn = document.body.dataset.lowStim === "on";
-            const compactOn = document.body.dataset.compact === "on";
-            const styleText = lowStimOn ? "Low stimulation" : "Standard";
-            const densityText = compactOn ? "Compact" : "Standard";
-            focusMetaNote.textContent = `Style: ${{styleText}} • Density: ${{densityText}}.`;
         }}
 
         window.qaOpenReportFocus = function qaOpenReportFocus() {{
@@ -15023,7 +15836,7 @@ function qaApplyTaDahFromScratch(scratchText) {{
             const query = String(filterText || "").toLowerCase().trim();
             const visible = commandOptions.filter((item) => item.label.toLowerCase().includes(query));
             const rows = visible.slice(0, 12).map((item, idx) => {{
-                return `<button type="button" class="w-full text-left rounded px-2 py-1 text-xs" data-cmd-index="${{idx}}" style="background: rgba(15,23,42,0.72); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.22);">${{item.label}}</button>`;
+                return `<button type="button" class="w-full text-left rounded px-2 py-1 text-xs" data-cmd-index="${{idx}}" style="background: rgba(15,23,42,0.72); color: #cbd5e1; border: 2px solid rgba(148,163,184,0.55);">${{item.label}}</button>`;
             }});
             cmdList.innerHTML = rows.length ? rows.join("") : '<p class="text-xs" style="color: #6b7280">No matching command.</p>';
             const buttons = Array.from(cmdList.querySelectorAll("button[data-cmd-index]"));
@@ -15044,6 +15857,9 @@ function qaApplyTaDahFromScratch(scratchText) {{
             {{ label: "Focus: Day", run: () => setMode("day", {{ persist: true, source: "manual" }}) }},
             {{ label: "Focus: Evening", run: () => setMode("evening", {{ persist: true, source: "manual" }}) }},
             {qa_report_command_option}
+            {{ label: "Preset: Style", run: () => applyDashboardPreset("style", true) }},
+            {{ label: "Preset: Noise reduction", run: () => applyDashboardPreset("noise", true) }},
+            {{ label: "Preset: Ease of use", run: () => applyDashboardPreset("ease", true) }},
             {{ label: "Toggle: Low stimulation", run: () => setLowStim(!(document.body.dataset.lowStim === "on"), true) }},
             {{ label: "Toggle: Compact", run: () => setCompact(!(document.body.dataset.compact === "on"), true) }},
             {{ label: "Toggle: Status legend", run: () => setStatusLegendOpen(!(statusLegendWrap && statusLegendWrap.open), true) }},
@@ -15085,6 +15901,12 @@ function qaApplyTaDahFromScratch(scratchText) {{
 
         buttons.forEach((button) => {{
             button.addEventListener("click", () => setMode(button.dataset.focusBtn || "all", {{ persist: true, source: "manual" }}));
+        }});
+        presetButtons.forEach((button) => {{
+            button.addEventListener("click", () => {{
+                const preset = String(button.dataset.uiPresetBtn || "").toLowerCase();
+                applyDashboardPreset(preset, true);
+            }});
         }});
         if (lowStimButton) {{
             lowStimButton.addEventListener("click", () => {{
@@ -15138,6 +15960,21 @@ function qaApplyTaDahFromScratch(scratchText) {{
                 cycleDensity();
                 return;
             }}
+            if (event.key === "7") {{
+                event.preventDefault();
+                applyDashboardPreset("style", true);
+                return;
+            }}
+            if (event.key === "8") {{
+                event.preventDefault();
+                applyDashboardPreset("noise", true);
+                return;
+            }}
+            if (event.key === "9") {{
+                event.preventDefault();
+                applyDashboardPreset("ease", true);
+                return;
+            }}
             const mode = hotkeys[event.key];
             if (!mode) return;
             event.preventDefault();
@@ -15159,6 +15996,19 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }} catch (_err) {{
             initialCompact = false;
         }}
+        let initialEaseUse = false;
+        try {{
+            initialEaseUse = localStorage.getItem(EASE_USE_KEY) === "on";
+        }} catch (_err) {{
+            initialEaseUse = false;
+        }}
+        let initialPreset = "custom";
+        try {{
+            const savedPreset = (localStorage.getItem(UI_PRESET_KEY) || "").toLowerCase();
+            if (savedPreset === "style" || savedPreset === "noise" || savedPreset === "ease" || savedPreset === "custom") initialPreset = savedPreset;
+        }} catch (_err) {{
+            initialPreset = "custom";
+        }}
         let initialStatusLegend = false;
         try {{
             initialStatusLegend = localStorage.getItem(STATUS_LEGEND_KEY) === "open";
@@ -15167,8 +16017,10 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         const urlParams = new URLSearchParams(window.location.search);
         const urlFocusRaw = (urlParams.get("focus") || "").toLowerCase();
+        const urlPresetRaw = (urlParams.get("preset") || "").toLowerCase();
         const urlLowStimRaw = (urlParams.get("lowStim") || "").toLowerCase();
         const urlCompactRaw = (urlParams.get("compact") || "").toLowerCase();
+        const urlEaseUseRaw = (urlParams.get("easeUse") || "").toLowerCase();
         const urlStatusLegendRaw = (urlParams.get("statusLegend") || "").toLowerCase();
         if (urlLowStimRaw === "1" || urlLowStimRaw === "true" || urlLowStimRaw === "on") {{
             initialLowStim = true;
@@ -15181,6 +16033,12 @@ function qaApplyTaDahFromScratch(scratchText) {{
         }}
         if (urlCompactRaw === "0" || urlCompactRaw === "false" || urlCompactRaw === "off") {{
             initialCompact = false;
+        }}
+        if (urlEaseUseRaw === "1" || urlEaseUseRaw === "true" || urlEaseUseRaw === "on") {{
+            initialEaseUse = true;
+        }}
+        if (urlEaseUseRaw === "0" || urlEaseUseRaw === "false" || urlEaseUseRaw === "off") {{
+            initialEaseUse = false;
         }}
         if (urlStatusLegendRaw === "1" || urlStatusLegendRaw === "true" || urlStatusLegendRaw === "on" || urlStatusLegendRaw === "open") {{
             initialStatusLegend = true;
@@ -15196,10 +16054,20 @@ function qaApplyTaDahFromScratch(scratchText) {{
         const urlDensityRaw = (urlParams.get("density") || "").toLowerCase();
         if (DENSITY_MODES.includes(urlDensityRaw)) initialDensity = urlDensityRaw;
 
+        suspendPresetSync = true;
         setLowStim(initialLowStim, false);
         setCompact(initialCompact, false);
         setDensity(initialDensity, false);
+        setEaseUse(initialEaseUse, false);
         setStatusLegendOpen(initialStatusLegend, false);
+        suspendPresetSync = false;
+        if (Object.prototype.hasOwnProperty.call(UI_PRESETS, urlPresetRaw)) {{
+            applyDashboardPreset(urlPresetRaw, false);
+        }} else if (Object.prototype.hasOwnProperty.call(UI_PRESETS, initialPreset)) {{
+            applyDashboardPreset(initialPreset, false);
+        }} else {{
+            syncUiPresetUI(false);
+        }}
 
         let modeApplied = false;
         if (Object.prototype.hasOwnProperty.call(MODES, urlFocusRaw)) {{
@@ -15944,8 +16812,9 @@ def main():
             # Strip redundant time from event title (e.g. "Email · 10:00" → "Email" when time is "10:00")
             _clean_summary = summary
             if time_str and time_str != "All day" and time_str != "TBD":
-                _clean_summary = re.sub(rf'\s*[·\-–—]\s*{re.escape(time_str)}\s*$', '', _clean_summary).strip()
-                _clean_summary = re.sub(rf'^\s*{re.escape(time_str)}\s*[·\-–—]\s*', '', _clean_summary).strip()
+                for _sep in (' · ', ' - ', ' – ', ' — '):
+                    _clean_summary = _clean_summary.removesuffix(_sep + time_str).removeprefix(time_str + _sep)
+                _clean_summary = _clean_summary.strip()
             data["calendar"].append({
                 "time": time_str,
                 "event": _clean_summary or summary,

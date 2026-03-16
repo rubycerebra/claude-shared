@@ -77,6 +77,11 @@ ACTION_ITEM_STATE_CARRY_DAYS = 7
 ACTION_ITEM_MODEL_VERSION = 2
 
 
+def _is_legacy_external_source(row: dict) -> bool:
+    """Return True for rows from cancelled external integrations (e.g. Akiflow, migrated to Todoist 2026-03)."""
+    return str(row.get("source", "")).strip().lower() == "akiflow"
+
+
 def parse_ymd(raw_text: str):
     try:
         return datetime.strptime(str(raw_text or "").strip(), "%Y-%m-%d")
@@ -492,6 +497,8 @@ def load_active_action_item_state_rows(
         key = str(row.get("task_key", "")).strip() or normalise_action_item_key(text)
         if not text or not key:
             continue
+        if _is_legacy_external_source(row):
+            continue
         status = str(row.get("status", "open")).strip().lower()
         if status == "done":
             continue
@@ -583,6 +590,8 @@ def save_action_item_state(
             continue
         prev = previous_rows.get(key, {})
         source = str(item.get("source", "")).strip().lower()
+        if _is_legacy_external_source(item):
+            continue
         target_date = str(item.get("target_date", "")).strip()
         is_done = bool(item.get("done"))
         queue_info = queue_meta.get(key, {})
@@ -645,6 +654,8 @@ def save_action_item_state(
     cutoff_dt = today_dt - timedelta(days=max(1, int(carry_days)))
     for key, prev in previous_rows.items():
         if key in next_rows:
+            continue
+        if _is_legacy_external_source(prev):
             continue
         status = str(prev.get("status", "open")).strip().lower()
         if status == "done":
@@ -765,6 +776,8 @@ def load_dashboard_action_state(effective_date: str) -> dict:
         item = _normalise_state_row(row, effective_date)
         if not item:
             continue
+        if _is_legacy_external_source(item):
+            continue
         bucket = item.get("bucket")
         if bucket == "done" or item.get("done"):
             done_items.append(item)
@@ -845,5 +858,4 @@ def load_completed_todo_state(completed_file, effective_today: str) -> tuple[set
     except Exception:
         hashes, text_keys, labels = set(), [], []
     return hashes, text_keys, labels
-
 
