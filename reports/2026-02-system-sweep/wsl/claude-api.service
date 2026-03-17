@@ -1,0 +1,17 @@
+[Unit]
+Description=Claude API server
+After=network-online.target claude-data-collector.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__LINUX_USER__
+WorkingDirectory=/home/__LINUX_USER__
+ExecStart=/bin/bash -lc '/home/__LINUX_USER__/.claude/scripts/start-api-server.sh'
+Restart=always
+RestartSec=10
+Environment=HOME=/home/__LINUX_USER__
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

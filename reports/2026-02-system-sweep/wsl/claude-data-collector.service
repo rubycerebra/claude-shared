@@ -1,0 +1,17 @@
+[Unit]
+Description=Claude data collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__LINUX_USER__
+WorkingDirectory=/home/__LINUX_USER__/.claude/daemon
+ExecStart=/home/__LINUX_USER__/.claude/daemon/venv/bin/python3 /home/__LINUX_USER__/.claude/daemon/data_collector.py
+Restart=always
+RestartSec=10
+Environment=HOME=/home/__LINUX_USER__
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target
