@@ -7268,3 +7268,174 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-17] Sustained multi-hour deep-focus session on dashboard development with iterative refinement cycles (via Pieces)
 - [2026-03-17] Researched battery-powered light products for a home project (via Pieces)
 - [2026-03-17] Completed and deployed the dashboard build with styling updates integrated (via Pieces)
+- [2026-03-17] Multiple rounds of focused dashboard design and testing (via Pieces)
+- [2026-03-17] Groceries, food, and home supplies organized (via Pieces)
+- [2026-03-17] System documentation and configuration cleaned up (via Pieces)
+- [2026-03-17] Groceries sorted and a proper meal situation set up for the week (via Pieces)
+- [2026-03-17] House tidied and the girls looked after (via Pieces)
+- [2026-03-17] Got through the whole day and kept your diary going (via Pieces)
+- [2026-03-17] Got nice vegetables and food in (via Pieces)
+- [2026-03-17] Tidied the house (via Pieces)
+- [2026-03-17] Got the girls looked after and they made Janna food (via Pieces)
+- [2026-03-17] Fixed 11+ UI issues across the dashboard in one focused session (via Pieces)
+- [2026-03-17] Connected action items to Todoist and added a safety check for stale data (via Pieces)
+- [2026-03-17] Built color-coded priority borders for tasks (red/amber/green/purple) and got them sorting correctly (via Pieces)
+- [2026-03-17] Shipped 11+ UI fixes across the dashboard (centering, borders, button layouts) (via Pieces)
+- [2026-03-17] Added visual task priority system (red/amber/green color coding) (via Pieces)
+- [2026-03-17] Built health checks and data validation to prevent stale information (via Pieces)
+- [2026-03-17] Built out a comprehensive list of 12 dashboard fixes and systematically worked through them (via Pieces)
+- [2026-03-17] Fixed task priority sorting with color-coded borders (red, amber, green, purple) so your maintenance queue is now visually organized (via Pieces)
+- [2026-03-17] Debugged API server connectivity and implemented safeguards to prevent stale data from your health app (via Pieces)
+- [2026-03-17] Built out a full system for color-coded task priorities (red for urgent, amber for medium, green for low) (via Pieces)
+- [2026-03-17] Fixed multiple UI layout issues across the dashboard in one focused session (via Pieces)
+- [2026-03-17] Set up proper connections between your task app and your API server (via Pieces)
+- [2026-03-17] Built out a whole system for color-coding tasks by priority (red, amber, green, purple) so you can see what matters at a glance (via Pieces)
+- [2026-03-17] Fixed your API server to properly connect your to-do items and prevent stale data from messing things up (via Pieces)
+- [2026-03-17] Implemented 11+ specific UI improvements across the dashboard in one focused session (via Pieces)
+
+### Auto completion sync (2026-03-17)
+**Tuesday Mar 17:**
+- Pick myself back up after all the coding
+
+### Auto completion sync (2026-03-17)
+**Tuesday Mar 17:**
+- Pick myself back up after all the coding and the hyperfixation. Now is the time to start living.
+- [2026-03-17] Implemented 11+ dashboard UI fixes (borders, icons, layouts, button states) (via Pieces)
+- [2026-03-17] Added visual differentiation across dashboard sections (priority colors, section borders) (via Pieces)
+- [2026-03-17] Sustained 3+ hours of focused debugging and refinement—verified each change (via Pieces)
+- [2026-03-17] Implemented a big round of dashboard improvements across multiple sections to make the experience cleaner and easier to use (via Pieces)
+- [2026-03-17] Stabilized task flow and the "next up" behavior so priorities are clearer in the moment (via Pieces)
+- [2026-03-17] Fixed report and reading-sync issues so your daily insights are more dependable (via Pieces)
+
+### Auto completion sync (2026-03-17)
+**Tuesday Mar 17:**
+- Pick myself back up after all coding and hyperfixation now is time to start living
+- [2026-03-17] Fixed critical Todoist and Readwise integration bugs — live system improvements (via Pieces)
+- [2026-03-17] Shipped multiple dashboard UI and data refinements across extended focus sessions (via Pieces)
+- [2026-03-17] Progressed the migration from old to new system architecture (via Pieces)
+
+### Auto completion sync (2026-03-17)
+**Tuesday Mar 17:**
+- 🖥️ Set up macOS Color Filter — mint green Irlen tint
+- 📱 Set up iOS Color Filter — mint green Irlen tint
+- [2026-03-17] Cancelled Codex subscription (via Pieces)
+- [2026-03-17] Put laundry away (via Pieces)
+- [2026-03-17] Fed and bathed the girls, looked after Janna (via Pieces)
+
+### Auto completion sync (2026-03-17)
+**Tuesday Mar 17:**
+- Set up macos color filter mint green irlen tint
+- Set up ios color filter mint green irlen tint
+- [2026-03-17] Managed to catch yourself when coding took over and pick yourself back up (via Pieces)
+- [2026-03-17] Kept caring for the household even while focused on deep work (via Pieces)
+
+### Auto completion sync (2026-03-17)
+**Tuesday Mar 17:**
+- Do a 20-minute weights set to release physical tension
+- [2026-03-17] Fed the girls and gave them a bath while deep in coding (via Pieces)
+- [2026-03-17] Caught yourself when the coding was pulling you too deep—real regulation (via Pieces)
+- [2026-03-17] Did weights and ate well (via Pieces)
+- [2026-03-17] Looked after the girls and Janna while staying grounded (via Pieces)
+- [2026-03-17] Did weights (via Pieces)
+- [2026-03-17] Managed to pick yourself up after getting carried away with coding (via Pieces)
+- [2026-03-17] Tried to look after Janna as best you could (with her off this week) (via Pieces)
+- [2026-03-17] Nearly 3 hours of sustained focused coding (ADHD win) (via Pieces)
+- [2026-03-17] Shipped multiple bug fixes and features to your health app (via Pieces)
+- [2026-03-17] Strong self-regulation—noticed you were in the zone and reset cleanly (via Pieces)
+- [2026-03-17] Did weights and ate well despite the coding session (via Pieces)
+- [2026-03-17] Took care of Janna and the girls through a busy evening (via Pieces)
+- [2026-03-17] Picked yourself up after getting carried away with coding (via Pieces)
+- [2026-03-17] Did weights and ate well through a full coding day (via Pieces)
+- [2026-03-17] Fed and bathed the girls, actively supported Janna despite the long session (via Pieces)
+- [2026-03-17] Recognized the pull to code deeper and stepped back (via Pieces)
+- [2026-03-17] Fixed critical dashboard bugs that were breaking the system (via Pieces)
+- [2026-03-17] Implemented AI-powered daily insights from your journal (via Pieces)
+- [2026-03-17] Did weights + stayed fed + looked after the household + caught yourself before burning out (via Pieces)
+- [2026-03-17] Ate well (via Pieces)
+- [2026-03-17] Fed the girls and gave them a bath (via Pieces)
+- [2026-03-17] Managed to pick myself up after getting carried away with coding (via Pieces)
+- [2026-03-17] Gave the girls a bath (via Pieces)
+- [2026-03-17] Sustained focused work debugging and building dashboard features across multiple hours (via Pieces)
+- [2026-03-17] Healthy self-regulation catching yourself after getting deep in the code (via Pieces)
+- [2026-03-17] Managed girls' bath, feeding, and supporting Janna while coding (via Pieces)
+- [2026-03-17] Hours of deep, focused problem-solving on the health dashboard while keeping family life running (via Pieces)
+- [2026-03-17] Self-regulated when getting carried away with coding (via Pieces)
+- [2026-03-17] Fed and bathed the girls (via Pieces)
+- [2026-03-17] Nearly 3 hours of sustained deep focus on feature development (via Pieces)
+- [2026-03-17] Self-awareness to step back when intensity ramped up (via Pieces)
+- [2026-03-17] Balanced major coding work with physical activity, nutrition, and family presence (via Pieces)
+- [2026-03-17] Did weights (building consistency) (via Pieces)
+- [2026-03-17] Managed to pick yourself up after getting deep in the code — that's real self-awareness (via Pieces)
+- [2026-03-17] Looked after Janna, fed and bathed the girls, ate well (whole person care while working hard) (via Pieces)
+- [2026-03-17] Built out substantial improvements to the health tracking system (via Pieces)
+- [2026-03-17] Stayed regulated enough to step away from coding and handle family + self-care (via Pieces)
+- [2026-03-18] Sustained deep focus on dashboard improvements across multiple hours (via Pieces)
+- [2026-03-18] Did weights + ate well—kept yourself fueled (via Pieces)
+- [2026-03-18] Picked yourself up after getting carried away with coding (via Pieces)
+- [2026-03-18] 2+ hours of sustained, high-focus dashboard development (via Pieces)
+- [2026-03-18] Caught yourself mid-hyperfocus and pulled back—good self-awareness (via Pieces)
+- [2026-03-18] Kept the home running (fed/bathed girls, looked after Janna) while deep in code (via Pieces)
+- [2026-03-18] Cancelled Codex subscription — cleaned up a digital commitment (via Pieces)
+- [2026-03-18] Self-regulated out of a deep coding spiral without guilt (via Pieces)
+- [2026-03-18] Maintained laundry, weights, food, and family care alongside focused development work (via Pieces)
+- [2026-03-18] Multiple hours of sustained deep focus on dashboard work (via Pieces)
+- [2026-03-18] Fixed mobile rendering for your dashboard across devices (via Pieces)
+- [2026-03-18] Got your 3D printing project started with model prep (via Pieces)
+- [2026-03-18] Built multiple new dashboard widgets and polished the visual design with spectrum color cycling (via Pieces)
+- [2026-03-18] Fixed mobile rendering for the health app (via Pieces)
+- [2026-03-18] Diagnosed and started tackling an automation bug in the health system (via Pieces)
+- [2026-03-18] Got mobile dashboard rendering fixed and deployed (via Pieces)
+- [2026-03-18] Sorted the API network connectivity issue (via Pieces)
+- [2026-03-18] Spotted a critical bug in health automation and started the fix (via Pieces)
+- [2026-03-18] Overhauled the dashboard's color system and icon rendering — achieved visual consistency across the whole app (via Pieces)
+- [2026-03-18] Fixed the automation bug blocking therapy session data (via Pieces)
+- [2026-03-18] Scoped mobile UI problems and started solutions while juggling the backend debugging (via Pieces)
+- [2026-03-18] Completed and deployed mobile display fixes for the health dashboard (via Pieces)
+- [2026-03-18] Wrote a detailed morning diary entry (via Pieces)
+- [2026-03-18] Started a 3D printing project by loading and slicing large models (via Pieces)
+- [2026-03-18] Resolved VS Code permission issues that were blocking work (via Pieces)
+- [2026-03-18] Advanced 3D printing project — loaded and sliced large models (via Pieces)
+- [2026-03-18] Fixed critical health app bugs and implemented new sleep fallback mechanism (via Pieces)
+
+### Auto completion sync (2026-03-18)
+**Wednesday Mar 18:**
+- Diary export issues
+- [2026-03-18] Completed major visual polish across the health dashboard, including a consistent color style (via Pieces)
+- [2026-03-18] Fixed multiple high-impact reliability issues so daily tracking and reports work more consistently (via Pieces)
+- [2026-03-18] Finished a structured morning journal entry and started a 3D printing workflow (via Pieces)
+
+### Auto completion sync (2026-03-18)
+**Wednesday Mar 18:**
+- Open Apple Notes and pick one small note to
+- Open Obsidian on your computer
+- Paste the note into a new Obsidian file
+- Search 'Obsidian Claude integration' and read top two results
+- Check WSL2 status on NUC: wsl --status and wsl -l -v
+- Install WSL2 + Ubuntu distro if not already there
+- Install Syncthing on Windows side (winget install Syncthing.Syncthing)
+- Inside WSL2: install python3, python3-venv, git, curl, lsof
+- Set up Syncthing sync from Mac: ~/.claude/daemon/, ~/.claude/scripts/, ~/Documents/Claude Projects/
+- Create daemon venv and pip install requirements
+- Copy secrets manually to WSL2 (from ~/.claude/backups/nuc-migration-2026-03-16/)
+- Run wsl2-doctor.py — confirm ready
+- Run install-systemd-services.sh to register daemon + API as services
+- [2026-03-18] Fixed how the app displays on mobile devices (via Pieces)
+- [2026-03-18] Resolved critical bugs breaking automations (therapy scheduling, sleep tracking) (via Pieces)
+- [2026-03-18] Fixed data syncing problems with task and self-care tracking apps (via Pieces)
+
+### Auto completion sync (2026-03-18)
+**Wednesday Mar 18:**
+- Paste note into new obsidian file
+- Search obsidian claude integration and read top two results
+- Check wsl2 status on nuc wsl status and wsl l v
+- Install wsl2 ubuntu distro if not already there
+- Install syncthing on windows side winget install syncthingsyncthing
+- Inside wsl2 install python3 python3venv git curl lsof
+- Set up syncthing sync from mac claudedaemon claudescripts documentsclaude projects
+- Copy secrets manually to wsl2 from claudebackupsnucmigration20260316
+- Consider transferring notes from apple notes to obsidian so we can use Claude code easier. Research how this could be setup and how obsidian files could be harnessed to improve my system. I could include diagnoses letters, previous writing etc.
+- Setup remote Claude code for MacBook and phone
+- NUC WSL2 migration — Checklist B
+- [2026-03-18] Made major progress improving the health dashboard’s reliability and clarity (via Pieces)
+- [2026-03-18] Completed a detailed morning diary entry (via Pieces)
+- [2026-03-18] Started the 3D printing project by loading and slicing large models (via Pieces)

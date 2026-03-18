@@ -354,12 +354,50 @@ def _healthfit_sleep_history(healthfit: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _latest_sleep_hours(cache: Dict[str, Any]) -> float | None:
-    healthfit = cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {}
+    # Priority: sleep_fallback (daemon orchestrated) → health_live → AutoSleep → HealthFit
+
+    # 0. sleep_fallback — daemon's fallback chain result (freshest, already validated)
+    raw = cache.get("sleep_fallback")
+    fallback = raw if isinstance(raw, dict) else {}
+    if fallback.get("source") and fallback.get("fresh"):
+        val = _to_float(fallback.get("sleep_hours"))
+        if val is not None:
+            return val
+
+    # 1. health_live (Auto Export) — daemon-normalised key
+    raw = cache.get("health_live")
+    health_live = raw if isinstance(raw, dict) else {}
+    hl_sleep = _to_float(health_live.get("sleep_hours"))
+    if hl_sleep is not None and hl_sleep > 0:
+        return hl_sleep
+
+    # 2. AutoSleep daily_metrics
+    raw = cache.get("autosleep")
+    autosleep = raw if isinstance(raw, dict) else {}
+    raw = autosleep.get("daily_metrics")
+    metrics = raw if isinstance(raw, list) else []
+    if metrics:
+        latest = metrics[0]  # sorted newest-first by daemon
+        if isinstance(latest, dict):
+            val = _to_float(latest.get("asleep_hours"))
+            if val is not None:
+                return val
+
+    # 3. AutoSleep last_night summary
+    raw = autosleep.get("last_night")
+    last_night = raw if isinstance(raw, dict) else {}
+    parsed = _parse_hours(last_night.get("asleep"))
+    if parsed is not None:
+        return parsed
+
+    # 4. HealthFit — last resort
+    raw = cache.get("healthfit")
+    healthfit = raw if isinstance(raw, dict) else {}
     sleep_history = _healthfit_sleep_history(healthfit)
     if sleep_history:
-        return sleep_history[0].get("asleep_hours")
-    autosleep = cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {}
-    return _parse_hours((autosleep.get("last_night", {}) if isinstance(autosleep.get("last_night", {}), dict) else {}).get("asleep"))
+        return _to_float(sleep_history[0].get("asleep_hours"))
+
+    return None
 
 
 def _body_check_penalty(body_check: str) -> float:
@@ -428,7 +466,7 @@ def _mindfulness_signal(ai_days: List[Dict[str, Any]]) -> str:
     return f"Mindfulness days are trending {direction} relief ({avg_with:.1f}/10 vs {avg_without:.1f}/10)."
 
 
-def _sleep_signal(ai_days: List[Dict[str, Any]], sleep_history: List[Dict[str, Any]]) -> str:
+def _sleep_signal(ai_days: List[Dict[str, Any]], sleep_history: List[Dict[str, Any]], *, latest_override: float | None = None) -> str:
     if not sleep_history:
         return ""
     anxiety_by_date = {
@@ -456,7 +494,7 @@ def _sleep_signal(ai_days: List[Dict[str, Any]], sleep_history: List[Dict[str, A
         return ""
     if len(rested) >= 2 and len(short) >= 2 and avg_rested is not None and avg_short is not None and (avg_rested - avg_short) >= 0.6:
         return f"Sleep ≥6.5h is lining up with better evening relief ({avg_rested:.1f}/10 vs {avg_short:.1f}/10)."
-    latest_hours = sleep_history[0].get("asleep_hours")
+    latest_hours = latest_override if latest_override is not None else sleep_history[0].get("asleep_hours")
     if isinstance(latest_hours, (int, float)):
         if float(latest_hours) < 6.5:
             return f"Latest sleep was {latest_hours:.1f}h, so protect pace before treating good activation as surplus energy."
@@ -655,6 +693,12 @@ def _report_status_payload(
     }
 
 
+def _support_mode_snapshot(cache: Dict[str, Any]) -> Dict[str, Any]:
+    raw = cache.get("support_mode_meta")
+    sm = raw if isinstance(raw, dict) else {}
+    return {"mode": str(sm.get("mode", "")), "ease_score": _safe_int(sm.get("ease_score")), "progress_score": _safe_int(sm.get("progress_score"))}
+
+
 def _build_snapshot(
     *,
     today: str,
@@ -668,6 +712,7 @@ def _build_snapshot(
     throughput_by_domain: Dict[str, int],
     priority_candidates: List[Dict[str, Any]],
     report_status: Dict[str, Any],
+    latest_sleep_hours: float | None = None,
 ) -> Dict[str, Any]:
     diarium = cache.get("diarium", {}) if isinstance(cache.get("diarium", {}), dict) else {}
     healthfit = cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {}
@@ -675,9 +720,7 @@ def _build_snapshot(
     _aw = cache.get("activitywatch", {}) if isinstance(cache.get("activitywatch", {}), dict) else {}
     _aw_fp = _aw.get("focus_patterns", {}) if isinstance(_aw.get("focus_patterns"), dict) else {}
     steps_history = _healthfit_steps_history(healthfit)
-    sleep_history = _healthfit_sleep_history(healthfit)
     latest_steps = steps_history[0] if steps_history else {}
-    latest_sleep = sleep_history[0] if sleep_history else {}
     wins_count = len([item for item in (day.get("all_insights", []) if isinstance(day.get("all_insights", []), list) else []) if isinstance(item, dict) and item.get("type") == "win"])
     signal_count = len([item for item in (day.get("all_insights", []) if isinstance(day.get("all_insights", []), list) else []) if isinstance(item, dict) and item.get("type") == "signal"])
     completed_texts = [
@@ -702,6 +745,7 @@ def _build_snapshot(
     load_dim = next((row for row in dimensions if row.get("label") == "Load"), {})
     momentum_dim = next((row for row in dimensions if row.get("label") == "Momentum"), {})
     emotional_dim = next((row for row in dimensions if row.get("label") == "Emotional"), {})
+    focus_dim = next((row for row in dimensions if row.get("label") == "Focus"), {})
     top_loops = open_loops.get("items", []) if isinstance(open_loops.get("items", []), list) else []
     return {
         "date": today,
@@ -725,7 +769,7 @@ def _build_snapshot(
             "steps": _safe_int(latest_steps.get("steps")),
             "exercise_minutes": _safe_int(latest_steps.get("exercise_minutes")),
             "hrv": _to_float(latest_steps.get("hrv")),
-            "sleep_hours": _to_float(latest_sleep.get("asleep_hours")),
+            "sleep_hours": latest_sleep_hours,
             "sleep_efficiency": _to_float((cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {}).get("last_night", {}).get("efficiency")),
             "screen_time_hours": _to_float(_parse_hours((cache.get("screentime", {}) if isinstance(cache.get("screentime", {}), dict) else {}).get("today_total"))),
         },
@@ -750,8 +794,10 @@ def _build_snapshot(
             "momentum": _to_float(momentum_dim.get("score")),
             "recovery": _to_float(recovery_dim.get("score")),
             "emotional": _to_float(emotional_dim.get("score")),
+            "focus": _to_float(focus_dim.get("score")),
             "compounding_signals": compounding_signals[:3],
         },
+        "support_mode": _support_mode_snapshot(cache),
         "top_open_loops": [str(item).strip() for item in top_loops[:5] if str(item).strip()],
         "priority_inputs": {
             "time_of_day": "evening" if datetime.now().hour >= 18 else "day",
@@ -1185,7 +1231,7 @@ def build_daily_state_vector(
     compounding_signals = [
         _intervention_signal(day),
         _mindfulness_signal(ai_days),
-        _sleep_signal(ai_days, sleep_history),
+        _sleep_signal(ai_days, sleep_history, latest_override=latest_sleep_hours),
         _mood_shift_signal(mood_slots, ai_days),
     ]
     compounding_signals = [item for item in compounding_signals if item][:3]
@@ -1238,6 +1284,7 @@ def build_daily_state_vector(
         throughput_by_domain=throughput_by_domain,
         priority_candidates=priority_candidates,
         report_status=report_status,
+        latest_sleep_hours=latest_sleep_hours,
     )
     window_7 = [current_snapshot] + prior_history_rows[:6]
     window_30 = [current_snapshot] + prior_history_rows[:29]

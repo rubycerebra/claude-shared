@@ -273,13 +273,16 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-17 (hash: 2ad47a0d6e078eb2)*
+*Auto-synced from Pieces persona summary on 2026-03-18 (hash: 27086f96a9677326)*
 
 ### Job search anxiety patterns
-- James V** is the meticulous digital persona at the core of James Cherry's comprehensive personal and professional task management and digital self-optimization ecosystem. Based on 1554 observed interactions (79 new), James V's identity as a systematic and efficiency-driven entity
+- What They Work On (or Discuss)
 
 ### Coping mechanisms Pieces has observed
-- James V** is the meticulous digital persona at the core of James Cherry's comprehensive personal and professional task management and digital self-optimization ecosystem. Based on 1554 observed interactions (79 new), James V's identity as a systematic and efficiency-driven entity
+- Tom remains an individual known to James Cherry through mutual social circles, primarily WhatsApp groups. His dual identity across these social contexts is consistently reinforced, being referred to as "Tom Beaky" by other group members in discussions related to social events (e.
+- What They Work On (or Discuss)
 
 ### Work habits Pieces has observed
-- James V** is the meticulous digital persona at the core of James Cherry's comprehensive personal and professional task management and digital self-optimization ecosystem. Based on 1554 observed interactions (79 new), James V's identity as a systematic and efficiency-driven entity
+- Tom** is a social acquaintance of the observer, James Cherry, with whom he shares several WhatsApp chat groups. Based on 63 total observed interactions (21 new), he continues to be consistently and actively involved in social event planning and engages in thoughtful, analytical d
+- Tom remains an individual known to James Cherry through mutual social circles, primarily WhatsApp groups. His dual identity across these social contexts is consistently reinforced, being referred to as "Tom Beaky" by other group members in discussions related to social events (e.
+- **Social Event Planning:** He remains a central figure in discussions related to social gatherings. This includes the ongoing "Beakys stag '26" event (observed in WhatsApp chat, 2026-03-12) and coordination for a "wedding" where he was directly queried about a postcode for accomm

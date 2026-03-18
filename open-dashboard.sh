@@ -9,9 +9,9 @@
 # @raycast.icon 🌟
 
 # Optional parameters:
-# @raycast.description Generate and open Jim's daily dashboard in browser
+# @raycast.description Open the React dashboard via API server
 # @raycast.author Jim
 # @raycast.authorURL https://github.com/jim
 
-# Run the Python generator (reads fresh data, outputs HTML, opens browser)
-python3 ~/Documents/Claude\ Projects/claude-shared/generate-dashboard.py
+# Open the React dashboard app (API-served)
+open "http://127.0.0.1:8765/app?focus=now"
