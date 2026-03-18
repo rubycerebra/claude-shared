@@ -5,11 +5,37 @@ from __future__ import annotations
 import html
 import json
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from shared.cache_dates import get_ai_day, normalize_ai_cache_for_date
+
+
+_HEALTH_LIVE_PATH = Path.home() / ".claude" / "cache" / "health-live.json"
+_health_live_raw_cache: Dict[str, Any] = {"mtime": 0.0, "data": {}}
+
+
+def _get_health_live_metrics() -> Dict[str, list]:
+    """Return health-live.json metrics keyed by name, mtime-cached. Returns {} if stale or missing."""
+    try:
+        mtime = _HEALTH_LIVE_PATH.stat().st_mtime
+        if (time.time() - mtime) / 3600 >= 12:
+            return {}
+        if mtime == _health_live_raw_cache["mtime"]:
+            return _health_live_raw_cache["data"]  # type: ignore[return-value]
+        raw = json.loads(_HEALTH_LIVE_PATH.read_text(encoding="utf-8"))
+        metrics_list = raw.get("data", {}).get("metrics", []) if isinstance(raw.get("data"), dict) else []
+        result: Dict[str, list] = {}
+        for m in metrics_list:
+            if isinstance(m, dict) and m.get("name") and isinstance(m.get("data"), list):
+                result[m["name"]] = m["data"]
+        _health_live_raw_cache["mtime"] = mtime
+        _health_live_raw_cache["data"] = result  # type: ignore[assignment]
+        return result
+    except Exception:
+        return {}
 
 
 _POSITIVE_MOOD_SCORES = {
@@ -354,48 +380,114 @@ def _healthfit_sleep_history(healthfit: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _latest_sleep_hours(cache: Dict[str, Any]) -> float | None:
-    # Priority: sleep_fallback (daemon orchestrated) → health_live → AutoSleep → HealthFit
+    # All sources date-guarded: sleep dates = wake date. Only today's data is valid.
+    # Priority: health-live.json (file) → sleep_fallback → health_live (cache) → AutoSleep → HealthFit
+    _today = datetime.now()
+    _today_str = _today.strftime("%Y-%m-%d")
+    _today_dmy = _today.strftime("%d/%m/%Y")
 
-    # 0. sleep_fallback — daemon's fallback chain result (freshest, already validated)
+    # 0. health-live.json file — freshest source (shared mtime-cached read)
+    _hl_metrics = _get_health_live_metrics()
+    for _e in sorted(_hl_metrics.get("sleep_analysis", []), key=lambda x: str(x.get("date", "")), reverse=True):
+        if isinstance(_e, dict) and str(_e.get("date", ""))[:10] == _today_str:
+            _asleep = _to_float(_e.get("asleep")) or _to_float(_e.get("totalSleep"))
+            if _asleep and _asleep > 0:
+                return round(_asleep, 1)
+            break
+
+    # 1. sleep_fallback — daemon's fallback chain (date-guarded)
     raw = cache.get("sleep_fallback")
     fallback = raw if isinstance(raw, dict) else {}
     if fallback.get("source") and fallback.get("fresh"):
-        val = _to_float(fallback.get("sleep_hours"))
-        if val is not None:
-            return val
+        if str(fallback.get("date", "")).strip()[:10] == _today_str:
+            val = _to_float(fallback.get("sleep_hours"))
+            if val is not None:
+                return val
 
-    # 1. health_live (Auto Export) — daemon-normalised key
+    # 2. health_live cache — daemon-normalised key (date-guarded)
     raw = cache.get("health_live")
     health_live = raw if isinstance(raw, dict) else {}
+    _hl_sleep = health_live.get("sleep")
+    if isinstance(_hl_sleep, dict):
+        # Daemon cache omits 'date' from sleep dict — use sleep_end (wake time) then sleep_start
+        _sleep_date = str(
+            _hl_sleep.get("date") or _hl_sleep.get("sleep_end") or _hl_sleep.get("sleep_start") or ""
+        ).strip()[:10]
+        if _sleep_date == _today_str:
+            val = _to_float(_hl_sleep.get("asleep_hours"))
+            if val and val > 0:
+                return val
     hl_sleep = _to_float(health_live.get("sleep_hours"))
-    if hl_sleep is not None and hl_sleep > 0:
+    hl_date = str(health_live.get("date", "") or "").strip()[:10]
+    if hl_sleep is not None and hl_sleep > 0 and hl_date == _today_str:
         return hl_sleep
 
-    # 2. AutoSleep daily_metrics
+    # 3. AutoSleep daily_metrics (date-guarded)
     raw = cache.get("autosleep")
     autosleep = raw if isinstance(raw, dict) else {}
-    raw = autosleep.get("daily_metrics")
-    metrics = raw if isinstance(raw, list) else []
+    metrics = autosleep.get("daily_metrics", [])
+    if not isinstance(metrics, list):
+        metrics = []
     if metrics:
-        latest = metrics[0]  # sorted newest-first by daemon
-        if isinstance(latest, dict):
+        latest = metrics[0]
+        if isinstance(latest, dict) and str(latest.get("date", "")).strip()[:10] == _today_str:
             val = _to_float(latest.get("asleep_hours"))
             if val is not None:
                 return val
 
-    # 3. AutoSleep last_night summary
-    raw = autosleep.get("last_night")
-    last_night = raw if isinstance(raw, dict) else {}
-    parsed = _parse_hours(last_night.get("asleep"))
-    if parsed is not None:
-        return parsed
+    # 4. AutoSleep last_night (date-guarded)
+    last_night = autosleep.get("last_night", {})
+    last_night = last_night if isinstance(last_night, dict) else {}
+    if str(last_night.get("date", "")).strip()[:10] == _today_str:
+        parsed = _parse_hours(last_night.get("asleep"))
+        if parsed is not None:
+            return parsed
 
-    # 4. HealthFit — last resort
+    # 5. HealthFit — last resort (date-guarded)
     raw = cache.get("healthfit")
     healthfit = raw if isinstance(raw, dict) else {}
     sleep_history = _healthfit_sleep_history(healthfit)
     if sleep_history:
-        return _to_float(sleep_history[0].get("asleep_hours"))
+        first = sleep_history[0]
+        if isinstance(first, dict):
+            _hf_date = str(first.get("date", "")).strip()
+            if _hf_date == _today_str or _hf_date == _today_dmy:
+                return _to_float(first.get("asleep_hours"))
+
+    return None
+
+
+def _latest_hrv(cache: Dict[str, Any], steps_history: list) -> float | None:
+    """Get freshest HRV: health-live.json → health_live cache → HealthFit steps (date-guarded)."""
+    _today = datetime.now()
+    _today_str = _today.strftime("%Y-%m-%d")
+    _today_dmy = _today.strftime("%d/%m/%Y")
+
+    # 1. health-live.json file (shared mtime-cached read) — latest HRV reading today
+    _hl_metrics = _get_health_live_metrics()
+    _hrv_entries = _hl_metrics.get("heart_rate_variability", [])
+    _today_pts = [e for e in _hrv_entries if isinstance(e, dict) and str(e.get("date", ""))[:10] == _today_str]
+    if _today_pts:
+        _latest = max(_today_pts, key=lambda x: str(x.get("date", "")))
+        val = _to_float(_latest.get("qty"))
+        if val and val > 0:
+            return round(val)
+
+    # 2. health_live cache — daemon-normalised
+    hl = cache.get("health_live", {})
+    hl = hl if isinstance(hl, dict) else {}
+    hl_hrv = _to_float(hl.get("hrv_latest"))
+    if hl_hrv and hl_hrv > 0:
+        return round(hl_hrv)
+
+    # 3. HealthFit steps history (date-guarded)
+    if steps_history:
+        latest = steps_history[0] if isinstance(steps_history[0], dict) else {}
+        _date = str(latest.get("date", "")).strip()
+        if _date == _today_str or _date == _today_dmy:
+            val = _to_float(latest.get("hrv"))
+            if val and val > 0:
+                return round(val)
 
     return None
 
@@ -713,6 +805,7 @@ def _build_snapshot(
     priority_candidates: List[Dict[str, Any]],
     report_status: Dict[str, Any],
     latest_sleep_hours: float | None = None,
+    latest_hrv: float | None = None,
 ) -> Dict[str, Any]:
     diarium = cache.get("diarium", {}) if isinstance(cache.get("diarium", {}), dict) else {}
     healthfit = cache.get("healthfit", {}) if isinstance(cache.get("healthfit", {}), dict) else {}
@@ -768,7 +861,7 @@ def _build_snapshot(
         "health": {
             "steps": _safe_int(latest_steps.get("steps")),
             "exercise_minutes": _safe_int(latest_steps.get("exercise_minutes")),
-            "hrv": _to_float(latest_steps.get("hrv")),
+            "hrv": latest_hrv,
             "sleep_hours": latest_sleep_hours,
             "sleep_efficiency": _to_float((cache.get("autosleep", {}) if isinstance(cache.get("autosleep", {}), dict) else {}).get("last_night", {}).get("efficiency")),
             "screen_time_hours": _to_float(_parse_hours((cache.get("screentime", {}) if isinstance(cache.get("screentime", {}), dict) else {}).get("today_total"))),
@@ -863,7 +956,7 @@ def build_daily_state_vector(
     steps_history = _healthfit_steps_history(healthfit)
     latest_steps = steps_history[0] if steps_history else {}
     latest_sleep_hours = _latest_sleep_hours(cache)
-    latest_hrv = latest_steps.get("hrv") if isinstance(latest_steps, dict) else None
+    latest_hrv = _latest_hrv(cache, steps_history)
     latest_steps_count = latest_steps.get("steps") if isinstance(latest_steps, dict) else None
     latest_exercise = latest_steps.get("exercise_minutes") if isinstance(latest_steps, dict) else None
     body_check = str(diarium.get("body_check", "") or "").strip()
@@ -1285,6 +1378,7 @@ def build_daily_state_vector(
         priority_candidates=priority_candidates,
         report_status=report_status,
         latest_sleep_hours=latest_sleep_hours,
+        latest_hrv=latest_hrv,
     )
     window_7 = [current_snapshot] + prior_history_rows[:6]
     window_30 = [current_snapshot] + prior_history_rows[:29]
