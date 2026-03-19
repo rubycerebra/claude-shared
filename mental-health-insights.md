@@ -273,16 +273,17 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-18 (hash: 27086f96a9677326)*
+*Auto-synced from Pieces persona summary on 2026-03-19 (hash: 04342d82e461526b)*
 
 ### Job search anxiety patterns
-- What They Work On (or Discuss)
+- You are James Cherry**, a **freelance neuro-systems engineer** who is currently in the high-stakes "Live Tuning" phase of your personal operating system, **OS 3.0**. You no longer view your digital environment as a project to be launched, but as a living codebase that requires co
+- As you approach a significant freelance contract in April (£27/hr), your work has shifted from structural engineering to **visual and cognitive optimization**. You are currently obsessed with "system noise" and "stale data," treating a misdated AI insight or a redundant task noti
+- What You Work On
 
 ### Coping mechanisms Pieces has observed
-- Tom remains an individual known to James Cherry through mutual social circles, primarily WhatsApp groups. His dual identity across these social contexts is consistently reinforced, being referred to as "Tom Beaky" by other group members in discussions related to social events (e.
-- What They Work On (or Discuss)
+- You are James Cherry**, a **freelance neuro-systems engineer** who is currently in the high-stakes "Live Tuning" phase of your personal operating system, **OS 3.0**. You no longer view your digital environment as a project to be launched, but as a living codebase that requires co
+- As you approach a significant freelance contract in April (£27/hr), your work has shifted from structural engineering to **visual and cognitive optimization**. You are currently obsessed with "system noise" and "stale data," treating a misdated AI insight or a redundant task noti
 
 ### Work habits Pieces has observed
-- Tom** is a social acquaintance of the observer, James Cherry, with whom he shares several WhatsApp chat groups. Based on 63 total observed interactions (21 new), he continues to be consistently and actively involved in social event planning and engages in thoughtful, analytical d
-- Tom remains an individual known to James Cherry through mutual social circles, primarily WhatsApp groups. His dual identity across these social contexts is consistently reinforced, being referred to as "Tom Beaky" by other group members in discussions related to social events (e.
-- **Social Event Planning:** He remains a central figure in discussions related to social gatherings. This includes the ongoing "Beakys stag '26" event (observed in WhatsApp chat, 2026-03-12) and coordination for a "wedding" where he was directly queried about a postcode for accomm
+- As you approach a significant freelance contract in April (£27/hr), your work has shifted from structural engineering to **visual and cognitive optimization**. You are currently obsessed with "system noise" and "stale data," treating a misdated AI insight or a redundant task noti
+- **The "Compounding" Strategist:** You are moving beyond simple task completion toward **momentum tracking**. You want your system to remember the outcomes of past interventions (e.g., "Yoga downshift is your strongest recent relief") to guide future behavior automatically.

@@ -1,25 +1,25 @@
-# Compounding Memory Snapshot — 2026-03-18
+# Compounding Memory Snapshot — 2026-03-19
 
 This file is updated from the dashboard compounding layer so future sessions/QMD can recall cross-day context, not just same-day UI state.
 
-- Headline: Momentum and Emotional can carry the day, but load needs pacing.
-- Today throughput: 0
-- 7d throughput avg: 8.9
-- 30d throughput avg: 15.0
+- Headline: Momentum and Focus can carry the day, but load needs pacing.
+- Today throughput: 2
+- 7d throughput avg: 12.9
+- 30d throughput avg: 16.2
 
 ## Increasing
-- Momentum is holding above the recent baseline.
+- Health is the strongest completed domain today.
 
 ## Stalling
 - Move forward keeps resurfacing and needs a real close-loop move.
 - Maintenance drag is building faster than it is being closed.
 
 ## Prioritise next
-- Move forward — seen 7 days, prevents decay.
-- Do good things for my family — seen 8 days, admin is a domain with recent follow-through.
-- Check therapy notes from today's session — seen 8 days, health is a domain with recent follow-through.
+- Move forward — seen 8 days, prevents decay.
+- Get back up again — seen 7 days, admin is a domain with recent follow-through.
+- Fix recurring gmail error — seen 3 days, prevents decay.
 
 ## Conversation recall cues
-- Move forward — seen 7 days, prevents decay.
-- Do good things for my family — seen 8 days, admin is a domain with recent follow-through.
+- Move forward — seen 8 days, prevents decay.
+- Get back up again — seen 7 days, admin is a domain with recent follow-through.
 - Move forward keeps resurfacing and needs a real close-loop move.
