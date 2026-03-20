@@ -219,7 +219,6 @@ def _compose_sentence(prefix: str, lines: list[str], *, max_len: int = 420) -> s
 def compose_today_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hour: int = 13) -> str:
     ctx = ctx if isinstance(ctx, dict) else {}
     lines: list[str] = []
-    morning = str(ctx.get("morning_note", "") or "").strip()
     updates = str(ctx.get("updates_note", "") or "").strip()
     evening = str(ctx.get("evening_note", "") or "").strip()
     ta_dah = ctx.get("ta_dah", []) if isinstance(ctx.get("ta_dah", []), list) else []
@@ -228,12 +227,6 @@ def compose_today_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hou
     narrative = polish_day_narrative_text(ctx.get("narrative", ""))
     hour = datetime.now().hour if now_hour is None else int(now_hour)
     midday_unlocked = hour >= unlock_hour
-
-    morning_bits = collect_day_narrative_lines([morning], max_items=3, split_sentences=True)
-    if morning_bits:
-        sentence = _compose_sentence("Morning focus", morning_bits, max_len=460)
-        if sentence:
-            lines.append(sentence)
 
     if midday_unlocked:
         day_chunks: list[str] = []
@@ -268,7 +261,9 @@ def compose_today_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hou
     fallback = "\n\n".join(line for line in lines if line).strip()
     if fallback:
         return fallback
-    return narrative
+    if narrative:
+        return narrative
+    return "No AI narrative available yet."
 
 
 def compose_tomorrow_fallback(ctx: dict, *, now_hour: int | None = None, unlock_hour: int = 18) -> str:

@@ -273,17 +273,21 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-19 (hash: 04342d82e461526b)*
+*Auto-synced from Pieces persona summary on 2026-03-20 (hash: 2bb5bdf563927da7)*
 
 ### Job search anxiety patterns
-- You are James Cherry**, a **freelance neuro-systems engineer** who is currently in the high-stakes "Live Tuning" phase of your personal operating system, **OS 3.0**. You no longer view your digital environment as a project to be launched, but as a living codebase that requires co
-- As you approach a significant freelance contract in April (£27/hr), your work has shifted from structural engineering to **visual and cognitive optimization**. You are currently obsessed with "system noise" and "stale data," treating a misdated AI insight or a redundant task noti
-- What You Work On
+- James Cherry is a Greenwich-based freelance neuro-systems engineer and the lead architect of **OS 3.0**. His work is characterized by a meticulous, iterative approach to "warm systems" design, prioritizing neurodivergent regulation. His AuDHD, dyslexia, and Meares-Irlen Syndrome 
+- What You Work On**
+- James's primary focus is the radical architectural shift of OS 3.0 from a Python-generated static dashboard to a **Standalone API-Driven Application**.
+- **The Standalone Pivot:** OS 3.0 is transitioning into a **React/Vite/TypeScript** application served via a local API, housed in a `pywebview` Mac wrapper, eliminating "tab friction" and allowing for real-time interactivity.
+- How You Work**
 
 ### Coping mechanisms Pieces has observed
-- You are James Cherry**, a **freelance neuro-systems engineer** who is currently in the high-stakes "Live Tuning" phase of your personal operating system, **OS 3.0**. You no longer view your digital environment as a project to be launched, but as a living codebase that requires co
-- As you approach a significant freelance contract in April (£27/hr), your work has shifted from structural engineering to **visual and cognitive optimization**. You are currently obsessed with "system noise" and "stale data," treating a misdated AI insight or a redundant task noti
+- James Cherry is a Greenwich-based freelance neuro-systems engineer and the lead architect of **OS 3.0**. His work is characterized by a meticulous, iterative approach to "warm systems" design, prioritizing neurodivergent regulation. His AuDHD, dyslexia, and Meares-Irlen Syndrome 
+- James is a highly self-aware builder who views visual stress and cognitive load as bugs to be solved through code. He balances deep technical development with a grounded commitment to family life in Greenwich, systematically managing "life admin" tasks like school trip logistics,
 
 ### Work habits Pieces has observed
-- As you approach a significant freelance contract in April (£27/hr), your work has shifted from structural engineering to **visual and cognitive optimization**. You are currently obsessed with "system noise" and "stale data," treating a misdated AI insight or a redundant task noti
-- **The "Compounding" Strategist:** You are moving beyond simple task completion toward **momentum tracking**. You want your system to remember the outcomes of past interventions (e.g., "Yoga downshift is your strongest recent relief") to guide future behavior automatically.
+- James is a highly self-aware builder who views visual stress and cognitive load as bugs to be solved through code. He balances deep technical development with a grounded commitment to family life in Greenwich, systematically managing "life admin" tasks like school trip logistics,
+- James's primary focus is the radical architectural shift of OS 3.0 from a Python-generated static dashboard to a **Standalone API-Driven Application**.
+- **Source of Truth Consolidation:** He has "severed" reliance on Akiflow, adopting **Todoist** as his exclusive task management system. He is hardening the Todoist-to-Beads sync logic.
+- **Live Schedule Logic:** Client-side JS reclassifies schedule rows every 60 seconds, collapsing past tasks and highlighting the current block with a "Live Now" glow.

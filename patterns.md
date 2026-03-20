@@ -237,4 +237,24 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **Jim's context:** Hyperfocus episodes (e.g. staying up late on computer, bypassing bedtime with Janna) happen without conscious evaluation of cost. This technique inserts a pause.
 - **W11 (2026-03-12):** Newly introduced. Todoist task created as reminder to practise.
 
+### Time Blocking
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** A scheduling technique where specific time periods are designated for particular activities, with a hard stop before a predetermined event (in this case, school pick-up). This helps James enforce boundaries on his coding hyperfocus by using an external constraint that cannot be negotiated away.
+- **W12 (2026-03-19):** Auto-added from session transcript.
+
+### Parking
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** A task management technique where activities are temporarily suspended for short intervals, starting with one minute and gradually increasing duration. This helps James retrain his brain to tolerate stopping and build tolerance for disengaging from compulsive behaviors.
+- **W12 (2026-03-19):** Auto-added from session transcript.
+
+### Pomodoro Technique
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** A time-management method that breaks work into focused intervals (typically 25 minutes) with scheduled short breaks between them. This helps James create structured work sessions with enforced stopping points to prevent hyperfocus-driven sleep deprivation.
+- **W12 (2026-03-19):** Auto-added from session transcript.
+
+### Parking Tasks
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** A technique where one intentionally pauses or 'parks' a task for short intervals starting at one minute, then gradually increasing duration to build tolerance for stopping and stepping away. This helps James retrain his brain to tolerate breaks from compulsive coding by slowly desensitizing his nervous system to task interruption.
+- **W12 (2026-03-19):** Auto-added from session transcript.
+
 ---

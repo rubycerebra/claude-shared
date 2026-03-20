@@ -6,7 +6,7 @@ import html
 import json
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -14,6 +14,7 @@ from shared.cache_dates import get_ai_day, normalize_ai_cache_for_date
 
 
 _HEALTH_LIVE_PATH = Path.home() / ".claude" / "cache" / "health-live.json"
+_DASH_HISTORY_PATH = Path.home() / ".claude" / "cache" / "dashboard-history.json"
 _health_live_raw_cache: Dict[str, Any] = {"mtime": 0.0, "data": {}}
 
 
@@ -615,6 +616,69 @@ def _mood_shift_signal(mood_slots: Dict[str, str], ai_days: List[Dict[str, Any]]
     if delta <= -10:
         return f"Morning mood is softer than yesterday evening ({prior_evening} → {morning}), so start with pacing before pushing."
     return f"Mood is broadly continuous with yesterday ({prior_evening} → {morning}); steady routines should carry best."
+
+
+def _health_delta_signal() -> str:
+    """Compare this week vs previous week recovery/focus/sleep/steps. Returns signal string when change ≥10%."""
+    try:
+        raw = json.loads(_DASH_HISTORY_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    by_date = raw.get("by_date", {}) if isinstance(raw.get("by_date", {}), dict) else {}
+    today = datetime.now().strftime("%Y-%m-%d")
+    # This week = last 7 days; prev week = 7-14 days ago
+    this_week_keys = [(datetime.strptime(today, "%Y-%m-%d") - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    prev_week_keys = [(datetime.strptime(today, "%Y-%m-%d") - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7, 14)]
+
+    def _avg_field(keys: list, field: str) -> float | None:
+        vals = [float(by_date[k][field]) for k in keys if k in by_date and isinstance(by_date[k].get(field), (int, float))]
+        return sum(vals) / len(vals) if vals else None
+
+    this_recovery = _avg_field(this_week_keys, "recovery")
+    prev_recovery = _avg_field(prev_week_keys, "recovery")
+    this_focus = _avg_field(this_week_keys, "focus")
+    prev_focus = _avg_field(prev_week_keys, "focus")
+
+    # Also check steps from health-live.json — aggregate per-minute samples into daily totals
+    metrics = _get_health_live_metrics()
+    step_entries = metrics.get("step_count", [])
+    def _avg_steps(keys: list) -> float | None:
+        daily: dict[str, float] = {k: 0.0 for k in keys}
+        for e in step_entries:
+            day = str(e.get("date", ""))[:10]
+            if day in daily and isinstance(e.get("qty"), (int, float)):
+                daily[day] += float(e["qty"])  # type: ignore[arg-type]
+        vals = [v for v in daily.values() if v > 0]
+        return sum(vals) / len(vals) if vals else None
+
+    this_steps = _avg_steps(this_week_keys)
+    prev_steps = _avg_steps(prev_week_keys)
+
+    # Surface the largest meaningful delta (≥10%)
+    signals: list[tuple[float, str]] = []
+    if this_recovery is not None and prev_recovery is not None and prev_recovery > 0:
+        pct = (this_recovery - prev_recovery) / prev_recovery * 100
+        if abs(pct) >= 10:
+            arrow = "↑" if pct > 0 else "↓"
+            label = "up" if pct > 0 else "down"
+            signals.append((abs(pct), f"Recovery is {arrow}{abs(pct):.0f}% vs last week ({this_recovery:.0f} vs {prev_recovery:.0f}) — {label} trend."))
+    if this_focus is not None and prev_focus is not None and prev_focus > 0:
+        pct = (this_focus - prev_focus) / prev_focus * 100
+        if abs(pct) >= 10:
+            arrow = "↑" if pct > 0 else "↓"
+            signals.append((abs(pct), f"Focus score is {arrow}{abs(pct):.0f}% vs last week ({this_focus:.0f} vs {prev_focus:.0f})."))
+    if this_steps is not None and prev_steps is not None and prev_steps > 0:
+        pct = (this_steps - prev_steps) / prev_steps * 100
+        if abs(pct) >= 10:
+            arrow = "↑" if pct > 0 else "↓"
+            label = "strong momentum" if pct > 0 else "pace today"
+            signals.append((abs(pct), f"Daily steps {arrow}{abs(pct):.0f}% vs last week ({int(this_steps):,} vs {int(prev_steps):,}) — {label}."))
+
+    if not signals:
+        return ""
+    # Return the strongest signal
+    signals.sort(key=lambda x: x[0], reverse=True)
+    return signals[0][1]
 
 
 def _recent_history_rows(history_payload: Dict[str, Any], today: str, limit: int = 30) -> List[Dict[str, Any]]:
@@ -1327,14 +1391,17 @@ def build_daily_state_vector(
         _sleep_signal(ai_days, sleep_history, latest_override=latest_sleep_hours),
         _mood_shift_signal(mood_slots, ai_days),
     ]
-    compounding_signals = [item for item in compounding_signals if item][:3]
+    # Ensure _health_delta_signal is always included when available (place it last, keep up to 4 total)
+    delta_sig = _health_delta_signal()
+    non_delta = [item for item in compounding_signals[:-1] if item][:3]
+    compounding_signals = (non_delta + [delta_sig]) if delta_sig else non_delta[:3]
     # Compound risk: surface when multiple dimensions simultaneously in "watch"
     watch_count = sum(1 for d in dimensions if d.get("state") == "watch")
     if watch_count >= 2:
         watch_labels = ", ".join(d["label"] for d in dimensions if d.get("state") == "watch")
         compound_msg = f"Compound risk: {watch_count} dimensions in watch state ({watch_labels}) — reduce commitments today."
         compounding_signals.insert(0, compound_msg)
-        compounding_signals = compounding_signals[:3]
+        compounding_signals = compounding_signals[:4]
     if not compounding_signals:
         compounding_signals = [weakest["summary"]]
 
