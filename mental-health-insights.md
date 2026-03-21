@@ -273,21 +273,14 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-20 (hash: 2bb5bdf563927da7)*
+*Auto-synced from Pieces persona summary on 2026-03-21 (hash: 16b26e1815b98974)*
 
 ### Job search anxiety patterns
-- James Cherry is a Greenwich-based freelance neuro-systems engineer and the lead architect of **OS 3.0**. His work is characterized by a meticulous, iterative approach to "warm systems" design, prioritizing neurodivergent regulation. His AuDHD, dyslexia, and Meares-Irlen Syndrome 
-- What You Work On**
-- James's primary focus is the radical architectural shift of OS 3.0 from a Python-generated static dashboard to a **Standalone API-Driven Application**.
-- **The Standalone Pivot:** OS 3.0 is transitioning into a **React/Vite/TypeScript** application served via a local API, housed in a `pywebview` Mac wrapper, eliminating "tab friction" and allowing for real-time interactivity.
-- How You Work**
+- James Cherry** is a highly technical and self-aware individual who meticulously architects and refines his personal digital infrastructure, OS 3.0, as an externalized system to manage his neurodiversity. Based on over 2,300 total observed interactions, with significant recent act
+- Who They Are
 
 ### Coping mechanisms Pieces has observed
-- James Cherry is a Greenwich-based freelance neuro-systems engineer and the lead architect of **OS 3.0**. His work is characterized by a meticulous, iterative approach to "warm systems" design, prioritizing neurodivergent regulation. His AuDHD, dyslexia, and Meares-Irlen Syndrome 
-- James is a highly self-aware builder who views visual stress and cognitive load as bugs to be solved through code. He balances deep technical development with a grounded commitment to family life in Greenwich, systematically managing "life admin" tasks like school trip logistics,
+- James maintains his identity as a dedicated neuro-systems engineer and
 
 ### Work habits Pieces has observed
-- James is a highly self-aware builder who views visual stress and cognitive load as bugs to be solved through code. He balances deep technical development with a grounded commitment to family life in Greenwich, systematically managing "life admin" tasks like school trip logistics,
-- James's primary focus is the radical architectural shift of OS 3.0 from a Python-generated static dashboard to a **Standalone API-Driven Application**.
-- **Source of Truth Consolidation:** He has "severed" reliance on Akiflow, adopting **Todoist** as his exclusive task management system. He is hardening the Todoist-to-Beads sync logic.
-- **Live Schedule Logic:** Client-side JS reclassifies schedule rows every 60 seconds, collapsing past tasks and highlighting the current block with a "Live Now" glow.
+- James Cherry** is a highly technical and self-aware individual who meticulously architects and refines his personal digital infrastructure, OS 3.0, as an externalized system to manage his neurodiversity. Based on over 2,300 total observed interactions, with significant recent act
