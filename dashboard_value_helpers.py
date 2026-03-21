@@ -68,6 +68,8 @@ TADAH_THEME_KEYWORDS = OrderedDict([
         # Planning
         "planned", "prepared", "researched", "compared",
         "made a list", "prioriti", "budget",
+        # Tech / device admin
+        "shortcut", "accessibility", "sync", "opened app", "open app",
     ]),
     ("social", [
         "friend", "adam",
@@ -120,6 +122,9 @@ TADAH_THEME_KEYWORDS = OrderedDict([
         "remembered to", "didn't forget", "on time", "stuck to",
         "followed through", "didn't avoid",
         "switched task", "executive function",
+        # Outdoors / appearance
+        "sunshine", "fresh air",
+        "got outside", "get outside", "wore", "outfit", "clothes",
     ]),
     ("household", [
         # Cleaning
@@ -156,6 +161,15 @@ TADAH_THEME_KEYWORDS = OrderedDict([
         "shipped", "deployed", "launched",
         "presentation", "pitch", "proposal",
     ]),
+    ("moments", [
+        # Everyday joys / sensory appreciation (last so domain themes win)
+        "sunset", "sunrise", "nice view", "beautiful",
+        "coffee",
+        "nice day", "had a nice", "nice meal", "nice food",
+        "lovely", "enjoyed", "treat", "appreciated", "noticed",
+        "saw the", "peaceful", "felt good", "felt nice",
+        "bit of sun", "the sun", "good moment",
+    ]),
 ])
 
 TADAH_THEME_EMOJIS = {
@@ -163,6 +177,7 @@ TADAH_THEME_EMOJIS = {
     "family": "👨‍👩‍👧", "creative": "🎬", "social": "💬",
     "health": "💪", "admin": "📋", "learning": "📚",
     "emotional_growth": "🌱",
+    "moments": "✨",
 }
 
 # Keywords that indicate cleaning (used to prevent false self_care matches)
