@@ -273,13 +273,13 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-23 (hash: b87b017fb0bdac82)*
+*Auto-synced from Pieces persona summary on 2026-03-23 (hash: 420fb917548fbdd0)*
 
 ### Job search anxiety patterns
-- Mel Ryde is a consistently engaged member of James Cherry's close personal network, primarily defined by her enthusiastic participation in online puzzle games. Based on 213 prior and 46 new direct interactions or strong mentions, her role as a fellow enthusiast in casual gaming, 
+- David Roper remains firmly established as a social contact within James Cherry's network, primarily engaging in leisure-oriented discussions. His identity as a dedicated film enthusiast continues to be his most prominent characteristic (Existing Profile). There is no new evidence
 
 ### Coping mechanisms Pieces has observed
-- Mel Ryde remains predominantly identified as a close personal contact within James Cherry's social circle, often interacting within group chats that also
+- David Roper remains firmly established as a social contact within James Cherry's network, primarily engaging in leisure-oriented discussions. His identity as a dedicated film enthusiast continues to be his most prominent characteristic (Existing Profile). There is no new evidence
 
 ### Work habits Pieces has observed
-- Mel Ryde is a consistently engaged member of James Cherry's close personal network, primarily defined by her enthusiastic participation in online puzzle games. Based on 213 prior and 46 new direct interactions or strong mentions, her role as a fellow enthusiast in casual gaming,
+- David Roper** is a social contact of James Cherry, strongly defined by his role as a passionate, opinionated film enthusiast. Based on 18 new direct interactions, his profile remains consistent, reaffirming his deep passion for cinema and active role in cinematic discourse. This
