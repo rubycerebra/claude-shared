@@ -8,8 +8,8 @@
 - `patterns.md`
 - `wins.md`
 - `what-works.txt`
-- `dashboard.html`
-- `generate-dashboard.py`
+- `dashboard-app/`
+- `generate-dashboard.py` (legacy HTML snapshot)
 
 ## New folders
 - `context-snapshots/` — generated Claude context and today files

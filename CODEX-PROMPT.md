@@ -18,7 +18,7 @@ Jim's system is a personal life OS built on a macOS daemon + Claude CLI:
 - **Cache:** `~/.claude/cache/session-data.json` — single source of truth for ALL data
 - **Session brief:** `~/.claude/cache/session-brief-HEALTH.md` — fast daily brief (~50 lines)
 - **AI insights writer:** `~/.claude/scripts/write-ai-insights.py` — uses Haiku API
-- **Dashboard:** `~/Documents/Claude Projects/claude-shared/generate-dashboard.py` → `dashboard.html`
+- **Dashboard:** `~/Documents/Health/dashboard-app/` served by `~/.claude/scripts/api-server.py` at `/app`
 - **Apple Notes sync:** `~/.claude/scripts/sync-journal-to-apple-notes.sh`
 - **Journal:** `~/Documents/Claude Projects/claude-shared/journal/YYYY-MM-DD.md`
 - **Beads (task tracking):** `.beads/` in each project — HEALTH, WORK, TODO
@@ -115,8 +115,8 @@ cd ~/Documents/Claude\ Projects/HEALTH && git add -A && git commit -m "Codex ses
 cd ~/Documents/Claude\ Projects/WORK && git add -A && git commit -m "Codex session: [what you did]" && git push
 cd ~/Documents/Claude\ Projects/TODO && git add -A && git commit -m "Codex session: [what you did]" && git push
 
-# 4. Regenerate dashboard
-~/Documents/Claude\ Projects/claude-shared/trigger-dashboard.sh --no-open
+# 4. Rebuild API dashboard app (only if dashboard-app src changed)
+cd ~/Documents/Health/dashboard-app && npm run build
 
 # 5. Sync to Apple Notes
 ~/.claude/scripts/sync-journal-to-apple-notes.sh

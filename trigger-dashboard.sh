@@ -1,5 +1,7 @@
 #!/bin/bash
-# Trigger dashboard from Claude Code commands
+# Trigger legacy HTML dashboard snapshot from Claude Code commands
+# Deprecated: the API dashboard at /app is now primary. Use this only when you
+# explicitly need to regenerate the old HTML snapshot for compatibility/manual review.
 # Usage:
 #   trigger-dashboard.sh              # immediate, opens browser
 #   trigger-dashboard.sh --delay      # wait 5s for data, opens browser

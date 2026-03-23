@@ -19,8 +19,7 @@ Examples:
 - `mental-health-insights.md`
 - `context-bridge.md`
 - `PERSONAL-PREFERENCES-v3.md`
-- `generate-dashboard.py`
-- `dashboard.html`
+- `generate-dashboard.py` (legacy HTML snapshot generator)
 - `CODEX-PROMPT-*.md`
 
 ## New homes

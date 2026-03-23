@@ -187,7 +187,7 @@ def build_system_status_html(runtime: dict) -> dict:
 
     if tailscale_url:
         ts_label = "🟢 TS" if tailscale_state == "serve" else "🔵 TS"
-        tailscale_html = f'<a href="{html.escape(tailscale_url + "/dashboard", quote=True)}" class="system-inline" target="_blank" rel="noopener">{ts_label}</a>'
+        tailscale_html = f'<a href="{html.escape(tailscale_url + "/app", quote=True)}" class="system-inline" target="_blank" rel="noopener">{ts_label}</a>'
     else:
         tailscale_html = '<span class="system-inline">⚪ TS</span>'
 
@@ -197,7 +197,7 @@ def build_system_status_html(runtime: dict) -> dict:
         if cloudflare_url:
             cf_age_text = f"{cloudflare_age}m" if isinstance(cloudflare_age, int) else "?"
             cf_label = "🟢 CF" if cloudflare_state == "fresh" else "🟠 CF"
-            cloudflare_html = f'<a href="{html.escape(cloudflare_url + "/dashboard", quote=True)}" class="system-inline" target="_blank" rel="noopener">{cf_label} {cf_age_text}</a>'
+            cloudflare_html = f'<a href="{html.escape(cloudflare_url + "/app", quote=True)}" class="system-inline" target="_blank" rel="noopener">{cf_label} {cf_age_text}</a>'
         else:
             cloudflare_html = '<span class="system-inline">⚪ CF</span>'
 

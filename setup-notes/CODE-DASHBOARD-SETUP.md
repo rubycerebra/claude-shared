@@ -1,5 +1,7 @@
 # Dashboard Trigger Setup for Claude Code
 
+> Legacy note: this document describes the old HTML dashboard trigger flow. The primary dashboard is now the API app at `http://127.0.0.1:8765/app`.
+
 Copy this prompt to your Code session to set up dashboard triggers.
 
 ---
@@ -7,11 +9,12 @@ Copy this prompt to your Code session to set up dashboard triggers.
 ## Prompt to paste into Code:
 
 ```
-I have a visual dashboard in Cowork that reads from the context files your daemons generate. I want to trigger it from Code commands.
+I have a visual dashboard app at `/app` that reads from the API/cache. I only want to use the old HTML trigger flow when explicitly regenerating the deprecated snapshot.
 
 **Files already created:**
-- `~/Documents/Claude Projects/claude-shared/generate-dashboard.py` - generates HTML dashboard
-- `~/Documents/Claude Projects/claude-shared/trigger-dashboard.sh` - calls the generator and opens browser
+- `~/Documents/Health/dashboard-app/` - React dashboard app source
+- `~/.claude/scripts/api-server.py` - serves the dashboard at `/app`
+- `~/Documents/Claude Projects/claude-shared/trigger-dashboard.sh` - deprecated legacy HTML snapshot generator
 
 **What I need:**
 
