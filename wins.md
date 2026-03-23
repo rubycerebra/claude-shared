@@ -7897,3 +7897,6 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-23] Made the composter (via Pieces)
 - [2026-03-23] Cleared the white wheelbarrow and cleaned up the garden (via Pieces)
 - [2026-03-23] Got new dog treats (via Pieces)
+- [2026-03-23] Garden work blitz—composter, wheelbarrow, cleanup, leaf blower (via Pieces)
+- [2026-03-23] Coco's walk + new treats (via Pieces)
+- [2026-03-23] Diary entry completed (via Pieces)
