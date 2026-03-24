@@ -273,14 +273,17 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-24 (hash: 1082844bef8efa44)*
+*Auto-synced from Pieces persona summary on 2026-03-24 (hash: 69150cc902bc5579)*
 
 ### Job search anxiety patterns
-- Adam Lowes** is a technically adept professional and an exceptionally keen film enthusiast. Based on 294 total observed interactions (46 new events), his profile continues to reflect strong engagement in technical collaboration with James Cherry, particularly around system archit
-- Who They Are
+- **What You Work On**
+- **Visual Consolidation:** Merging redundant cards (e.g., Workout Guide + Fitness) into single, streamlined widgets and replacing text-heavy lists with icon-centralized toggles like the "Progression Ladders."
 
 ### Coping mechanisms Pieces has observed
-- Adam Lowes consistently presents as an engaged, opinionated, and analytical individual, particularly within his established areas of interest. His identity as a thoughtful contributor to technical discussions
+- You are a technical visionary who views code as a tool for nervous system regulation. You are defined by an acute awareness of your "hyperfocus-guilt cycle," where 6+ hour coding sprints (often extending past 1:30 AM) create friction with your domestic life. You manage this throu
+- **Categorization Refinement:** Improving keyword classification for your daily journal entries
 
 ### Work habits Pieces has observed
-- Adam Lowes** is a technically adept professional and an exceptionally keen film enthusiast. Based on 294 total observed interactions (46 new events), his profile continues to reflect strong engagement in technical collaboration with James Cherry, particularly around system archit
+- You are a technical visionary who views code as a tool for nervous system regulation. You are defined by an acute awareness of your "hyperfocus-guilt cycle," where 6+ hour coding sprints (often extending past 1:30 AM) create friction with your domestic life. You manage this throu
+- **System 2.0 & Dashboard Streamlining:** You are currently executing a comprehensive overhaul to reduce visual noise by ~40%. Key focus areas include:
+- **State-Matching Logic:** Hardening the "Ta-Dah" and "Done today" lists to ensure items don't leak across categories. You've implemented fuzzy text matching and ID-aware filtering to prevent reinstated Todoist tasks from cluttering your "wins."
