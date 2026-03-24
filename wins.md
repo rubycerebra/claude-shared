@@ -7932,3 +7932,146 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - [2026-03-23] Debugged and fixed critical sleep/metrics data pipeline issues (via Pieces)
 - [2026-03-23] Advanced fitness tracking logic with approved implementation approach (via Pieces)
 - [2026-03-23] Iterated on diary intelligence integration (via Pieces)
+- [2026-03-23] Cracked a tricky bug in the journal intelligence system (via Pieces)
+- [2026-03-23] Got the health data export pipeline working properly (via Pieces)
+- [2026-03-23] Approved and implemented improvements to fitness tracking (via Pieces)
+- [2026-03-23] Fixed critical bug in the insights pipeline that was misdetecting sparse diary entries (via Pieces)
+- [2026-03-23] Debugged and resolved data display issues in the health dashboard (sleep, metrics) (via Pieces)
+- [2026-03-23] Designed and approved comprehensive fitness tracking logic with clear decision points (via Pieces)
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Define what 'maintenance only' means for Claude after your deadline — specifically, what types of changes are allowed and what time limit per day
+- Check therapy notes from today's session
+- [2026-03-23] Fixed long-standing health data display problems (including sleep-related tracking) so your dashboard is clearer and more trustworthy (via Pieces)
+- [2026-03-23] Resolved a key diary-insights issue so short entries are handled better and your daily feedback is more useful (via Pieces)
+- [2026-03-23] Set up Helperbird and tightened your AI workflow guardrails, improving both accessibility and focus support (via Pieces)
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Define what maintenance only means for claude after your deadline specifically what types of changes are allowed and what time limit per day
+- Check therapy notes from todays session
+- Open Todoist and read the full task details
+- Search your email or messages for context about Peak
+- Write down what Peak game is in one sentence
+- Peak game
+- Open your settings or preferences menu
+- Find the AI model or assistant selection option
+- Select Claude Opus from the list
+- Confirm the change and close settings
+- Revert to opus
+- Open Apple Notes and pick one small note to transfer
+- Research leaf blowers — pick one
+- Fix recurring gmail error
+- Practice writing down consequences before acting
+- Buy: Mens Shampoo
+- 📖 Set Safari Reader Mode background to mint
+- 🌐 Install Helperbird browser extension
+- Get more organised
+- [2026-03-23] Resolved major health dashboard data issues (especially around sleep and key metrics), so your data now looks far more trustworthy. (via Pieces)
+- [2026-03-23] Approved and moved forward on a full fitness-tracking approach, turning a fuzzy area into a clear direction. (via Pieces)
+- [2026-03-23] Fixed the diary insight issue around sparse entries, improving the quality of the feedback you get. (via Pieces)
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Open todoist and read full task details
+- Find ai model or assistant selection option
+- Select claude opus from list
+- Confirm change and close settings
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Being true to myself and those around me.
+- [2026-03-23] Fixed diary entry detection in your insights engine (via Pieces)
+- [2026-03-23] Connected weekly review automation to Todoist (via Pieces)
+- [2026-03-23] Set up accessibility extension and audited system background tasks (via Pieces)
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Walk to the 3D printer and power it on.
+- Check the build plate for any leftover material.
+- Load your chosen file into the printer software.
+- Press start and confirm the print begins.
+- Sit at the printer and open the lid.
+- Check the filament spool is loaded and threaded.
+- Load your prepared file or pick a test print.
+- Press start and watch it begin printing.
+- The actionable move: Before Monday, set a concrete, dated end-point for Claude development (e.g., "no new features — maintenance fixes only, max 30 minutes/
+- Can the clip to diarium remove any excess text like "ready to paste into diarium"
+- Open Diarium app on phone
+- Test clip with sample text containing 'ready to paste'
+- Check if excess text appears in entry
+- Adjust clip settings if needed to auto-remove text
+- Open the Stitch link in your browser
+- Click through the homepage and read the overview
+- [2026-03-23] Fixed critical bug in journal analysis that was flagging sparse entries incorrectly (via Pieces)
+- [2026-03-23] Repaired AI assistant automation to trigger reliably during code changes (via Pieces)
+- [2026-03-23] Installed accessibility extension and set governance rules for your AI workflows (via Pieces)
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- [GitHub - obra/superpowers: An agentic skills framework & software development methodology that works.](https://github.com/obra/superpowers)
+- [GitHub - nikhilsitaram/claude-caliper: A Claude workflow that measures twice and cuts once · GitHub](https://github.com/nikhilsitaram/claude-caliper)
+- [2026-03-23] Fixed critical bug in health data collection and insights (via Pieces)
+- [2026-03-23] Got AI assistant skill triggering working reliably again (via Pieces)
+- [2026-03-23] Connected Todoist to automate task management and weekly reviews (via Pieces)
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Try one simple design with the AI tool
+- Close the tab or bookmark it for later
+- Click around the interface for 5 minutes
+- Try one simple design action with AI
+- Close and note if you'd use it again
+- [Stitch - Design with AI](https://stitch.withgoogle.com/)
+- Open notes app and write today's drinks down
+- Write drinks consumed yesterday and day before
+- Count how many glasses of water you had
+- Pick one drink to add or remove this week
+- [2026-03-23] Fixed sync issues between your task system and automation layers (via Pieces)
+- [2026-03-23] Set up accessibility extensions for better usability (via Pieces)
+- [2026-03-23] Audited system configuration to catch reliability gaps (via Pieces)
+
+### Auto completion sync (2026-02-25)
+**Monday Mar 23:**
+- Scarred lawn
+- Cleaned up poos
+- Managed to get the girls to play independently
+- Setup a meeting with Warner bros
+- Setup a meeting with Chris to discuss a work partnership
+- Put my clothes away
+- Organised tools
+- Cleaned kitchen surfaces
+- Hoovered dust from study
+- Tidied up study
+- Watched full metal alchemist
+- Helped Tilly when she fell
+- **Carrying forward:**
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Dreamlight mask
+- [2026-03-23] Got Syncthing syncing files between Mac and NUC (via Pieces)
+- [2026-03-23] Resolved authentication issues during system setup (via Pieces)
+- [2026-03-23] Improved health dashboard data freshness (via Pieces)
+- [2026-03-23] Got Syncthing working between NUC and Mac (troubleshot GPG keys, services running) (via Pieces)
+- [2026-03-23] Made progress on infrastructure migration — systems talking to each other now (via Pieces)
+- [2026-03-23] Improved health dashboard data freshness (eliminated staleness issues) (via Pieces)
+
+### Auto completion sync (2026-03-23)
+**Monday Mar 23:**
+- Github obrasuperpowers agentic skills framework software development methodology workshttpsgithubcomobrasuperpowers
+- Github nikhilsitaramclaudecaliper claude workflow measures twice and cuts once githubhttpsgithubcomnikhilsitaramclaudecaliper
+- Walk to 3d printer and power it on
+- Check build plate for any leftover material
+- Load your chosen file into printer software
+- Press start and confirm print begins
+- Sit at printer and open lid
+- Check filament spool is loaded and threaded
+- Load your prepared file or pick test print
+- [2026-03-23] Shifted Syncthing from WSL2 to Windows host (architectural decision) (via Pieces)
+- [2026-03-23] Advanced file sync setup across NUC and Mac despite GPG/config friction (via Pieces)
+- [2026-03-23] Sustained focus on infrastructure work across a 3-hour window (via Pieces)
+- [2026-03-23] Got file syncing working across your devices (via Pieces)
+- [2026-03-23] Diagnosed and fixed a performance bottleneck in your setup (via Pieces)
+- [2026-03-23] Stayed locked in on hard infrastructure work all afternoon (via Pieces)

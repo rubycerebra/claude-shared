@@ -257,4 +257,8 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **What it is:** A technique where one intentionally pauses or 'parks' a task for short intervals starting at one minute, then gradually increasing duration to build tolerance for stopping and stepping away. This helps James retrain his brain to tolerate breaks from compulsive coding by slowly desensitizing his nervous system to task interruption.
 - **W12 (2026-03-19):** Auto-added from session transcript.
 
+### PACT
+- **Source:** Samantha — session 2026-03-19
+- **W13 (2026-03-19):** Auto-added from session transcript.
+
 ---

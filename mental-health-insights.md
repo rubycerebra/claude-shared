@@ -273,13 +273,19 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-23 (hash: 420fb917548fbdd0)*
+*Auto-synced from Pieces persona summary on 2026-03-23 (hash: 613a6f668dc5e55f)*
 
 ### Job search anxiety patterns
-- David Roper remains firmly established as a social contact within James Cherry's network, primarily engaging in leisure-oriented discussions. His identity as a dedicated film enthusiast continues to be his most prominent characteristic (Existing Profile). There is no new evidence
+- **The Clinical Rationalist:** You have developed a strong "internal observer." You catch yourself in hyperfocus spirals—noting when work becomes a "chore"—and use the dashboard to force "re-entry" into domestic life.
+- What You Work On**
+- **The API-First Dashboard:** You are actively deprecating your legacy HTML dashboard in favor of a Vite/React application powered by a FastAPI backend. This includes complex logic for "Ta-Dah" lists (success tracking) and "Hero Actions" that persist completion states across serve
 
 ### Coping mechanisms Pieces has observed
-- David Roper remains firmly established as a social contact within James Cherry's network, primarily engaging in leisure-oriented discussions. His identity as a dedicated film enthusiast continues to be his most prominent characteristic (Existing Profile). There is no new evidence
+- James has transitioned from a Resilience Architect into a **Bio-System Integrator**. While his technical foundation remains rooted in "orchestrating agents" and hardening infrastructure, his focus has narrowed toward the seamless integration of his biological data (HRV, sleep, re
+- Who You Are**
 
 ### Work habits Pieces has observed
-- David Roper** is a social contact of James Cherry, strongly defined by his role as a passionate, opinionated film enthusiast. Based on 18 new direct interactions, his profile remains consistent, reaffirming his deep passion for cinema and active role in cinematic discourse. This
+- James has transitioned from a Resilience Architect into a **Bio-System Integrator**. While his technical foundation remains rooted in "orchestrating agents" and hardening infrastructure, his focus has narrowed toward the seamless integration of his biological data (HRV, sleep, re
+- **Sensory-Aware Designer:** Your UX perfectionism has evolved into a focus on accessibility and cognitive comfort. You are currently obsessed with "Mint Green" (#45CC90) and Irlen tints, applying these filters across your Mac, iPhone, and dashboard to manage your visual load.
+- **The Clinical Rationalist:** You have developed a strong "internal observer." You catch yourself in hyperfocus spirals—noting when work becomes a "chore"—and use the dashboard to force "re-entry" into domestic life.
+- **The Health Logic Layer:** You are refining how the system interprets "Recovery" and "Focus." This involves prioritizing AutoSleep `daily_metrics` over HealthFit data to ensure y

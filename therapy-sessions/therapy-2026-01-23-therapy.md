@@ -1,0 +1,44 @@
+Live Session with Samantha Quinn
+
+13:49 - 14:38 GMT+00:00
+
+James is advised to implement a structured, time-blocked routine and practice self-compassion to manage overwhelm and external expectations.
+
+Key Points
+
+Addressing Overwhelm and GuiltJames expresses feelings of being overwhelmed and guilty due to his current responsibilities.
+  *  James feels overwhelmed by daily tasks, struggling with the perception that he hasn't done enough, leading to constant 'doing, doing, doing'.
+  *  He experiences guilt about not giving his dog a 'proper walk' despite taking her out, stemming from self-imposed expectations rather than the dog's needs.
+  *  The therapist suggests practicing self-compassion, referencing 'compassion-focused therapy' and 'acceptance and commitment therapy' (ACT) to manage feelings.
+
+Analyzing Daily RoutinesThe therapist and James review his daily schedule to identify areas for improvement and stress reduction.
+  *  James's morning routine involves getting girls ready, walking the dog, and tidying the house, which he feels is necessary for 'mental space'.
+  *  He often skips breakfast and lunch due to feeling too busy, prioritizing other tasks over personal well-being.
+  *  James admits to getting sidetracked by his laptop for 'two hours' after dropping off the girls, disrupting his planned beneficial activities like yoga.
+
+Implementing Structured Time ManagementA new, time-blocked routine is proposed to help James manage his day more effectively and reduce chaos.
+  *  The therapist suggests creating a morning-only task list with specific times for each activity, rather than a general 'to-do' list.
+  *  A detailed schedule is outlined, including 'five minutes of relaxed time' during breakfast and a '10 minute break' after returning home.
+  *  The therapist advises preparing for the next day's activities, like packing bags, the night before to reduce morning rush.
+
+Challenging Self-Perception and External ExpectationsJames's perception of his workload and his wife's expectations are discussed, highlighting the need for self-acknowledgment.
+  *  James believes he is 'not doing enough' despite a demanding schedule, influenced by a 'voice in my head' and potential external perceptions.
+  *  The therapist emphasizes that looking after his girls is a 'full-time job in itself' and a significant daily accomplishment.
+  *  James struggles with his wife's potential negative comments about an untidy house, feeling 'triggered' by her fatigue-driven remarks.
+
+Developing Compassionate ResponsesStrategies for responding to criticism and fostering self-compassion are explored to improve James's emotional well-being.
+  *  The therapist assigns homework: to formulate a 'positive, adult, response' to his wife's negative comments without getting triggered.
+  *  The 'PAT model' and 'drama triangle' are referenced as tools for handling difficult conversations.
+  *  James is encouraged to acknowledge his achievements and be 'kinder to ourselves' as 'only human beings'.
+
+Action Items
+
+James
+  *  Prepare for work in London this evening before bed.
+  *  Pack girls' bags tonight with your bag.
+  *  Write a list of morning tasks only, with specific times.
+  *  Formulate a positive, adult response to wife's negative comments.
+  *  Watch YouTube videos on handling difficult conversations.
+
+Powered by Spark +AI Meeting Notes 
+
