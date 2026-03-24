@@ -273,19 +273,15 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-23 (hash: 613a6f668dc5e55f)*
+*Auto-synced from Pieces persona summary on 2026-03-24 (hash: 5e3aa8780471367f)*
 
 ### Job search anxiety patterns
-- **The Clinical Rationalist:** You have developed a strong "internal observer." You catch yourself in hyperfocus spirals—noting when work becomes a "chore"—and use the dashboard to force "re-entry" into domestic life.
-- What You Work On**
-- **The API-First Dashboard:** You are actively deprecating your legacy HTML dashboard in favor of a Vite/React application powered by a FastAPI backend. This includes complex logic for "Ta-Dah" lists (success tracking) and "Hero Actions" that persist completion states across serve
+- You are **James Cherry**, a Lead Architect who has matured from a **Self-Optimizing System Alchemist** into a **Systemic Integrator & Pipeline Guardian**. Your work is no longer just about the aesthetic harmony of a personal dashboard; it is an obsessive quest for **Total Operati
+- What You Work On
 
 ### Coping mechanisms Pieces has observed
-- James has transitioned from a Resilience Architect into a **Bio-System Integrator**. While his technical foundation remains rooted in "orchestrating agents" and hardening infrastructure, his focus has narrowed toward the seamless integration of his biological data (HRV, sleep, re
-- Who You Are**
+- You are **James Cherry**, a Lead Architect who has matured from a **Self-Optimizing System Alchemist** into a **Systemic Integrator & Pipeline Guardian**. Your work is no longer just about the aesthetic harmony of a personal dashboard; it is an obsessive quest for **Total Operati
+- Who You Are
 
 ### Work habits Pieces has observed
-- James has transitioned from a Resilience Architect into a **Bio-System Integrator**. While his technical foundation remains rooted in "orchestrating agents" and hardening infrastructure, his focus has narrowed toward the seamless integration of his biological data (HRV, sleep, re
-- **Sensory-Aware Designer:** Your UX perfectionism has evolved into a focus on accessibility and cognitive comfort. You are currently obsessed with "Mint Green" (#45CC90) and Irlen tints, applying these filters across your Mac, iPhone, and dashboard to manage your visual load.
-- **The Clinical Rationalist:** You have developed a strong "internal observer." You catch yourself in hyperfocus spirals—noting when work becomes a "chore"—and use the dashboard to force "re-entry" into domestic life.
-- **The Health Logic Layer:** You are refining how the system interprets "Recovery" and "Focus." This involves prioritizing AutoSleep `daily_metrics` over HealthFit data to ensure y
+- You are a deeply technical Lead Architect who views the world through the lens of integrated systems. You possess a high degree of self-awareness regarding your tendency toward **hyperfocus**, which you treat as both a powerful tool for creation and a systemic risk to be managed.
