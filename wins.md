@@ -8086,3 +8086,48 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 - Action Points
 - Check body feels fine overall (15m)
 - Check feeling a little sensitive this morning — there’s a cloudiness to thing (15m)
+
+### Auto completion sync (2026-03-24)
+**Tuesday Mar 24:**
+- Mwave
+- Open browser and search 'Mwave'
+- Read first result and write down what it is
+- Add remote access plan to NUC Transfer
+- Backfill missing mindfulness minutes and any other health metric missed by broken wiring.
+- Open your health tracking app or journal
+- List dates with missing mindfulness minutes
+- Add back the mindfulness entries you remember
+- Check off any other missed health metrics
+- Extract todos actions guidance based on weekly report
+- Open the weekly report document
+- Highlight or copy three action items from the report
+- Write each action as a separate todo in a
+- Add due dates to the new todos
+- Claude work should be filtered out of productive work and hard limited to avoid hyper fixation. Consider blocks and link to the brick setup bead maintenance task.
+- Open your calendar or timer app
+- Set a 30-minute block for Claude work
+- Link the brick setup bead maintenance task to your
+- Write one rule for Claude work e g 'Only
+- Monthly report would be useful
+- Open a blank document or spreadsheet
+
+### Auto completion sync (2026-03-24)
+**Tuesday Mar 24:**
+- Can’t context to NUC
+- List the three biggest wins from this month
+
+### Auto completion sync (2026-03-24)
+**Wednesday Mar 25:**
+- Write one sentence about what needs attention next month
+- Save the file with today's date
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Vs code on phone remote won’t load
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Screen time error on dashboard
+- Check browser console for error messages
+- Fix error and refresh to verify
+- Find screen time display code in editor
