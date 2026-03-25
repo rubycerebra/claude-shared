@@ -273,17 +273,15 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-24 (hash: 69150cc902bc5579)*
+*Auto-synced from Pieces persona summary on 2026-03-25 (hash: 011a55fa0c8a1faa)*
 
 ### Job search anxiety patterns
-- **What You Work On**
-- **Visual Consolidation:** Merging redundant cards (e.g., Workout Guide + Fitness) into single, streamlined widgets and replacing text-heavy lists with icon-centralized toggles like the "Progression Ladders."
+- What They Work On
+- Merry's direct work
 
 ### Coping mechanisms Pieces has observed
-- You are a technical visionary who views code as a tool for nervous system regulation. You are defined by an acute awareness of your "hyperfocus-guilt cycle," where 6+ hour coding sprints (often extending past 1:30 AM) create friction with your domestic life. You manage this throu
-- **Categorization Refinement:** Improving keyword classification for your daily journal entries
+- Merry Ketmess continues to be primarily identified as a **social contact** of James Cherry. Her specific professional role remains unstated in the observed events. However, her consistent presence across various informal communication channels reinforces her role within James's p
+- What They Work On
 
 ### Work habits Pieces has observed
-- You are a technical visionary who views code as a tool for nervous system regulation. You are defined by an acute awareness of your "hyperfocus-guilt cycle," where 6+ hour coding sprints (often extending past 1:30 AM) create friction with your domestic life. You manage this throu
-- **System 2.0 & Dashboard Streamlining:** You are currently executing a comprehensive overhaul to reduce visual noise by ~40%. Key focus areas include:
-- **State-Matching Logic:** Hardening the "Ta-Dah" and "Done today" lists to ensure items don't leak across categories. You've implemented fuzzy text matching and ID-aware filtering to prevent reinstated Todoist tasks from cluttering your "wins."
+- Merry Ketmess** is a social contact and potential collaborator of James Cherry, whose interactions span both personal and project-related contexts. Based on 48 observed interactions (33 new), she appears to be an active participant in multiple social chat groups and is tangential

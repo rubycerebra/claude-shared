@@ -8135,3 +8135,36 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 ### Auto completion sync (2026-03-25)
 **Wednesday Mar 25:**
 - Pick one active thread, finish one chunk, then reassess.
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Check i'm in a noisy environment, working in a projection booth where there's (15m)
+- Check some soreness in my back – need to work on that and do some stretches (15m)
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Look at it without the negative outlook
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Get home safely
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Do back stretches when home (15m)
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Claude health metrics auto export won’t send. Workouts work.
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Setup settings sync extension in vs code and code server
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Claude maintenance cap: 30 minutes max
+
+### Auto completion sync (2026-03-25)
+**Wednesday Mar 25:**
+- Carry this update win forward: Both required workshop tasks completed by the midpoint of the session — this ahead-of-schedule delivery suggests the preparation or task-scoping beforehand was well-calibrated, reducing the executive-function load that often makes workshops feel overwhelming or unfinishable.
