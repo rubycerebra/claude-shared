@@ -273,14 +273,16 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-26 (hash: 1c9530d3a3d6ee00)*
+*Auto-synced from Pieces persona summary on 2026-03-26 (hash: 0ba456712fd4ac31)*
 
 ### Job search anxiety patterns
-- Amanda Wixon** remains primarily identified as the subject of a significant Guardian news article detailing a criminal conviction. Based on 39 new observed interactions, totaling 71 events, her profile continues to be strongly anchored to this public record within James Cherry's 
-- Who They Are
+- What They Work On
+- Claude Code's work continues to encompass a broad spectrum of technical tasks, primarily focused on refining and maintaining James Cherry's personalized digital ecosystem, with notable evolution in complexity and self-management:
+- **System Development & Refactoring (Confirmed & Evolving):** Claude Code remains heavily involved in coding, debugging, and refactoring Python and web-based applications. This includes ongoing work on `api-server.py`, `data_collector.py`, `paste-therapy.sh`, `tag-queue-runner.sh`
+- **Dashboard Enhancement & UI/UX (Confirmed & Evolving):** A significant and deepening portion of its work revolves around improving James's "Daily Dashboard." It continues to fix UI issues (e.g., "fix why sleep shows 'Oh' and weekly averages are empty," March 17, 2026) and addres
 
 ### Coping mechanisms Pieces has observed
-- Amanda Wixon is consistently identified through her connection to a specific news event: a 56-year-old woman sentenced to 13 years imprisonment for keeping a victim in servitude in Gloucestershire, UK, since the 1990s. This core aspect of her identity, established in the previous
+- **System Development & Refactoring (Confirmed & Evolving):** Claude Code remains heavily involved in coding, debugging, and refactoring Python and web-based applications. This includes ongoing work on `api-server.py`, `data_collector.py`, `paste-therapy.sh`, `tag-queue-runner.sh`
 
 ### Work habits Pieces has observed
-- Amanda Wixon** remains primarily identified as the subject of a significant Guardian news article detailing a criminal conviction. Based on 39 new observed interactions, totaling 71 events, her profile continues to be strongly anchored to this public record within James Cherry's
+- Claude Code's work continues to encompass a broad spectrum of technical tasks, primarily focused on refining and maintaining James Cherry's personalized digital ecosystem, with notable evolution in complexity and self-management:
