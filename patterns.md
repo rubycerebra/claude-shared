@@ -261,4 +261,28 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **Source:** Samantha — session 2026-03-19
 - **W13 (2026-03-19):** Auto-added from session transcript.
 
+### PACT
+- **Source:** Samantha — session 2026-03-19
+- **W13 (2026-03-19):** Auto-added from session transcript.
+
+### Time Blocking
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** Scheduling specific time blocks for activities with a hard stop point, ensuring other priorities aren't neglected. For James, this prevents compulsive coding from extending past school pickup by creating an external forced stopping point that interrupts the hyperfocus cycle.
+- **W13 (2026-03-19):** Auto-added from session transcript.
+
+### Pomodoro Technique
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** A time management method that breaks work into focused intervals (typically 25 minutes) followed by short breaks, incorporating movement and rest. This helps James interrupt his coding hyperfocus with enforced physical breaks, preventing sleep deprivation and managing anxious energy.
+- **W13 (2026-03-19):** Auto-added from session transcript.
+
+### Parking
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** Setting aside tasks or urges for brief, gradually increasing intervals (starting at one minute) to build tolerance for disengagement. This retrains James's brain to tolerate stopping compulsive activities by slowly expanding his capacity to pause and step away.
+- **W13 (2026-03-19):** Auto-added from session transcript.
+
+### Parking tasks
+- **Source:** Samantha — session 2026-03-19
+- **What it is:** A technique where tasks are temporarily set aside for short intervals (starting with one minute, gradually increasing duration) to build tolerance for stopping. It retrains James's nervous system to accept breaks and reduces anxiety associated with task interruption.
+- **W13 (2026-03-19):** Auto-added from session transcript.
+
 ---

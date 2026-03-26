@@ -273,15 +273,14 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-25 (hash: 011a55fa0c8a1faa)*
+*Auto-synced from Pieces persona summary on 2026-03-26 (hash: 1c9530d3a3d6ee00)*
 
 ### Job search anxiety patterns
-- What They Work On
-- Merry's direct work
+- Amanda Wixon** remains primarily identified as the subject of a significant Guardian news article detailing a criminal conviction. Based on 39 new observed interactions, totaling 71 events, her profile continues to be strongly anchored to this public record within James Cherry's 
+- Who They Are
 
 ### Coping mechanisms Pieces has observed
-- Merry Ketmess continues to be primarily identified as a **social contact** of James Cherry. Her specific professional role remains unstated in the observed events. However, her consistent presence across various informal communication channels reinforces her role within James's p
-- What They Work On
+- Amanda Wixon is consistently identified through her connection to a specific news event: a 56-year-old woman sentenced to 13 years imprisonment for keeping a victim in servitude in Gloucestershire, UK, since the 1990s. This core aspect of her identity, established in the previous
 
 ### Work habits Pieces has observed
-- Merry Ketmess** is a social contact and potential collaborator of James Cherry, whose interactions span both personal and project-related contexts. Based on 48 observed interactions (33 new), she appears to be an active participant in multiple social chat groups and is tangential
+- Amanda Wixon** remains primarily identified as the subject of a significant Guardian news article detailing a criminal conviction. Based on 39 new observed interactions, totaling 71 events, her profile continues to be strongly anchored to this public record within James Cherry's
