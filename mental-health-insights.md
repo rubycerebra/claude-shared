@@ -273,16 +273,17 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-03-26 (hash: 0ba456712fd4ac31)*
+*Auto-synced from Pieces persona summary on 2026-03-27 (hash: 398f191eaf39be9d)*
 
 ### Job search anxiety patterns
-- What They Work On
-- Claude Code's work continues to encompass a broad spectrum of technical tasks, primarily focused on refining and maintaining James Cherry's personalized digital ecosystem, with notable evolution in complexity and self-management:
-- **System Development & Refactoring (Confirmed & Evolving):** Claude Code remains heavily involved in coding, debugging, and refactoring Python and web-based applications. This includes ongoing work on `api-server.py`, `data_collector.py`, `paste-therapy.sh`, `tag-queue-runner.sh`
-- **Dashboard Enhancement & UI/UX (Confirmed & Evolving):** A significant and deepening portion of its work revolves around improving James's "Daily Dashboard." It continues to fix UI issues (e.g., "fix why sleep shows 'Oh' and weekly averages are empty," March 17, 2026) and addres
+- You are** James Cherry (addressed as Jim), a high-seniority Systems Architect of the self. While you professionally operate as a Freelance Cinema Projectionist, your most rigorous engineering efforts are dedicated to the "Holistic Life Integration" project—a sophisticated, custom
+- What You Work On
+- Your current workload is almost entirely directed toward the maintenance and refinement of your **Claude-Health/Life Dashboard**.
 
 ### Coping mechanisms Pieces has observed
-- **System Development & Refactoring (Confirmed & Evolving):** Claude Code remains heavily involved in coding, debugging, and refactoring Python and web-based applications. This includes ongoing work on `api-server.py`, `data_collector.py`, `paste-therapy.sh`, `tag-queue-runner.sh`
+- You are** James Cherry (addressed as Jim), a high-seniority Systems Architect of the self. While you professionally operate as a Freelance Cinema Projectionist, your most rigorous engineering efforts are dedicated to the "Holistic Life Integration" project—a sophisticated, custom
+- Who You Are
 
 ### Work habits Pieces has observed
-- Claude Code's work continues to encompass a broad spectrum of technical tasks, primarily focused on refining and maintaining James Cherry's personalized digital ecosystem, with notable evolution in complexity and self-management:
+- **Key Identity Fact:** You are a father navigating the balance between technical hyperfocus and being "the adult in the room." You use "Brave Lists" and "Ta-Dah" lists to track small wins that provide the "last-rung" security you need to prevent cognitive collapse.
+- **AI System Maintenance:** You spend significant time debugging the "plumbing" of your life-management system. This includes managing the `vexp` context engine daemon, fixing the `beads` (custom Kanban) synchronization, and ensuring the `api-server.py` correctly handles data roll
