@@ -366,6 +366,20 @@ This file captures completed work with evidence. Your brain forgets - this file 
 
 
 
+## Week 12 (Mar 23-29, 2026)
+
+### Wins
+
+**Sunday Mar 29:**
+✅ Other
+- To-Dos
+- Pick one active thread, finish one chunk, then reassess.
+- ✅ Other
+- Move forth with confidence
+- Get back up again
+- Ta-Dah (3 items)
+
+
 ---
 
 ## Pattern Note
@@ -8217,3 +8231,99 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 ### Auto completion sync (2026-03-27)
 **Friday Mar 27:**
 - Ta-Dah (32 items)
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Ta-Dah (5 items)
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Ta-Dah (7 items)
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Ta-Dah (3 items)
+- Book tomorrow's event ticket now to lock in attendance (15m)
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Being present and with the family as much as I can.
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Ta-Dah (4 items)
+- Check sleep dashboard to confirm last night's reading
+- Check sleep dashboard to verify 8h estimate
+- Make lunch in a minute
+- Check sleep dashboard to confirm tracking is working
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Check sleep dashboard to confirm last night's logged hours
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Lost Todoist report, action, intent sections in the dashboard again. What is happening between the server and the app. I’m on my mobile. I think this needs reassessing for stability, I don’t think it’s worked as intended once yet. Can we look into a rebuild or a thorough hardening of pipelines, wiring etc. I’m fed up and this is stale on the now tab screen time on 2026-03-25: 13.4h (threshold: 8h) — 3h 37m productive (5h 3m hyperfocus excluded) ⚡ Deep focus: Macos 5h 3m on 2026-03-25
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Ta-Dah (8 items)
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Check refunds — it's been a while
+- Complete a yoga + weights block before therapy today
+- Locate the cable and its original packaging.
+- Find the store receipt or order confirmation.
+- Pack cable and receipt together in a bag.
+- Go to the store or initiate online return.
+- Return cable
+- Get Jannas Go Club invoice
+
+### Auto completion sync (2026-03-28)
+**Saturday Mar 28:**
+- Do some gardening
+- Find something to soothe them
+- [2026-03-29] Did yoga (via Pieces)
+- [2026-03-29] Took yourself away for a bit when you were anxious (via Pieces)
+- [2026-03-29] Hoovered, tidied, walked, raked, and aerated—proper productive day offline too (via Pieces)
+- [2026-03-29] Did yoga and took a walk — moving your body when you needed it (via Pieces)
+- [2026-03-29] Tidied up, hoovered, raked, and aerated — got a lot of physical stuff done (via Pieces)
+- [2026-03-29] Took yourself away for a bit when anxiety came up — really good self-care move (via Pieces)
+- [2026-03-30] Focused debugging session on data consistency across diary entries (via Pieces)
+- [2026-03-30] Refined the export mechanism for health tracking data (via Pieces)
+- [2026-03-30] Diagnosed data consistency issues in diary/Readwise sync (via Pieces)
+- [2026-03-30] Refined how Readwise data flows into your system (via Pieces)
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Re-enable Opus insights in daemon
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Do weights after sony today (15m)
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Last therapy in screenshot is stale
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Mobile design review needed
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Oval check marks on mobile
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Dashboard: Add weight loss goal tracker widget
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Finch backup script
+
+### Auto completion sync (2026-03-30)
+**Monday Mar 30:**
+- Mobile design review needed - send screenshots
+- Last therapy in screenshot is stale, therapy was today26/3
