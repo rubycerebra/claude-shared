@@ -363,13 +363,21 @@ def compute_freshness_overview(
     cache_fresh_level: str,
 ) -> dict:
     updates_fresh_level = normalize_freshness_level(updates_freshness_level)
+    health_cache_rank = FRESHNESS_RANK.get(normalize_freshness_level(cache_fresh_level), 1)
+    # When health/cache data is fresh, cap journal-only staleness at "warn" (not "error")
+    # so that a stale diary doesn't poison the overall to "critical" while health metrics are ok.
+    def _diarium_rank(level: str) -> int:
+        r = FRESHNESS_RANK.get(normalize_freshness_level(level), 1)
+        if r >= 3 and health_cache_rank <= 1:
+            return 2  # downgrade error → warn when health is fresh
+        return r
     overall_rank = max(
-        FRESHNESS_RANK.get(normalize_freshness_level(diarium_fresh_level), 1),
-        FRESHNESS_RANK.get(normalize_freshness_level(diarium_pickup_level), 1),
-        FRESHNESS_RANK.get(normalize_freshness_level(narrative_fresh_level), 1),
+        _diarium_rank(diarium_fresh_level),
+        _diarium_rank(diarium_pickup_level),
+        _diarium_rank(narrative_fresh_level),
         FRESHNESS_RANK.get(updates_fresh_level, 1),
         FRESHNESS_RANK.get(normalize_freshness_level(mood_fresh_level), 1),
-        FRESHNESS_RANK.get(normalize_freshness_level(cache_fresh_level), 1),
+        health_cache_rank,
     )
     if overall_rank >= 3:
         overall_line = "🔴 Freshness auto-check: critical issue detected."
