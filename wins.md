@@ -8335,3 +8335,34 @@ Week 1: 4 applications = target met. Week 2: 3 applications = on track. Week 3: 
 ### Auto completion sync (2026-03-31)
 **Tuesday Mar 31:**
 - Get key sorted (15m)
+
+### Auto completion sync (2026-03-31)
+**Tuesday Mar 31:**
+- To feel in control of what I'm doing. Not overcontrol — just doing things that are beneficial to me, and not letting anxiety, worry, or compulsion get in the way.
+
+### Auto completion sync (2026-03-31)
+**Tuesday Mar 31:**
+- Check my space is very noisy — there are a lot of air conditioning units near
+- Check a bit sore this morning — no chance to stretch or anything like that
+
+### Auto completion sync (2026-04-01)
+**Wednesday Apr 1:**
+- Ta-Dah (2 items)
+
+### Auto completion sync (2026-04-01)
+**Wednesday Apr 1:**
+- Getting to work on time.
+
+### Auto completion sync (2026-04-01)
+**Wednesday Apr 1:**
+- Prepare lunch for the girls (15m)
+- Finish the diary entry before leaving for work (15m)
+
+### Auto completion sync (2026-04-01)
+**Wednesday Apr 1:**
+- Ta-Dah (9 items)
+
+### Auto completion sync (2026-04-01)
+**Wednesday Apr 1:**
+- Check a bit sensitive to sound
+- Check lots of nervous energy in my throat and body

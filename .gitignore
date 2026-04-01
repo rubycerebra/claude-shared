@@ -33,3 +33,6 @@ verify-sync.sh
 
 # macOS
 .DS_Store
+
+# Syncthing conflict copies
+*.sync-conflict-*
