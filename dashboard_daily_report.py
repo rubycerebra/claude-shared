@@ -111,13 +111,61 @@ def build_daily_report_context(cache: dict, journal: dict, date_str: str) -> dic
 
     intent = diarium.get("intent", "") or journal.get("intent", "")
     grateful = diarium.get("grateful", "") or journal.get("grateful", "")
-    bullet_re = re.compile(r"^[\u2219\u2022\u00b7\u22c5\u2219\-\*\t\s∙•·]+")
+    bullet_re = re.compile(r"^[\u2219\u2022\u00b7\u22c5\u2219\-\*\t\s∙•·\u2705]+")
     raw_tadah = diarium.get("ta_dah", []) or journal.get("ta_dah", [])
-    ta_dah = [
-        bullet_re.sub("", str(item)).strip()
-        for item in raw_tadah
-        if str(item).strip().lower() not in {"", "list"}
-    ]
+
+    _TADAH_NOISE = {
+        "to-dos", "todos", "to dos", "action points", "ta-dah list",
+        "other", "notes", "updates", "summary",
+    }
+    _TADAH_NOISE_PAT = re.compile(r"^ta-?dah\s*\(\d+\s*items?\)", re.IGNORECASE)
+
+    def _parse_tadah_text(raw: object) -> str:
+        text = str(raw).strip()
+        if text.startswith("{") and "'text'" in text:
+            try:
+                import ast as _ast
+                obj = _ast.literal_eval(text)
+                if isinstance(obj, dict) and obj.get("text"):
+                    return str(obj["text"]).strip()
+            except Exception:
+                pass
+        return text
+
+    def _is_noise(text: str) -> bool:
+        lower = re.sub(r"^[\U00010000-\U0010ffff\u2600-\u27bf\u2700-\u27bf]+\s*", "", text.lower())
+        if lower in _TADAH_NOISE or not lower:
+            return True
+        if _TADAH_NOISE_PAT.match(lower):
+            return True
+        future_starters = (
+            "get ", "do ", "sort ", "check ", "make sure ", "try to ", "need to ",
+            "set a ", "write a ", "plan ", "look at ", "start ", "stop ",
+            "figure out ", "decide ", "think about ", "remember to ",
+            "prepare ", "finish ", "complete ", "tidy ",
+        )
+        if any(lower.startswith(s) for s in future_starters):
+            return True
+        routine = {"breakfast", "lunch", "dinner", "coffee", "get ready", "walk dog", "tidy", "relax"}
+        if lower in routine:
+            return True
+        if len(lower.split()) <= 2 and not any(w in lower for w in ("fixed", "done", "finished", "sent", "built", "walked")):
+            return True
+        return False
+
+    _seen_td: set[str] = set()
+    ta_dah: list[str] = []
+    for _raw in raw_tadah:
+        _t = bullet_re.sub("", _parse_tadah_text(_raw)).strip()
+        if not _t or _t.lower() in {"", "list"}:
+            continue
+        if _is_noise(_t):
+            continue
+        _k = re.sub(r"[^a-z0-9]+", "", _t.lower())[:60]
+        if _k in _seen_td:
+            continue
+        _seen_td.add(_k)
+        ta_dah.append(_t)
     carrying = str(diarium.get("remember_tomorrow", "") or journal.get("carrying", "")).strip()
     updates_note = str(diarium.get("updates", "") or journal.get("updates_note", "")).strip()
     morning_note = str(
@@ -134,7 +182,7 @@ def build_daily_report_context(cache: dict, journal: dict, date_str: str) -> dic
     if not isinstance(three_things, list):
         three_things = []
     three_things = [str(item).strip() for item in three_things if str(item).strip()]
-    tomorrow_plan = str(diarium.get("tomorrow", "") or "").strip()
+    tomorrow_plan = re.sub(r'\s+##\s+.*', '', str(diarium.get("tomorrow", "") or ""), flags=re.DOTALL).strip()
     brave_note = str(diarium.get("brave", "") or "").strip()
     summary = str(ai_day.get("latest_summary", "") or "").strip()
     score = ai_day.get("anxiety_reduction_score")

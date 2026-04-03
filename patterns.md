@@ -285,4 +285,14 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **What it is:** A technique where tasks are temporarily set aside for short intervals (starting with one minute, gradually increasing duration) to build tolerance for stopping. It retrains James's nervous system to accept breaks and reduces anxiety associated with task interruption.
 - **W13 (2026-03-19):** Auto-added from session transcript.
 
+### Journaling
+- **Source:** Samantha — session 2026-04-02
+- **What it is:** Pre-event written reflection used to reframe attendance as a chosen desire rather than an obligation. It helps this person interrupt anticipatory anxiety by grounding his intentions before socially demanding situations.
+- **W14 (2026-04-02):** Auto-added from session transcript.
+
+### Movement
+- **Source:** Samantha — session 2026-04-02
+- **What it is:** Using physical activity (gardening, yoga, weights) as a deliberate strategy to dissipate panic-like feelings and manage an anxious baseline. It works for this person because it provides a reliable sensory outlet that catches anxiety loops before they spiral.
+- **W14 (2026-04-02):** Auto-added from session transcript.
+
 ---
