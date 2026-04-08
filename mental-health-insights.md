@@ -2,7 +2,7 @@
 
 Key patterns and insights extracted from Diarium entries, therapy sessions, and weekly analyses. Updated by weekly analysis pipeline.
 
-<!-- _last_updated: 2026-W11 | _auto_update: update-living-docs.py -->
+<!-- _last_updated: 2026-W14 | _auto_update: update-living-docs.py -->
 
 ---
 
@@ -50,6 +50,16 @@ Key patterns and insights extracted from Diarium entries, therapy sessions, and 
   - Low HRV correlates with anxiety even when externally productive (high steps/exercise)
   - HRV volatility (50→33→52 in 3 days) suggests reactive anxiety, not baseline chronic stress
   - **Insight**: Body signals need for rest via HRV before mental awareness catches up
+  - **W11–W14 update:** HRV trending downward across four consecutive weeks (39.7 → 35.1 → 29ms intraday) despite high exercise volume, confirming chronic nervous system load. Sleep is the bottleneck — bedtime swings 3+ hours within weeks, averaging 6.9h against stated 8h need. Every weekly analysis identifies bedtime as the single highest-leverage intervention. Exercise redistributes energy; sleep restores the nervous system.
+  - **Compulsion vs hyperfocus (named in therapy W13):** Therapy with Samantha drew a clinical line — hyperfocus is strength-based engagement; compulsion is an anxiety-defence mechanism (avoiding discomfort by staying in flow). The coding loop named explicitly as compulsion. "Chinks in hyperfocus" now visible: brief moments where the pull loosens. These are intervention points that didn't exist until named.
+  - **Nighttime hyperarousal pattern (named April 2026):** "Compulsive feeling with no outlet" at night, replacing the former Claude/Claude Code loop. No identifiable trigger. Monitor for displacement onto other compulsive behaviours (therapist note, April 2 brief).
+
+### Social Hosting Anxiety (Named: 2026-04-01)
+- Triggered by: children arriving, Jim alone, Janna not yet home — structural replay of 30 Jan critical incident
+- Anticipatory layers: own performance as host, children's unpredictability, Janna's reaction on return
+- Clinically significant even when hosting resolves fine — the *anticipatory* dysregulation is the pattern
+- Therapist brief (April 2): "Direct structural replay of 30 Jan. The anticipatory anxiety is clinically significant and worth naming explicitly."
+- **For therapy:** Explore which layer was loudest (Janna's return reaction? Own performance? Social unpredictability?)
 
 ### ADHD/Autism Patterns
 - **Hyperfocus distractions**: Gets pulled into fixing things (3D printer, Claude setup, etc.)
@@ -57,6 +67,7 @@ Key patterns and insights extracted from Diarium entries, therapy sessions, and 
 - Pattern: distraction → stress → self-criticism → eventual completion
 - Difficulty being present when locked into technical problems
 - Struggles with "snapping out of it"
+- **W13 update:** Therapy named the coding pull as *compulsion* (anxiety-defence) distinct from productive hyperfocus — see patterns.md for detail
 
 ### Financial Stress
 - Constant worry about money and making ends meet
@@ -204,17 +215,20 @@ Key patterns and insights extracted from Diarium entries, therapy sessions, and 
 ## Therapeutic Progress
 
 ### Wins
-- **Not ruminating after conflicts** - using silence productively
+- **Not ruminating after conflicts** — using silence productively
 - Disengaging to give space instead of making things worse
-- Recognizing drama triangle patterns
+- Recognising drama triangle patterns in real time
 - Writing plans down to reduce anxiety
-- Completing Week 1 of job applications (4 done, on target)
 - Using gratitude practice daily
 - **Affirmations working**: Used with daughter Blossom to help her anxiety (immediate positive effect!)
-- **Self-awareness increasing**: Acknowledged "playing the victim" when overwhelmed in conversation with wife
+- **Self-awareness increasing**: Acknowledged "playing the victim" when overwhelmed (W10)
 - **Mindful walking**: Wife noticed increased presence when phone-free
-- **Planning ahead**: Created to-do list to manage anxiety and visualize tasks over holiday period
-- **Helped daughter reframe anxiety**: Encouraged Blossom's excitement for museum visit instead of fear
+- **Chris Milton freelance secured** (W10): £27/hr confirmed for April — relational groundwork → single email → outcome. Financial relief valve opened.
+- **PDA override (W10):** Sent Chris email despite full demand frame active. Named → rested → acted. Stall shortened from ~3 days to 48h.
+- **Compulsion named in therapy (W13):** Coding loop distinguished from hyperfocus. "Chinks" visible — intervention points now exist.
+- **Social bravery (W13/W14):** Attended friend's documentary event despite morning dread, anxiety, sensory sensitivity. Ended day mood: "accepting, proud." W14 Monday: "Showing up is enough."
+- **Adaptive compression (W14):** March 31 — chose to release rather than ruminate under simultaneous family + work + self-doubt load. First clear instance.
+- **Real-time Adult-state catch (W11):** Caught ego-state shift with Janna, named it, planned repair — in the same journal entry.
 
 ### Still Working On
 - Self-compassion (vs others-compassion)
@@ -271,15 +285,4 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 *Pieces Persona Sync section removed 2026-03-10: auto-sync was pulling truncated third-party data (Paul Wilson, Meghan Rainsberry), not Jim's persona. Needs rebuild if Pieces persona is useful for therapy context.*
 
-## Pieces Persona Sync
-
-*Auto-synced from Pieces persona summary on 2026-04-01 (hash: c092f5ad19e0e9e9)*
-
-### Job search anxiety patterns
-- Karen U** is a consistent and valuable community-minded resident of the Progress Estate, continuing to serve as a helpful, well-informed resource within the observer's local social network. Based on a total of 12 observed interactions across a range of community discussions (4 ne
-
-### Coping mechanisms Pieces has observed
-- Karen U continues to be an
-
-### Work habits Pieces has observed
-- Karen U** is a consistent and valuable community-minded resident of the Progress Estate, continuing to serve as a helpful, well-informed resource within the observer's local social network. Based on a total of 12 observed interactions across a range of community discussions (4 ne
+*Pieces Persona Sync removed — auto-sync was pulling third-party data (not Jim's persona). 2026-04-06.*

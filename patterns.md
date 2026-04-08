@@ -2,7 +2,7 @@
 
 Cross-project patterns observed over time. Updated by weekly analysis pipeline + coaching sessions.
 
-<!-- _last_updated: 2026-W10 | _auto_update: update-living-docs.py -->
+<!-- _last_updated: 2026-W14 | _auto_update: update-living-docs.py -->
 
 ---
 
@@ -63,6 +63,42 @@ Cross-project patterns observed over time. Updated by weekly analysis pipeline +
 - Maintenance work is both useful infrastructure and a controllability refuge under stress
 - Needs a stop condition to prevent hyperfocus drift
 - Evidence: multiple Feb entries naming hyperfocus and system-fixing pull
+- **W13 update (2026-03-20):** Therapy named it explicitly as **compulsion**, not just distraction — "a persistent tension between knowing what is beneficial and succumbing to compulsive behaviors, particularly with coding." This reframe matters: a distraction needs a timer; a compulsion needs a *rival pull*. Days with a rival (therapy Thursday, social event Sunday) broke the pattern. Days without did not.
+
+### Compulsion vs Hyperfocus (Distinguished in therapy: 2026-03-20)
+- Previously lumped together. Therapy with Samantha drew the line:
+  - **Hyperfocus** = strength-based deep engagement, can be productively channelled
+  - **Compulsion** = anxiety-defence mechanism, used to avoid sitting with discomfort
+- "Chinks in hyperfocus" (W13): Jim began noticing brief windows where the compulsive pull loosens — the moment *before* the dive. These are intervention points. Previously invisible; now named.
+- Evidence: W13 therapy notes, W14 journal — "I was doing Claude more or less all day, but I was at least at my desk" (the "at least" rationalisation reveals compulsion, not choice)
+
+### Sleep as Nervous System Bottleneck (Confirmed: W11–W14)
+- Sleep averaging 6.9h against stated 8h need, across 4+ consecutive weeks
+- Bedtime swings 3+ hours within a week (22:12 to 01:10 observed)
+- Feedback loop: late-night coding → insufficient sleep → sensory sensitivity → anxiety → compensatory busyness → late bedtime → repeat
+- HRV trending down across weeks despite high exercise volume (39.7ms → 35.1ms → 29ms intraday)
+- Bedtime is the single highest-leverage intervention — more than any individual workout, meditation, or technique
+- Evidence: W11, W12, W13, W14 digests all identify sleep as primary bottleneck
+
+### Adaptive Compression (Emerging: 2026-03-31)
+- On heavy, multi-stressor days Jim can now actively choose to release rather than ruminate
+- Distinct from suppression (which stores the load) — this is regulated processing with deliberate letting-go
+- Not consistent yet — requires a relatively stable baseline to activate
+- Evidence: March 31 summary, April 2 therapist brief: "chose to release rather than ruminate — this is progress"
+
+### Nighttime Hyperarousal / Compulsive Loop (Named: 2026-04-01)
+- "Compulsive feeling with no outlet" at night — has been replacing the former Claude/Claude Code loop
+- No identifiable external trigger; nervous system stays activated past bedtime
+- Pattern: late bedtime due to hyperarousal → short sleep → next-day sensory sensitivity → anxiety → repeat
+- Therapist note: monitor for escalation or displacement onto other compulsive behaviours
+- Evidence: April 2 therapist brief; multiple W12–W14 late-bedtime entries
+
+### Social Hosting Anxiety (Named: 2026-04-01)
+- Triggered by: children arriving, Jim alone, Janna not yet home
+- Direct structural replay of the January 30 critical incident ("I wish you weren't around")
+- Anticipatory anxiety is the primary signal — what to make for lunch, managing children's behaviour, Janna's reaction on return
+- Clinically significant even when hosting resolves fine — the anticipatory dysregulation is the pattern
+- Evidence: April 2 therapist brief, mirrors 30 Jan critical incident
 
 ---
 
@@ -238,61 +274,52 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **W11 (2026-03-12):** Newly introduced. Todoist task created as reminder to practise.
 
 ### Time Blocking
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** A scheduling technique where specific time periods are designated for particular activities, with a hard stop before a predetermined event (in this case, school pick-up). This helps James enforce boundaries on his coding hyperfocus by using an external constraint that cannot be negotiated away.
-- **W12 (2026-03-19):** Auto-added from session transcript.
+- **Source:** Samantha — introduced W12 (2026-03-19)
+- **What it is:** Designate specific time blocks for activities with a hard external stop point (e.g. school pickup). Prevents compulsive coding from running past non-negotiable commitments by making the boundary external rather than willpower-based.
 
 ### Parking
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** A task management technique where activities are temporarily suspended for short intervals, starting with one minute and gradually increasing duration. This helps James retrain his brain to tolerate stopping and build tolerance for disengaging from compulsive behaviors.
-- **W12 (2026-03-19):** Auto-added from session transcript.
+- **Source:** Samantha — introduced W12 (2026-03-19)
+- **What it is:** Temporarily set aside a task or urge for short, gradually increasing intervals (starting at 1 minute). Builds tolerance for disengagement and retrains the nervous system to accept stopping. Desensitises the anxiety around task interruption.
 
 ### Pomodoro Technique
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** A time-management method that breaks work into focused intervals (typically 25 minutes) with scheduled short breaks between them. This helps James create structured work sessions with enforced stopping points to prevent hyperfocus-driven sleep deprivation.
-- **W12 (2026-03-19):** Auto-added from session transcript.
+- **Source:** Samantha — introduced W12 (2026-03-19)
+- **What it is:** Focused work intervals (typically 25 min) with enforced short breaks. Creates structured stopping points that interrupt hyperfocus before it extends into sleep time.
 
-### Parking Tasks
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** A technique where one intentionally pauses or 'parks' a task for short intervals starting at one minute, then gradually increasing duration to build tolerance for stopping and stepping away. This helps James retrain his brain to tolerate breaks from compulsive coding by slowly desensitizing his nervous system to task interruption.
-- **W12 (2026-03-19):** Auto-added from session transcript.
+### PACT Model
+- **Source:** Samantha — W13 (2026-03-19); see also Transaction Analysis in mental-health-insights.md
+- **What it is:** Parent–Adult–Child–Transaction framework. Aim: stay in Adult ego state during conflict and decision-making.
 
-### PACT
-- **Source:** Samantha — session 2026-03-19
-- **W13 (2026-03-19):** Auto-added from session transcript.
-
-### PACT
-- **Source:** Samantha — session 2026-03-19
-- **W13 (2026-03-19):** Auto-added from session transcript.
-
-### Time Blocking
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** Scheduling specific time blocks for activities with a hard stop point, ensuring other priorities aren't neglected. For James, this prevents compulsive coding from extending past school pickup by creating an external forced stopping point that interrupts the hyperfocus cycle.
-- **W13 (2026-03-19):** Auto-added from session transcript.
-
-### Pomodoro Technique
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** A time management method that breaks work into focused intervals (typically 25 minutes) followed by short breaks, incorporating movement and rest. This helps James interrupt his coding hyperfocus with enforced physical breaks, preventing sleep deprivation and managing anxious energy.
-- **W13 (2026-03-19):** Auto-added from session transcript.
-
-### Parking
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** Setting aside tasks or urges for brief, gradually increasing intervals (starting at one minute) to build tolerance for disengagement. This retrains James's brain to tolerate stopping compulsive activities by slowly expanding his capacity to pause and step away.
-- **W13 (2026-03-19):** Auto-added from session transcript.
-
-### Parking tasks
-- **Source:** Samantha — session 2026-03-19
-- **What it is:** A technique where tasks are temporarily set aside for short intervals (starting with one minute, gradually increasing duration) to build tolerance for stopping. It retrains James's nervous system to accept breaks and reduces anxiety associated with task interruption.
-- **W13 (2026-03-19):** Auto-added from session transcript.
-
-### Journaling
+### Pre-Event Journaling
 - **Source:** Samantha — session 2026-04-02
-- **What it is:** Pre-event written reflection used to reframe attendance as a chosen desire rather than an obligation. It helps this person interrupt anticipatory anxiety by grounding his intentions before socially demanding situations.
-- **W14 (2026-04-02):** Auto-added from session transcript.
+- **What it is:** Written reflection before a socially demanding event, reframing attendance as a chosen desire rather than an obligation. Interrupts anticipatory anxiety by anchoring the *reason* for going before the avoidance spiral starts.
+- **W14 evidence:** Jim reframed Sunday event from "I should go" to "I want to support my friend's documentary" — attended, ended the day feeling proud.
 
-### Movement
-- **Source:** Samantha — session 2026-04-02
-- **What it is:** Using physical activity (gardening, yoga, weights) as a deliberate strategy to dissipate panic-like feelings and manage an anxious baseline. It works for this person because it provides a reliable sensory outlet that catches anxiety loops before they spiral.
-- **W14 (2026-04-02):** Auto-added from session transcript.
+### Movement as Regulation
+- **Source:** Samantha — session 2026-04-02; also observed across W11–W14
+- **What it is:** Deliberate physical activity (gardening, yoga, weights, dog walk) to dissipate panic-like feelings and lower the anxious baseline. Functions as a reliable sensory outlet that catches anxiety loops before they spiral.
+- **Jim's pattern:** most effective when used *before* a demanding event (Thursday therapy sequence: walk → yoga → weights → session produced the week's clearest thinking).
+
+---
+
+<!-- weekly-update: 2026-W14 -->
+## 2026-W14 (30 Mar – 5 Apr) — Pattern Verdicts
+
+**Application Anxiety → Breakthrough:** Not evidenced — fourth consecutive week. Chris Milton freelance (confirmed) continues to absorb urgency. The absence is now a pattern, not a pause. PDA is the likely primary driver — job applications carry the highest demand framing of any task type.
+
+**Hyperfocus / Compulsion:** Confirmed. W14 opened with "doing Claude more or less all day" framing. The 30-min maintenance cap is not holding. However, the naming of it as compulsion (W13 therapy) represents a qualitative shift — Jim is inside the pattern but observing it, which is the prerequisite for change.
+
+**Pacing Works:** Confirmed (fitness sequence). March 30 completed 15 items with intentional pacing. Thursday therapy-prep sequence (walk → yoga → weights) is the clearest evidence of deliberate pacing working as intended.
+
+**Open Loops = Anxiety:** Confirmed. Skipped evening reflection on March 30 despite high productivity — the "bridge to tomorrow" left unbuilt, creating next-day scattered energy.
+
+**Motion-as-Safety:** Confirmed and developing. March 28: "I used it to my advantage to get things done, but now I need to bring it back down." More self-aware use — channelling and then naming the need to come down.
+
+**Social Micro-Bravery:** Strongly confirmed. W13/W14 Sunday event (friend's documentary, drinks) — from morning dread to proud by Monday. "Showing up is enough." Strongest evidence in weeks that relational engagement feeds Jim in ways system-building cannot.
+
+**PDA Demand Spiral:** Confirmed but meaningfully interrupted for relational/interest-driven demands. Sunday event broke the spiral using choice-language reframing in the journal itself. PDA breaks more easily for relational tasks than obligation-framed ones (job applications). Worth tracking next two instances.
+
+**Adaptive Compression:** First clean instance (2026-03-31). March 31: holding family concern, work pressure, self-doubt simultaneously but actively chose release over rumination. Therapist brief named this as progress.
+
+**Sleep as Bottleneck:** Confirmed across all weeks. HRV trending down W11–W14 despite high exercise volume. Social hosting anxiety (April 1) followed a late bedtime due to hyperarousal loop. Bedtime remains the highest-leverage unaddressed variable.
 
 ---

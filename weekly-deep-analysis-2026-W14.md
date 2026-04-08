@@ -1,105 +1,119 @@
-# Weekly Deep Analysis — W14 (24 Mar – 30 Mar 2026)
+# Weekly Deep Analysis — W14 (30 Mar – 05 Apr 2026)
 
 ## 1. Emotional Arc
 
-The week describes a **slow-burn climb from scattered anxiety toward a genuine act of bravery**, with the emotional shape of a bow being drawn — tension building rightward until the arrow flies on Sunday.
+The week's shape is a **ramp under load** — Jim enters already depleted, sustains high output through sheer physical momentum, peaks at a genuine social triumph mid-week, then quietly hollows out as the weekend approaches.
 
-**Tuesday (24th)** opens groggy: 6.5 hours' sleep, anxious throat-tightness, jumping straight into doing before checking in with his body. He names this himself — "don't just dive into doing things to get rid of an uncomfortable feeling" — but the naming comes *after* the pattern has already started. This is the week's baseline: aware but slightly behind his own insight.
+**Monday** is the false floor. He's at Sony, groggy from a late night with drinks, back aching, but his affirmation — *"Showing up is enough"* — is unusually self-compassionate. The gratitude is specific and grounded: *"the privilege of working at Sony today. Knowing I get to go home without baggage tonight."* This is regulated Jim. Not thriving, but present.
 
-**Wednesday (25th)** is a workplace anxiety day. The timecodes task — sitting with someone, controlling a computer while watched — surfaces a deep performance-anxiety thread: *"I have trouble doing things in front of people for fear of getting it wrong, but I've done it many times before and been fine."* He completed both workshop tasks by the midpoint. The gap between the catastrophic prediction and the actual outcome is the week's first quiet lesson.
+**Tuesday** is where the load stacks. He wakes at 7:30 for an 8:00 departure, no time to stretch, sore from weights, and the cognitive pile-up begins: a test with no content, Janna struggling with the kids alone, air-conditioning noise, darkness. The journal is dense with simultaneous worries but lands on a remarkably precise intention: *"To feel in control of what I'm doing. Not overcontrol — just doing things that are beneficial to me, and not letting anxiety, worry, or compulsion get in the way."* That sentence is therapy working in real time.
 
-**Thursday (26th)** is the pivot. Therapy with Samantha produced the week's most significant psychological material: Jim named "chinks" appearing in his hyperfocus — moments where the compulsion loosens its grip and he can *choose*. This is new. The morning was anxious (noise-sensitive, light-sensitive, dreading the day), but the worry was, as the journal notes, "louder than the reality." He did yoga and weights before therapy as planned — a genuine act of self-care under pressure.
+**Wednesday** is the **lowest point**. He wakes into full anticipatory anxiety about Keerthi's visit — a direct structural echo of the January 30 critical incident. *"I was panicking about what to make them for lunch, and how I'd tidy the house if the girls got bored."* But the recovery is significant: he transitions through physical movement (garden, bins, wheelbarrow) and names it — *"I really should do that more often — movement helps a lot."* The ta-dah list is the longest of the week. He worked an evening shift, walked Coco in the woods, played with the girls. This day cost him the most and gave back the most.
 
-**Friday–Saturday (27th–28th)** saw the Claude system finally stabilised, which closed a major open loop. But Saturday's body told a different story: *"a lot of pent-up anxiety in my throat and body — it feels like, ah, just stop, just get out of me."* Visual haziness, sensory narrowing. He went upstairs to regulate for five minutes. **This is the week's lowest point** — not crisis, but the nervous system at its most loaded, the body carrying what the mind was trying to manage through activity.
+**Thursday** is the **highest point**. Therapy with Samantha, then the film premiere — a genuine act of social bravery. The therapist's summary captures it: Jim used journaling beforehand to reframe attendance as *"a chosen and desired activity, not an obligation"* — a textbook PDA override. His anxiety dissipated quickly at the after-party. Contracts for the new partnership arrived the same day. This is Jim at his most capable: regulated, socially present, professionally advancing.
 
-**Sunday (29th)** is the week's highest point, and it isn't even close. Morning dread about attending a friend's documentary screening — the classic pre-social anxiety cascade. But then, in real time *within the journal entry itself*, Jim reframes: "I'm going to see a documentary that my good friend made. It's an exciting opportunity for him and I want to support him... Don't overthink it — I'm projecting my insecurities onto reality." He goes. He has drinks. He comes home.
-
-**Monday (30th)** lands with something new in the data: the mood tracker reads *accepting* and *proud*. Not "fine." Not "surviving." Proud. He's at Sony, groggy from a late night with drinks, and his affirmation is: *"Showing up is enough."* That sentence carries the weight of the entire week.
-
-**Compared to W12–W13:** Sleep remains fragile but the emotional texture has shifted. W12 ended in hyperfocus collapse and "grace and peace" as aspiration. W13 carried a "quiet sadness about achievement and belonging." W14 ends with Jim *in the room* with people doing great things together — the very thing W13 mourned the absence of.
+**Friday through Sunday** show progressive withdrawal. Friday's ta-dah is *"Get in the shower. Get dressed."* Saturday is careful self-management: *"not overdoing it myself, and not avoiding things, but also not doing too much."* Sunday collapses to a single line: *"Being present and doing forward movement at all times."* The weekend entries are the thinnest of any week in recent memory — either presence-focused (positive) or depleted (concerning). Given the week's load, depletion is the more likely reading.
 
 ---
 
 ## 2. Pattern Verification
 
-**Hyperfocus Distractions — Confirmed.** Wednesday 26th: *"I was doing Claude more or less all day, but I was at least at my desk."* The "at least" framing is telling — he's rationalising the pull. Claude work dominates the action items across four of seven days.
+### Application Anxiety → Breakthrough Pattern
+**Not evidenced — fourth consecutive week.** The Chris Milton freelance work and new partnership business (contracts sent Thursday) have entirely displaced the job application pipeline. This pattern is now dormant, not resolved. When the freelance work stabilises, the underlying anxiety about cold applications will remain untouched.
 
-**Open Loops = Anxiety — Confirmed.** Friday 27th: *"The things that were on my mind were Claude, but that seems to be fixed now."* The moment the system stabilised, the relief was immediate and named. The loop-closure pattern is reliable.
+### Hyperfocus Distractions / Compulsion vs Hyperfocus
+**Confirmed.** Tuesday's intention explicitly names compulsion as a force to manage: *"not letting anxiety, worry, or compulsion get in the way."* Monday's ta-dah includes *"Re-enable Opus insights in daemon"* — Claude system work on a Sony workday. The 30-minute maintenance cap appears Tuesday (*"Claude maintenance cap: 30 minutes max"*) — evidence that the compulsion is being actively managed but still present. The "chinks in hyperfocus" identified in W13 therapy appear to be widening: Jim is naming the pull *before* it captures him, not after.
 
-**Motion-as-Safety — Confirmed.** Saturday 28th: *"I used it [the anxiety] to my advantage to get things done, but now I need to bring it back down."* He's becoming more aware of this pattern — using it, then naming the cost. This is progress from unconscious use to deliberate channelling.
+### Pacing Works
+**Partially confirmed.** Saturday's deliberate self-instruction — *"not overdoing it myself, and not avoiding things, but also not doing too much"* — is pacing language. But the week as a whole is not well-paced: full workdays Monday-Wednesday, therapy + premiere Thursday, then near-collapse Friday. The physical output (153.9 min/day exercise, 25,488 steps) is unsustainably high for someone sleeping 7.3 hours.
 
-**Social Micro-Bravery Builds Confidence — Strongly confirmed.** The entire Sunday arc — dread, reframing, attending, drinks — followed by Monday's mood of "accepting, proud." This is the clearest evidence in weeks that the micro-bravery pattern delivers what it promises.
+### Open Loops = Anxiety
+**Confirmed.** Tuesday's journal is a catalogue of simultaneous open loops: test content, Janna struggling, work schedule, invoice. *"All of these things don't need to be solved at once — I just need to settle"* — he's naming the mechanism but the loops are still generating cognitive load. Thursday's action items include *"Sort invoice and sign contracts"* and *"Send that inv"* — the invoice loop persists across four days.
 
-**PDA Demand Spiral — Partially confirmed, interestingly inverted.** The social event carried demand-frame characteristics (self-imposed obligation to attend, anticipatory anxiety, avoidance impulse), but Jim broke the spiral *in the journal itself* using choice-language reframing: "I want to be at this experience because it's fulfilling to me." The reframe worked. Worth noting: PDA broke more easily for a *relational/interest-driven* demand than it typically does for obligation-framed tasks (job applications). This distinction matters.
+### Sleep as Nervous System Bottleneck
+**Partially improved.** Sleep averaged 7.3h this week, up from 6.9h in W13 — the forward signal was partially addressed. Still 0.7h short of stated need. Monday's grogginess (*"went to bed too late after a few drinks"*) and Tuesday's 7:30 wake-up with an 8:00 departure confirm the bedtime remains the volatile variable. HRV improved slightly to 37.2ms (from 35.1ms), suggesting the modest sleep gain had a measurable nervous system benefit.
 
-**Task Gravity vs Presence — Partially confirmed.** Saturday: shelves and practical doing while family was present, followed by needing to go upstairs to regulate. The pattern is still active but the recovery cycle (regulate, return) is getting shorter.
+### Adaptive Compression
+**Confirmed.** Wednesday is the clearest evidence: woke into full anticipatory anxiety, transitioned through physical action, and by afternoon had a long productive ta-dah list including *"I didn't freak out about Keerthi coming"* — he's naming the win of not being consumed by the anxiety. The letting-go language continues: *"Letting go of the uncontrollable feeling of anxiety. I remembered how I overcame it with movement and focusing on what I could control."*
 
-**"Should" Language Awareness — Partially confirmed.** Thursday: *"I need to stop being so hard on myself."* The awareness is there but the language still carries demand framing — "need to stop" is itself a should-statement about should-statements.
+### Nighttime Hyperarousal / Compulsive Loop
+**Not directly evidenced in journal entries this week**, though Monday's late night (drinks + late bedtime) and Tuesday's 7:30 oversleep may be indirect traces. The thin weekend entries prevent assessment. Worth noting: the absence of explicit naming doesn't mean absence of the pattern — it may simply mean the journal didn't capture it.
 
-**System Work as Regulation — Confirmed.** Claude development remained the primary regulation activity throughout the week. The 30-minute maintenance cap from W13's action items does not appear to have held.
+### Social Hosting Anxiety
+**Confirmed and managed.** Wednesday's Keerthi visit is the index case for this pattern. *"I woke up very anxious and worried about Keerthi coming over with the kids before Janna gets home."* The structural echo of the January 30 incident is unmistakable. The difference this time: Jim moved through it physically rather than freezing, and named the recovery explicitly.
 
-**Application Anxiety → Breakthrough — Not evidenced.** No job applications visible this week. This is now the third consecutive week with no job search activity in the data.
+### Social Micro-Bravery Builds Confidence
+**Strongly confirmed.** Thursday's film premiere is the most significant social bravery event in weeks. The therapist notes Jim's anxiety *"dissipated quickly"* at the after-party, and he enjoyed conversations with musicians and journalists. The journaling-as-reframing technique (*"a chosen and desired activity, not an obligation"*) is a mature PDA management strategy deployed successfully in the field.
 
-**Pacing Works — Not evidenced.** No structured pacing visible; the week was reactive rather than planned.
-
-**Recognition Deficit in Relationship — Not evidenced.** Janna appears only in Tuesday's gratitude: *"Grateful for Janna and her kindness — she's really lovely."* A warm, uncomplicated mention. Quiet week on this front.
+### Task Gravity vs Presence
+**Partially evidenced.** Weekend entries are too thin to assess directly, but Saturday's careful self-instruction about balance suggests the pull is present. Sunday's *"Being present and doing forward movement at all times"* contains the tension itself — "forward movement" and "presence" are not the same thing, and Jim may be conflating them.
 
 ---
 
 ## 3. Fitness–Mental Health Correlation
 
-Health metrics are sparse this week (most fields read n/a), so this section relies on self-reported body data from journals and the limited quantified signals available.
+**The headline number:** sleep rose from 6.9h to 7.3h, and HRV rose from 35.1ms to 37.2ms. This is the first week in four where HRV has moved in the right direction, and it tracks directly with the modest sleep improvement. The correlation is directional, not yet statistically robust — but it aligns with the multi-week pattern identified in W11–W14: sleep is the bottleneck, and even small improvements produce measurable nervous system benefit.
 
-**Sleep remains the weak link.** Every single morning entry this week opens with some version of "tired," "groggy," or "not enough sleep." Tuesday: 6.5 hours ("isn't enough for me — I need closer to eight"). Wednesday: "definitely not enough sleep." Thursday: "not enough sleep" (noise/light sensitivity noted as consequence). Sunday: tense and achy. Monday: "went to bed too late after a few drinks." The W13 digest showed 6.9h average — still short of his stated 8-hour need. Late bedtimes continue to be the primary driver, not early waking.
+**Exercise volume remains extremely high** — 153.9 min/day and 25,488 daily steps. Jim is lifting weights on consecutive days (Monday and Tuesday both mention weights or soreness from weights), which is atypical for his alternating weights/yoga schedule. Tuesday: *"a bit sore this morning — no chance to stretch... probably a result of doing weights yesterday. I'm likely going to do weights again today."* Back-to-back weights sessions without stretching, on insufficient sleep, is a risk factor for both injury and further sleep disruption through cortisol elevation.
 
-**HRV is concerning.** Today's intraday reading shows 29ms morning → 22ms afternoon, which is low and declining through the day. W13 averaged 32.4ms (down 18% from W12's 39.4ms). The downward HRV trend across three weeks, combined with persistent sleep deficit, suggests the nervous system is running at a sustained deficit even when mood is subjectively improving. The correlation data (HRV vs mood: r=0.42, building) supports this — when HRV is low, mood tends to follow, but this week mood ended high despite low HRV. That divergence could mean either the social win overrode physiological state, or that HRV will catch up negatively early next week.
+**Resting HR at 62.9 bpm** is stable and unremarkable — neither alarm nor celebration.
 
-**Exercise is inconsistent but present.** Weights happened at least twice (soreness noted Wednesday and Friday). Yoga was planned repeatedly but completion is unclear — Thursday's journal confirms it happened before therapy. Walking is consistent (morning walks with Coco on multiple days). The productive_minutes vs mood correlation (r=0.77) is the strongest signal in the dataset, but exercise_minutes vs anxiety has insufficient data to draw conclusions.
+**Anxiety scores** (6.0, 7.0, 6.0 on the three days measured) show Thursday as the highest anxiety day — paradoxically the day of Jim's biggest social win. This likely reflects the anticipatory anxiety *before* the premiere rather than the post-event state. The score captures the cost, not the outcome.
 
-**The steps vs HRV correlation (r=-0.05) is essentially null** — more steps don't predict better HRV. This suggests that Jim's step count (largely walking) isn't the type of exercise that moves his nervous system baseline. The structured sessions (weights, yoga) likely matter more, but the data isn't granular enough yet to confirm.
+**Cross-signal correlations** remain largely sparse. HRV–mood (r=0.23, n=18) and HRV–context switches (r=0.25, n=23) are building but not yet actionable. The exercise–anxiety and sleep–anxiety correlations remain at n=1 — insufficient for inference. **Suggestion:** the anxiety reduction scores are only captured on three of seven days this week. Consistent daily capture would accelerate these correlations toward statistical usefulness.
 
-**Focus/productivity:** Context-switch data is limited (HRV vs context_switches: r=0.20, weak). What's visible from journals is that days with singular focus (Thursday: yoga → therapy → shopping; Sunday: event) produced better emotional outcomes than scattered multi-task days (Tuesday, Wednesday).
+**Intervention effectiveness data** tells an interesting story: Yoga Downshift is the only intervention showing a positive HRV delta (+2ms), while the 10-Minute Starter Sprint (-13ms) and Mindfulness Session (-13ms) show the largest negative deltas. This likely reflects selection bias — those interventions are deployed during acute stress — but Yoga Downshift's consistent positive signal is worth noting as a genuine regulator rather than just a coping response.
 
-**Watch as data accumulates:** The exercise_minutes vs anxiety and sleep_hours vs anxiety correlations are both marked "insufficient data (n=1)." These are the two most clinically relevant relationships for Jim's profile. Prioritise capturing these consistently.
+**Focus/productivity patterns:** Tuesday's journal describes cognitive jamming — *"There's quite a bit on my mind. I've tried to think through it but it gets jammed with everything else."* Wednesday shows a successful context switch from anxiety to physical productivity. Thursday managed therapy + premiere + contract admin — high context-switching but well-regulated. The weekend shows minimal cognitive engagement, suggesting either deliberate rest or executive function depletion.
 
 ---
 
 ## 4. Therapy Integration
 
-Thursday's session with Samantha produced material that resonated through the rest of the week.
+Thursday's session with Samantha covered three significant threads:
 
-**The "chinks in hyperfocus" insight is the standout.** Jim described noticing moments where the compulsive pull of coding loosens — brief windows where he *could* choose to stop. Samantha explored this using physical-habit parallels. This is significant because it reframes hyperfocus from a binary (in it / not in it) to a spectrum with intervention points. The language of "chinks" is Jim's own — organic, not therapeutic jargon — which means it's more likely to stick.
+**Work-life balance during transitions.** Jim is navigating a new freelance structure — Janna off this week, Jim off next week, contracts arriving, Easter holidays complicating everything. The struggle to switch between *"working mode"* and *"parent mode"* is a live executive function challenge, not an abstract concern. This maps directly to the Task Gravity vs Presence pattern: when Jim is in work mode, presence with family feels like a demand; when he's in parent mode, work feels like an abandoned obligation.
 
-**Reframing childcare as accomplishment** appeared in Thursday's summary and connects directly to the "recognition deficit" pattern. If Jim can internalise that looking after the girls *is* the work (not a break from work), the gap between what he does and what he counts shrinks. Evidence of this landing: Friday's journal includes *"I need to include childcare as well. That counts as one of the things."*
+**The PDA reframe deployed in the field.** Jim used journaling before the film premiere to reframe attendance as *"a chosen and desired activity, not an obligation."* This is the first documented evidence of Jim using PDA management techniques *proactively and successfully in a social setting*. Previous instances of PDA override (the Chris Milton email in W10) were work-related and pressure-driven. This was voluntary, social, and pre-emptive. It represents a qualitative advance in self-regulation.
 
-**Compulsion vs choice** was explored in depth. Jim named the tension between knowing what's beneficial and succumbing to compulsive behaviour (specifically coding). This is honest and mature work. He's not pretending the awareness solves the problem — he's sitting with the gap between insight and action, which is exactly where therapeutic growth happens.
+**The compulsion naming continues to deepen.** Tuesday's intention — *"not letting anxiety, worry, or compulsion get in the way"* — shows Jim actively holding the distinction Samantha drew in W13 between hyperfocus (productive) and compulsion (defensive). The 30-minute Claude maintenance cap is a self-imposed boundary on the compulsive pull. Whether it held is unclear from the journal data, but the fact that it was stated as an intention is itself progress.
 
-**Direct application visible Sunday:** The real-time reframing in the journal — from dread to choice-language — mirrors the therapy technique of staying in Adult ego state rather than dropping into anxious Child. He caught himself projecting insecurities, named it, and chose differently. Whether or not this was conscious therapy application, it's the same muscle.
-
-**Gap:** The "should" language loop hasn't resolved. Thursday: "I need to stop being so hard on myself" — the demand is embedded in the self-compassion attempt. This would be worth naming explicitly with Samantha: the meta-demand of demanding you stop demanding things of yourself.
+**Gap:** The nighttime hyperarousal pattern named in the April 2 therapist brief doesn't appear to have been directly worked in this session. Given the sleep improvement this week, this may be a case of reduced urgency — but the pattern has been identified as clinically significant and shouldn't be parked indefinitely.
 
 ---
 
 ## 5. Coaching Signals
 
-**1. The social win on Sunday is bigger than you think — bank it properly.** You went from morning dread to an evening with friends to waking up *proud*. That's not a small thing for someone whose W13 journal carried "quiet sadness about not having people around doing great things together." You literally went and did that. This isn't background noise — it's the evidence that relational engagement feeds you in a way system-building cannot. Write it in your wins. Say it out loud.
+**1. The film premiere is a bigger deal than you're treating it.**
 
-**2. The Claude 30-minute maintenance cap isn't holding.** Wednesday: "doing Claude more or less all day." The "chinks" Samantha helped you name? They need a concrete stop-condition, not just awareness. You're noticing the moments you *could* stop — now you need a reason to actually stop that's more compelling than the next fix. The compulsion won't release to willpower alone; it needs a rival pull. On the days you had one (therapy Thursday, event Sunday), you stopped. On the days you didn't, Claude filled the space.
+You journaled before attending, reframed it from obligation to choice, walked into a room full of strangers, stayed for the after-party, and enjoyed yourself. Your anxiety score that day was the week's highest — meaning you did this *at significant personal cost* and it still worked. This isn't a footnote in your ta-dah list. This is evidence that the PDA management techniques you've been building with Samantha are transferable to social settings, not just work tasks. Name this as a capability, not a one-off.
 
-**3. Sleep is the foundation you keep skipping.** Every single day this week opened with some version of "not enough sleep." Your HRV is trending down across three weeks (39→35→29 intraday). You know you need eight hours. You're getting six and a half. The bedtime is the lever — not the alarm. The late-night coding sessions are the most expensive thing in your system right now, and the cost is invisible because it's distributed across every metric the next day.
+**2. Your weekend entries are a warning sign, not a sign of presence.**
 
-**4. Three weeks without job applications is now a pattern, not a pause.** No judgement in this — PDA makes demand-framed tasks genuinely inaccessible. But the avoidance is being masked by legitimate productivity (Claude infrastructure, work shifts, family). The Chris Milton path showed that relational entry works. Is there a relational thread you could pull this week that doesn't feel like "applying"?
+Friday: *"Get in the shower. Get dressed."* Saturday: carefully managed self-instruction. Sunday: a single sentence. After three consecutive high-demand weekdays and a socially draining Thursday, the weekend reads as executive function depletion masquerading as intentional rest. The difference matters: intentional rest produces grounded Monday mornings. Depletion produces the grogginess and cognitive jamming you described on the *previous* Tuesday. If next Monday's journal reads like March 31st, this is the pattern to examine.
+
+**3. Back-to-back weights without stretching is borrowing from tomorrow.**
+
+Tuesday's *"a bit sore this morning — no chance to stretch... I'm likely going to do weights again today"* is motion-as-safety operating through the fitness routine. You're doing 153.9 minutes of exercise per day at 39 with a sore back and 7.3 hours of sleep. The exercise is serving a psychological function (regulation, control, agency) more than a physiological one at this volume. The question isn't whether exercise helps — it does. The question is whether this volume is sustainable or whether it's another form of the compulsive doing your therapist named.
+
+**4. The invoice loop reveals something worth noticing.**
+
+*"Send invoice before sleep"* appears Tuesday. *"Sort invoice and sign contracts"* appears Thursday. *"Send that inv"* appears Thursday again. A straightforward admin task persisted across four days while you simultaneously did weights, walked 25,000 steps, attended a premiere, and managed a social anxiety episode. This is textbook demand avoidance on a low-interest task — the PDA mechanism working perfectly on something boring while you successfully override it on something engaging. Worth naming without shame: boring admin tasks may need a different strategy than the reframing technique that worked for the premiere.
 
 ---
 
 ## 6. Forward Signal
 
-**Watch the post-bravery crash.** Jim's nervous system just did something hard (social event with drinks, early Sony shift on low sleep, pride emotion which is unfamiliar territory). The pattern after breakthrough periods is exhaustion → self-criticism for slowing down → demand spiral. The risk isn't this week — it's Tuesday or Wednesday of next week, when the glow fades and the "I haven't done enough" voice returns louder. Pre-empt it: name Monday's pride as real, schedule one low-demand day mid-week, and resist the pull to "make up for lost time" on job applications all at once. One relational thread pulled gently is worth more than three forced applications.
+**Watch the transition into active freelance work this week — specifically, whether the compulsion shifts target.**
+
+The Claude/coding compulsion has been the dominant anxiety-defence mechanism for months. With the new partnership launching in April and contracts signed, Jim's work landscape is about to change. The compulsive pull may reduce (genuine work replaces the anxiety-defence) or it may simply redirect onto a new target — over-preparing for client work, over-optimising systems "for the business," or treating partnership admin as a productivity substitute for presence. The tell will be Thursday's therapy session: if Jim reports *"I was working on the partnership stuff all weekend"* with the same rationalising tone as *"I was doing Claude more or less all day, but I was at least at my desk"* — the compulsion has found a new host.
+
+The sleep improvement is fragile and must be protected. Freelance work often means evening work, which pushes bedtime later, which erodes the 0.4h gain that produced this week's HRV improvement. One specific, concrete action: set a hard boundary on work-after-9pm for the first two weeks of the new arrangement, and see if the sleep gain holds.
 
 ---
 
 ## 7. Film Pick (Self-Care)
 
-**Momo** (1986) — A girl who listens so well that people find themselves again, set against grey men who steal time by convincing people to "save" it through constant productivity. It's a gentle, strange fable that speaks directly to the hyperfocus trap and the value of presence over output. After a week where your best moments came from *being somewhere* (therapy, the screening, ice cream with Tilly) rather than building something, this film would quietly validate what you're learning.
+**tick, tick... BOOM! (2021)** — Andrew Garfield as Jonathan Larson, a creative person approaching a milestone birthday, feeling behind his peers, trying to balance passion with practical survival while everyone around him moves on. It's about the terror and exhilaration of choosing the harder, more authentic path. Jim is at exactly this juncture — freelance work launching, new partnership, 39 years old, still figuring it out. The film validates that the figuring-out *is* the work, not a failure to have already arrived. It's also joyful and musical, which is useful after a depleting week.
 
-**H Is for Hawk** (on your watchlist) — A documentary about obsessive focus as both healing mechanism and avoidance of grief. The parallels with your relationship to system-building are striking, but it frames that intensity with compassion rather than judgement. Good for a quiet evening when you're ready to sit with something honest without it being heavy.
+**Wheel of Fortune and Fantasy (2021)** — Ryusuke Hamaguchi's triptych of quiet, precise vignettes about connection, miscommunication, and second chances. No explosions, no demands. Each story is 40 minutes — perfect for an ADHD brain that needs narrative structure without two-hour commitment. The emotional register is gentle curiosity, which is exactly the tone Jim's weekend needed and didn't get. A film for the nervous system, not the to-do list.
