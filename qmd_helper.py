@@ -23,9 +23,11 @@ import threading
 import urllib.request
 import urllib.error
 
-QMD_HOST = os.environ.get("QMD_HOST", "localhost")
+QMD_HOST = os.environ.get("QMD_HOST", "::1")
 QMD_PORT = int(os.environ.get("QMD_PORT", "8181"))
-QMD_MCP_URL = os.environ.get("QMD_MCP_URL", f"http://{QMD_HOST}:{QMD_PORT}/mcp")
+# IPv6 addresses need brackets in URLs: http://[::1]:8181/mcp
+_qmd_host_url = f"[{QMD_HOST}]" if ":" in QMD_HOST else QMD_HOST
+QMD_MCP_URL = os.environ.get("QMD_MCP_URL", f"http://{_qmd_host_url}:{QMD_PORT}/mcp")
 QMD_PREFLIGHT_TIMEOUT_SECONDS = float(os.environ.get("QMD_PREFLIGHT_TIMEOUT_SECONDS", "0.35"))
 QMD_TIMEOUTS_SECONDS = {
     "lex": float(os.environ.get("QMD_TIMEOUT_LEX_SECONDS", "12")),
@@ -131,9 +133,13 @@ def _mcp_call(tool_name: str, arguments: dict, timeout: float) -> list | None:
     if body.get("error") is not None:
         logger.debug("MCP error: %s", body["error"])
         return None
-    # MCP tools/call result → content[]
-    content = body.get("result", {}).get("content", [])
-    for block in content:
+    result = body.get("result", {})
+    # Prefer structuredContent.results (QMD >= 2.1.0) over parsing text block
+    structured = result.get("structuredContent", {}).get("results")
+    if isinstance(structured, list):
+        return structured
+    # Fallback: try parsing the first text content block as JSON (older QMD)
+    for block in result.get("content", []):
         if block.get("type") == "text":
             try:
                 return json.loads(block["text"])
