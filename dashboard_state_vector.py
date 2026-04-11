@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from shared.cache_dates import get_ai_day, normalize_ai_cache_for_date
+from shared.utils import dedup_step_entries
 
 
 _HEALTH_LIVE_PATH = Path.home() / ".claude" / "cache" / "health-live.json"
@@ -641,7 +642,7 @@ def _health_delta_signal() -> str:
 
     # Also check steps from health-live.json — aggregate per-minute samples into daily totals
     metrics = _get_health_live_metrics()
-    step_entries = metrics.get("step_count", [])
+    step_entries = dedup_step_entries([e for e in metrics.get("step_count", []) if isinstance(e, dict)])
     def _avg_steps(keys: list) -> float | None:
         daily: dict[str, float] = {k: 0.0 for k in keys}
         for e in step_entries:
