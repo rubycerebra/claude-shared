@@ -299,6 +299,21 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **What it is:** Deliberate physical activity (gardening, yoga, weights, dog walk) to dissipate panic-like feelings and lower the anxious baseline. Functions as a reliable sensory outlet that catches anxiety loops before they spiral.
 - **Jim's pattern:** most effective when used *before* a demanding event (Thursday therapy sequence: walk → yoga → weights → session produced the week's clearest thinking).
 
+### Box breathing
+- **Source:** Samantha — session 2026-04-11
+- **What it is:** A structured breathing technique where you inhale, hold, exhale, and hold again for equal counts, activating the parasympathetic nervous system. It helps this person regulate their heightened baseline arousal (low HRV of 30-35) and was effective enough that they taught it to their 8-year-old daughter for emotional regulation.
+- **W15 (2026-04-11):** Auto-added from session transcript.
+
+### "I should" phrasing awareness
+- **Source:** Samantha — session 2026-04-11
+- **What it is:** A cognitive self-monitoring technique where journaling is used to flag habitual use of obligation language ("I should"), which creates internal demands. For someone with demand avoidance, "should" framing converts neutral tasks into perceived obligations, amplifying the emotional cost far beyond the actual effort required.
+- **W15 (2026-04-11):** Auto-added from session transcript.
+
+### HRV baseline monitoring
+- **Source:** Samantha — session 2026-04-11
+- **What it is:** Tracking heart rate variability as a biomarker for nervous system regulation, where lower scores indicate a more chronically activated stress response. This person's HRV of 30-35 (vs age-average of 50) objectively confirms their subjective experience that their baseline is already near capacity, explaining why minor demands tip them over.
+- **W15 (2026-04-11):** Auto-added from session transcript.
+
 ---
 
 <!-- weekly-update: 2026-W14 -->
