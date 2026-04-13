@@ -45,6 +45,12 @@ SECTION_FRESHNESS_LABELS = {
 }
 
 
+def _dict_of(mapping: dict, key: str) -> dict:
+    """Return mapping[key] if it is a dict, else {}. Avoids double .get() calls."""
+    v = mapping.get(key)
+    return v if isinstance(v, dict) else {}
+
+
 def normalize_freshness_level(level: str) -> str:
     value = str(level or "").strip().lower()
     return value if value in FRESHNESS_RANK else "info"
@@ -869,13 +875,15 @@ def build_today_section_freshness_registry(
     payload = cache if isinstance(cache, dict) else {}
     now_dt = now if isinstance(now, datetime) else datetime.now()
     hour_now = now_dt.hour
-    film_data = payload.get("film_data", {}) if isinstance(payload.get("film_data", {}), dict) else {}
-    pieces_activity = payload.get("pieces_activity", {}) if isinstance(payload.get("pieces_activity", {}), dict) else {}
-    calendar_data = payload.get("calendar", {}) if isinstance(payload.get("calendar", {}), dict) else {}
-    healthfit = payload.get("healthfit", {}) if isinstance(payload.get("healthfit", {}), dict) else {}
-    streaks = payload.get("streaks", {}) if isinstance(payload.get("streaks", {}), dict) else {}
-    apple_health = payload.get("apple_health", {}) if isinstance(payload.get("apple_health", {}), dict) else {}
-    autosleep = payload.get("autosleep", {}) if isinstance(payload.get("autosleep", {}), dict) else {}
+    film_data = _dict_of(payload, "film_data")
+    pieces_activity = _dict_of(payload, "pieces_activity")
+    calendar_data = _dict_of(payload, "calendar")
+    healthfit = _dict_of(payload, "healthfit")
+    streaks = _dict_of(payload, "streaks")
+    apple_health = _dict_of(payload, "apple_health")
+    autosleep = _dict_of(payload, "autosleep")
+    health_live = _dict_of(payload, "health_live")
+    sleep_fallback = _dict_of(payload, "sleep_fallback")
 
     mood_updated_at = _latest_timestamp_from_rows(mood_entries)
     actions_today_count = len(action_items) if isinstance(action_items, list) else 0
@@ -973,12 +981,15 @@ def build_today_section_freshness_registry(
         weekly_reason = ""
 
     health_sources_ok = sum(
-        1 for source_payload in (healthfit, streaks, apple_health, autosleep)
+        1 for source_payload in (healthfit, streaks, apple_health, autosleep, health_live, sleep_fallback)
         if isinstance(source_payload, dict) and str(source_payload.get("status", "")).strip().lower() == "success"
     )
     health_updated_at = (
-        str(streaks.get("updated_at", "")).strip()
+        str(health_live.get("received", "")).strip()  # wall-clock time health-live.json was written
+        or str(sleep_fallback.get("updated_at", "")).strip()
+        or str(streaks.get("updated_at", "")).strip()
         or str(healthfit.get("latest_date", "")).strip()
+        or str(health_live.get("date", "")).strip()  # sleep date, not received time — last resort
         or cache_timestamp
     )
     if health_sources_ok >= 2:

@@ -5,94 +5,81 @@
 *[To be filled by Claude during review — 10-line summary of the week's emotional journey]*
 
 **Data points for summary:**
-- 5 journal entries this week
-- 108 ta-dah items logged
-- 17 wins identified
-- 10 signals flagged
+- 7 journal entries this week
+- 112 ta-dah items logged
+- 9 wins identified
+- 7 signals flagged
 
 ## 🏆 Wins
 
-- Productive day with 77 completed items
-- Reflected on 3 meaningful moment(s) today
-- Identified a brave moment today
-- Woke unrested with sore back and weird dreams, yet produced one of the fullest ta-dah lists — weights, cooking, coding, garden, tidying, laundry, bath for Janna, diary. Music was the activation key: 'put music on, sat down, did the thing.' Low-energy start converted into high-output day without forcing.
-- Sustained presence and emotional regulation across a full family outing involving sensory-rich environments (arcade exhibition, museum crowds) and co-regulating two children with different needs — maintaining 'felt okay' through competing demands is a genuine executive function achievement, especially on a day with nostalgia stimuli that could easily pull attention inward.
-- Navigated Bloss's autistic moments and Tilly's neediness simultaneously without the day derailing — this dual co-regulation load is one of the highest executive function demands in parenting, and the fact it's noted matter-of-factly rather than catastrophically suggests growing tolerance and capacity in these situations.
-- 21 ta-dah items on a day that wasn't about productivity — it was about presence. 'Didn't worry about my phone' stands out: you were actually in the day, not beside it.
-- Went to see Belle and Sebastian with John despite feeling nervous — recognised the anxiety, pushed through it, and had a good time. That's the cycle working: anxiety predicts disaster, reality delivers something enjoyable.
-- 13 ta-dah items is a strong day. Beer in the sun, nice drinks for the girls, tidying, diary done, Readwise fixed — a day with both rest and productivity in it.
-- The Claude/Readwise morning session got called out as useful rather than wasted — 'I got carried away but I'm glad I did.' Reframing hyperfocus as productive when it genuinely is shows good self-awareness.
-- Pain trending down, energy up ('raring to go'), and daughters independently thriving at Go Club — reduced caretaking load plus physical improvement creates a genuinely lighter baseline. Gratitude for alone time suggests the solitude is being used, not endured.
-- Family swimming trip landed well — what started as a stressful morning with Blossom's visible anxiety about new experiences turned into genuine bonding. Everyone played together without arguing.
-- Brave moment was externally focused: not worrying about other people at the pool and instead channelling attention into making sure the girls were comfortable. That reframe from self-consciousness to caregiving worked.
-- 10 ta-dah items including house tidying, Claude system work, and getting the girls sorted — productive day wrapped around quality family time, not instead of it.
-- Productive day with 12 completed items
-- One Important Thing delivered — swimming happened despite both anxiety layers firing. 'Something pleasant and ordinary that gives extraordinary results' landed as written. Morning goal to morning completion with no procrastination spiral, even on 7h sleep after a late gig night.
-- The dog walk IS the intent landing in real time. Morning was pure caregiver mode (tantrums, Cherry prep, lunch logistics) with zero self-check-in — and Jim recognised that, took the space, and is now in the woods with bluebells and fresh air. 'Be present, one thing at a time' is happening right now, not aspirational.
+- Didn't panic before Aunty Cherry's visit — did practical prep (tidying, getting ready) and then actually enjoyed the family time without overthinking. That's the regulate-then-engage sequence working.
+- 14 ta-dah items on a full caregiving day — dinner, garden, shopping, looking after the girls. High output without framing it as productivity, just living well.
+- Evening journal entry completed and formatted for Diarium — maintaining the end-of-day reflective practice keeps the narrative thread intact and supports pattern recognition across days, which feeds the broader self-awareness loop.
+- Therapy session completed — on a day that also included domestic logistics (shopping, cooking), maintaining the therapeutic commitment despite competing demands represents solid executive function prioritisation. Days with therapy often drain processing capacity, making the follow-through on household tasks more effortful than it appears.
+- Cooked dinner for the household after a therapy day and a shopping trip — sequencing three energy-demanding tasks (emotional processing → errand → meal prep) without stalling out is a genuine executive function chain, especially given the acknowledged tiredness underneath.
+- 19 ta-dah items on a therapy day — that's a full day of domestic output (shopping, cooking, tidying, walking Coco) layered on top of emotionally demanding work. The volume speaks for itself.
+- Volunteering for horse riding tomorrow — 'I didn't need to do that, but I wanted to make sure they're alright' — is a deliberate, freely chosen act of care, not obligation. That distinction matters.
+- 'I have time to do the shopping and spend time with the family — I don't have to choose one or the other, and the family is not a burden.' That reframe is Jim coaching himself out of scarcity thinking. Tomorrow's note to self is genuinely constructive.
+- Jim names the Tilly distinction unprompted: 'frustrated FOR her, not AT her.' That's real-time emotional differentiation under stress — separating empathy from irritation while watching his daughter struggle at horse riding. Sophisticated parenting awareness, not performed, just noticed.
 
 ## 🔁 Patterns
 
-- Family anchor appeared in 3 journal day(s).
-- Interview pressure appeared in 1 journal day(s).
-- Body + recovery appeared in 1 journal day(s).
-- Anxiety loops appeared in 1 journal day(s).
+- Family anchor appeared in 4 journal day(s).
+- Interview pressure appeared in 2 journal day(s).
+- Body + recovery appeared in 2 journal day(s).
+- Anxiety loops appeared in 2 journal day(s).
 
 ## ⚡ Signals to Watch
 
-- 8.5h sleep logged but 'never felt completely rested' — lucid, disturbing dreams with conscious awareness through the night creating subjective fatigue despite adequate duration. Sleep quality vs quantity divergence; drea...
-- Bloss's autistic moments at a high-stimulation venue are worth tracking across outings — if arcade-style sensory environments consistently trigger dysregulation, future visits could benefit from timed breaks or quieter f...
-- The letting-go statement ('any frustration with not having done enough on myself today') is immediately self-corrected: 'that's misplaced. Today was enough.' That's genuine closure, not avoidance — you're catching the gu...
-- Swimming anxiety is already surfacing for tomorrow — appearance insecurities named directly. But the letting-go section explicitly releases those insecurities, and the practical step (swim shorts ready) is grounding it i...
-- Contracts with Chris mentioned but cut off mid-sentence — likely signed, which would make the freelance-first strategy concrete and active from this month.
-- Gig-night anxiety = transition logistics, not the event itself. 'Like I always do' — Jim names this as a recurring rush pattern. The fear protects against unscripted multi-step sequences (collect girls → central → venue)...
-- Energy management awareness: noted it was 'slightly difficult filling the time afterwards because we were all tired.' Recognising the post-activity dip rather than pushing through it.
-- Letting-go entry aligns with the brave moment — body insecurity at the pool is both what was faced and what's being released. No contradiction; genuine closure rather than avoidance.
-- Back pain recurring after swimming — body's own analysis ('tends to happen after swimming, unusual movements') shows strong proprioceptive awareness. The pattern is identified but sits in observation rather than adaptati...
-- The therapist-brief reminder was dismissed rather than actioned — when admin tasks with external accountability (someone waiting on a deliverable) get skipped, there's a risk of the task falling out of working memory ent...
+- Letting go of seeking perfection and listening to the body's call to rest — not avoidance, this reads as genuine attunement. The day was full, energy is spent, and the choice to skip yoga is proportionate.
+- Lower back pain (left, recurring) surfaced after swimming — Jim suspects unusual movement patterns as trigger. Body check aligns with 6.8h sleep and 😐 mood: functional but running on reduced capacity. The injury reinforc...
+- Therapy brief reminder was dismissed rather than actioned — worth noting whether this reflects genuine deprioritisation or a PDA-driven avoidance response to a task that involves external accountability and structured co...
+- Tension and tiredness acknowledged as the baseline state today — therapy days can temporarily amplify fatigue through emotional processing load. Worth noticing whether the evening trajectory trends toward recovery or fur...
+- Tension with Janna sits across two entries — 'upset that Janna is upset with me' in reflections, and 'feeling like I'm letting Janna down' in letting go. The holiday comparison ('upset that we can't go on holiday like ot...
+- The letting-go entry ('feeling like I'm letting Janna down') partially contradicts closure — it names the feeling but the reflections section shows it's still active, not resolved. That's honest rather than avoidant; nam...
+- Tramadol giving 7.6h sleep (good quantity) but 'horrid dreams' — the medication is buying rest at the cost of sleep quality. 'Woke up a bit groggy' despite enough hours points to disrupted REM. Back pain persists but Jim...
 
 ## 🔄 Intervention Effectiveness Loop
 
-- Days with loop data: 5
-- Intervention prompts logged: 40
-- Wins captured: 19
-- Strain signals captured: 10
-- Effectiveness score (wins-signals): 9
-- Win conversion per intervention prompt: 47.5%
-- Intervention sources: 8 todo cues, 6 connection cues, 26 guidance lines
+- Days with loop data: 3
+- Intervention prompts logged: 29
+- Wins captured: 9
+- Strain signals captured: 7
+- Effectiveness score (wins-signals): 2
+- Win conversion per intervention prompt: 31.0%
+- Intervention sources: 2 todo cues, 5 connection cues, 22 guidance lines
 - Explicit feedback events: 1
-- Avg intervention rating: 7.0
-- Avg anxiety reduction (0-10 net relief): 7.0
+- Avg intervention rating: 6.0
+- Avg anxiety reduction (0-10 net relief): 6.0
 
 **Daily loop snapshot:**
-- 2026-04-06: interventions 8, wins 4, signals 1, feedback 1, anxiety reduction 7/10
-- 2026-04-07: interventions 7, wins 3, signals 2, feedback 0
-- 2026-04-08: interventions 7, wins 4, signals 3, feedback 0
-- 2026-04-09: interventions 11, wins 7, signals 2, feedback 0
-- 2026-04-10: interventions 7, wins 1, signals 2, feedback 0
+- 2026-04-10: interventions 13, wins 3, signals 3, feedback 0
+- 2026-04-11: interventions 12, wins 5, signals 3, feedback 1, anxiety reduction 6/10
+- 2026-04-12: interventions 4, wins 1, signals 1, feedback 0
 
 **Likely helpful interventions observed:**
-- 😌 'One thing that brings me forward' set as intent → not in ta-dah by evening, but mood landed calm at 17:39. Forward motion may have happened without getting logged — object permanence gap between doing and recording, n...
-- Tomorrow plans are set -- evening planning completed
-- The arcade/retro gaming exhibition likely served as a dopamine bridge — personal nostalgia interest overlapping with the children's activity creates a rare alignment where ADHD hyperfocus tendencies actually support pare...
-- Responding to the girls' hunger by pivoting to wings shows flexible plan adjustment mid-outing — a skill that can be hard under ADHD rigidity or when sensory overload narrows options. Keeping the day enjoyable despite un...
-- Updates captured real-time progress and context changes during the day
+- Self-knowledge pattern (hyper-focusing → neglected priorities) maps directly onto today's intent — 'not trying to do more than one thing at a time.' Jim is naming the exact mechanism he's previously identified as a chall...
+- The irritation about uneaten lunch surfaced after a therapy session plus physical errands — post-therapy emotional rawness combined with physical fatigue likely lowered the threshold for frustration. Effort invested in c...
+- The frustration about uneaten lunch likely carries an autistic fairness/reciprocity dimension — effort put into providing food creates an implicit social contract, and when the expected response (eating it) doesn't happe...
+- INTENT and ONE IMPORTANT THING are identical: 'being okay with the downtime.' When both fields align, conscious priority and emotional aspiration are unified — this is the direct antidote to the inadequacy loop appearing...
+- Letting Go says 'the future — stay in the present' while One Important Thing is 'look after everyone' — a future-scanning, outcome-dependent goal. That tension is live: genuine present-moment intention sitting alongside ...
 
 ## 📊 Week vs Last Week
 
 *Previous week: Mar 30 – Apr 05*
 
-- Avg sleep: ↑1% (7.3h vs 7.3h prev week)
-- Avg steps/day: ↑9% (11945 vs 10962 prev week) ✅
-- Avg HRV: ↓16% (30.4 ms vs 36.3 ms prev week) ⚠️
+- Avg sleep: ↑1% (7.4h vs 7.3h prev week)
+- Avg steps/day: ↑4% (12547 vs 12035 prev week)
+- Avg HRV: ↓14% (32.2 ms vs 37.4 ms prev week) ⚠️
 
 ## 🏃 Fitness & Recovery Snapshot
 
-- Avg steps/day: 11,944 (5 days)
-- Avg HRV: 30.8 ms (5 days)
-- Avg resting HR: 61 bpm
-- Sleep nights tracked: 5
-- Avg asleep: 7.3h
-- Avg active energy: 11,278 kcal/day
+- Avg steps/day: 12,546 (7 days)
+- Avg HRV: 32.4 ms (7 days)
+- Avg resting HR: 60 bpm
+- Sleep nights tracked: 6
+- Avg asleep: 7.4h
+- Avg active energy: 11,953 kcal/day
 - Workouts logged: 2
 
 ## 🧘 Therapy Integration
@@ -101,4 +88,4 @@
 
 ---
 
-*Generated: 2026-04-10 17:53*
+*Generated: 2026-04-12 17:44*
