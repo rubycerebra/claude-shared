@@ -14,11 +14,13 @@ Cross-project patterns observed over time. Updated by weekly analysis pipeline +
 - Exhaustion follows breakthrough periods
 - Need recovery time after pushing through
 - **W10 update (2026-03-08):** Confirmed via Chris Milton email — deferred Wed, sent Fri under PDA demand conditions. Resulted in £27/hr freelance confirmed for April. Breakthrough was relational (emerged from meetings) not structured — worth tracking whether Jim can replicate with cold-application paths.
+- **Trigger:** Zero outreach/client emails sent in current MODE == FREELANCE week. Surface in /coach: "Quiet on the client front this week — worth a look when you're ready."
 
 ### Hyperfocus Distractions
 - Autism-related: gets pulled into fixing things (3D printer, etc.)
 - Creates time pressure and self-annoyance
 - Pattern: distraction → stress → self-criticism → eventual completion
+- **Trigger:** Session-timer break count > 4 in one day (proxy for extended hyperfocus). Surface in /coach as "High break count today — hyperfocus pattern active?"
 
 ### Pacing Works
 - Therapist's 3-4 applications/week sustainable
@@ -29,6 +31,7 @@ Cross-project patterns observed over time. Updated by weekly analysis pipeline +
 - Cannot stop thinking about unfinished tasks
 - Explicit parking with next steps reduces anxiety
 - Needs clear "what happens next" for everything
+- **Trigger:** > 3 items in QUEUE not touched for 5+ days. Surface in /coach as "A few queue items have been sitting a while — worth a park-or-do pass?"
 
 ### Recognition Deficit in Relationship (New: 2026-01-18)
 - Feels contributions at home go unrecognised by Janna
@@ -47,6 +50,7 @@ Cross-project patterns observed over time. Updated by weekly analysis pipeline +
 - Can be adaptive (regulates body) or avoidant (delays priority task)
 - Best use: short movement reset, then return to highest-priority task
 - Evidence: 2026-02-09 "physical doing to avoid sitting with worry"
+- **Trigger:** Both hyperfocus (session-timer > 4 breaks) AND no Diarium entry that day detected together. Surface in /coach as "Busy day, no journal — motion-as-safety pattern may be active."
 
 ### Task Gravity vs Presence (New: 2026-02-17)
 - Strong pull toward tidying/fixing when family presence is the stated goal
