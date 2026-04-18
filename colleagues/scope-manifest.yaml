@@ -24,9 +24,9 @@
         "system"
       ],
       "extraction_regexes": [
-        "\\\\b(?:23\\\\.98|24|25)\\\\s*fps\\\\b",
-        "\\\\b(?:QC|q c|subtitle|subtitles|SDH|ITT|lab|deliverable|dropbox|WeTransfer)\\\\b",
-        "\\\\b[A-Z][a-z]+\\\\s@\\\\s(?:Visual Data|Matchbox|The Ark|Vertigo)\\\\b"
+        "\\b(?:23\\.98|24|25)\\s*fps\\b",
+        "\\b(?:QC|q c|subtitle|subtitles|SDH|ITT|lab|deliverable|dropbox|WeTransfer)\\b",
+        "\\b[A-Z][a-z]+\\s@\\s(?:Visual Data|Matchbox|The Ark|Vertigo)\\b"
       ]
     },
     "HEALTH": {
@@ -53,9 +53,9 @@
         "clients"
       ],
       "extraction_regexes": [
-        "\\\\b(?:sleep|HRV|walk|yoga|weights|sensory|overwhelm|reset|regulation)\\\\b",
-        "\\\\b(?:therapy|Samantha|Diane|affirmation|PDA|RSD)\\\\b",
-        "\\\\b\\\\d+(?:\\\\.\\\\d+)?\\\\s*(?:hours|h|ms|lb|kg)\\\\b"
+        "\\b(?:sleep|HRV|walk|yoga|weights|sensory|overwhelm|reset|regulation)\\b",
+        "\\b(?:therapy|Samantha|Diane|affirmation|PDA|RSD)\\b",
+        "\\b\\d+(?:\\.\\d+)?\\s*(?:hours|h|ms|lb|kg)\\b"
       ]
     },
     "TODO": {
@@ -80,9 +80,9 @@
         "health-private"
       ],
       "extraction_regexes": [
-        "\\\\b(?:daemon|automation|sync|protocol|drift|cron|dashboard|cache|beads)\\\\b",
-        "\\\\b(?:Todoist|Akiflow|Apple Notes|Streaks|Diarium)\\\\b",
-        "\\\\b[A-Z][A-Za-z0-9_-]+\\\\b"
+        "\\b(?:daemon|automation|sync|protocol|drift|cron|dashboard|cache|beads)\\b",
+        "\\b(?:Todoist|Akiflow|Apple Notes|Streaks|Diarium)\\b",
+        "\\b[A-Z][A-Za-z0-9_-]+\\b"
       ]
     }
   }
