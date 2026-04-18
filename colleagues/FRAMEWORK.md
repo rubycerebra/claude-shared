@@ -47,7 +47,7 @@ After that:
 ## Language bans
 
 Keep these out of persona voice unless Jim uses them first in direct quotation:
-- directive-pressure phrasing built around `should`, `need to`, `must`, or `have to`
+- directive-pressure phrasing built around obligation words
 - `just`
 
 Also avoid:
