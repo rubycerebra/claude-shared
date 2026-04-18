@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "generated": "2026-04-18",
+  "projects": {
+    "WORK": {
+      "root": "/Users/jamescherry/Documents/Claude Projects/WORK",
+      "persona_dir": "/Users/jamescherry/Documents/Claude Projects/WORK/.claude/persona",
+      "bridge_file": "/Users/jamescherry/Documents/Claude Projects/WORK/.claude/persona/bridge.md",
+      "read_paths": [
+        "/Users/jamescherry/Documents/Claude Projects/WORK/.claude/persona",
+        "/Users/jamescherry/Documents/Claude Projects/WORK/.cache/work-projects.json",
+        "/Users/jamescherry/Documents/Claude Projects/WORK/outreach/chris-rate-draft.md",
+        "/Users/jamescherry/Documents/Claude Projects/WORK/.plan/freelance-chris-2026.md",
+        "/Users/jamescherry/.claude/cache/session-brief-WORK.md"
+      ],
+      "qmd_collections": [
+        "work"
+      ],
+      "deny_collections": [
+        "therapy",
+        "diarium",
+        "health",
+        "patterns",
+        "system"
+      ],
+      "extraction_regexes": [
+        "\\\\b(?:23\\\\.98|24|25)\\\\s*fps\\\\b",
+        "\\\\b(?:QC|q c|subtitle|subtitles|SDH|ITT|lab|deliverable|dropbox|WeTransfer)\\\\b",
+        "\\\\b[A-Z][a-z]+\\\\s@\\\\s(?:Visual Data|Matchbox|The Ark|Vertigo)\\\\b"
+      ]
+    },
+    "HEALTH": {
+      "root": "/Users/jamescherry/Documents/Claude Projects/HEALTH",
+      "persona_dir": "/Users/jamescherry/Documents/Claude Projects/HEALTH/.claude/persona",
+      "bridge_file": "/Users/jamescherry/Documents/Claude Projects/HEALTH/.claude/persona/bridge.md",
+      "read_paths": [
+        "/Users/jamescherry/Documents/Claude Projects/HEALTH/.claude/persona",
+        "/Users/jamescherry/Documents/Claude Projects/HEALTH/fitness-log.md",
+        "/Users/jamescherry/Documents/Claude Projects/HEALTH/therapy-brief-2026-04-18.md",
+        "/Users/jamescherry/Documents/Claude Projects/HEALTH/therapy-brief-2026-04-17.md",
+        "/Users/jamescherry/Documents/Claude Projects/claude-shared/patterns.md",
+        "/Users/jamescherry/Documents/Claude Projects/claude-shared/what-works.txt",
+        "/Users/jamescherry/.claude/cache/session-brief-HEALTH.md"
+      ],
+      "qmd_collections": [
+        "patterns",
+        "diarium",
+        "therapy",
+        "health"
+      ],
+      "deny_collections": [
+        "work",
+        "clients"
+      ],
+      "extraction_regexes": [
+        "\\\\b(?:sleep|HRV|walk|yoga|weights|sensory|overwhelm|reset|regulation)\\\\b",
+        "\\\\b(?:therapy|Samantha|Diane|affirmation|PDA|RSD)\\\\b",
+        "\\\\b\\\\d+(?:\\\\.\\\\d+)?\\\\s*(?:hours|h|ms|lb|kg)\\\\b"
+      ]
+    },
+    "TODO": {
+      "root": "/Users/jamescherry/Documents/Claude Projects/TODO",
+      "persona_dir": "/Users/jamescherry/Documents/Claude Projects/TODO/.claude/persona",
+      "bridge_file": "/Users/jamescherry/Documents/Claude Projects/TODO/.claude/persona/bridge.md",
+      "read_paths": [
+        "/Users/jamescherry/Documents/Claude Projects/TODO/.claude/persona",
+        "/Users/jamescherry/Documents/Claude Projects/TODO/.claude/CLAUDE.md",
+        "/Users/jamescherry/Documents/Claude Projects/TODO/BEAD-LABELS.md",
+        "/Users/jamescherry/Documents/Claude Projects/TODO/non-code-context.md",
+        "/Users/jamescherry/.claude/cache/session-brief-TODO.md",
+        "/Users/jamescherry/Documents/Claude Projects/claude-shared/context-bridge.md"
+      ],
+      "qmd_collections": [
+        "system",
+        "todo"
+      ],
+      "deny_collections": [
+        "therapy",
+        "clients",
+        "health-private"
+      ],
+      "extraction_regexes": [
+        "\\\\b(?:daemon|automation|sync|protocol|drift|cron|dashboard|cache|beads)\\\\b",
+        "\\\\b(?:Todoist|Akiflow|Apple Notes|Streaks|Diarium)\\\\b",
+        "\\\\b[A-Z][A-Za-z0-9_-]+\\\\b"
+      ]
+    }
+  }
+}
