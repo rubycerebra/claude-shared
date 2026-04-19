@@ -2,7 +2,7 @@
 
 Key patterns and insights extracted from Diarium entries, therapy sessions, and weekly analyses. Updated by weekly analysis pipeline.
 
-<!-- _last_updated: 2026-W14 | _auto_update: update-living-docs.py -->
+<!-- _last_updated: 2026-W16 | _auto_update: update-living-docs.py -->
 
 ---
 
@@ -286,3 +286,17 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 *Pieces Persona Sync section removed 2026-03-10: auto-sync was pulling truncated third-party data (Paul Wilson, Meghan Rainsberry), not Jim's persona. Needs rebuild if Pieces persona is useful for therapy context.*
 
 *Pieces Persona Sync removed — auto-sync was pulling third-party data (not Jim's persona). 2026-04-06.*
+
+
+## AI refresh — 2026-04-19
+- Being present with daughters' nervousness helps them stay calm — Jim's calmness cascades to them
+- Can only do so much as one person; over-investment in worries reduces effectiveness
+- Different forms of caring work for different people; finding the right form matters more than trying harder
+- Energy management principle: with less sleep, accept quarter less effort instead of pushing
+
+
+## AI refresh — 2026-04-19
+- Co-regulation with daughters works bidirectionally — being calm and present for them regulates my own nervous system, not the other way around
+- Purpose anchor (being there for daughters' growth/thriving) provides emotional stability and reduces baseline anxiety
+- Physical wellness (hydration, shower) directly impacts nervous system state; neglecting basics amplifies anxious arousal
+- Accepting personal limitations as one human reduces anxiety spiral and clarifies what's actually actionable
