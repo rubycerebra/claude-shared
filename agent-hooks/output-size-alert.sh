@@ -77,7 +77,7 @@ alerts = []
 if char_count > 30000:
     tokens_est = char_count // 4
     alerts.append(
-        "\U0001f6a8 WARNING: {:,} chars of tool output (~{:,} tokens). "
+        "\U0001f6a8 CRITICAL: {:,} chars of tool output (~{:,} tokens). "
         "This is budget-harmful. Use RTK filtered commands.".format(char_count, tokens_est)
     )
 elif char_count > 15000:

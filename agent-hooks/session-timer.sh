@@ -253,8 +253,8 @@ fi
 
 # ── Stage 3: 5-min timed break — display alert as warning, 1 re-open ─────────
 if (( STAGE == 3 )); then
-    PENDING_FILE="/tmp/claude-session-pending-${PPID_MARKER}"
-    ACK_FILE="/tmp/claude-session-ack-${PPID_MARKER}"
+    PENDING_FILE="/tmp/claude-session-pending-${SESSION_MARKER}"
+    ACK_FILE="/tmp/claude-session-ack-${SESSION_MARKER}"
     echo "$NOW" > "$PENDING_FILE"
     osascript <<APPLESCRIPT &
         do shell script "afplay /System/Library/Sounds/${SOUND}.aiff > /dev/null 2>&1 &"
@@ -301,8 +301,8 @@ fi
 
 # ── Stage 4: escalating break — display alert as critical, 1 re-open ─────────
 if (( STAGE == 4 )); then
-    PENDING_FILE="/tmp/claude-session-pending-${PPID_MARKER}"
-    ACK_FILE="/tmp/claude-session-ack-${PPID_MARKER}"
+    PENDING_FILE="/tmp/claude-session-pending-${SESSION_MARKER}"
+    ACK_FILE="/tmp/claude-session-ack-${SESSION_MARKER}"
     echo "$NOW" > "$PENDING_FILE"
     osascript <<APPLESCRIPT &
         do shell script "afplay /System/Library/Sounds/${SOUND}.aiff > /dev/null 2>&1 &"
