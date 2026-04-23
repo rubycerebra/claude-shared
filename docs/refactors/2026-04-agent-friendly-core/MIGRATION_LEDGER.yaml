@@ -4,6 +4,7 @@ phase_status:
   exact_duplicate_migration: implemented_for_initial_helpers
   near_duplicate_split: implemented_for_health_parsers_and_sleep_fallback
   hook_session_start_split: primitives_implemented_conversion_pending
+  deploy_hardening: implemented
   large_file_decomposition: pending
   final_adapter_pass: pending
 surfaces:

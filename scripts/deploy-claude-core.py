@@ -11,7 +11,7 @@ SRC = ROOT / 'src'
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from claude_core.runtime_deploy import deploy_shared_core
+from claude_core.runtime_deploy import DeployVerificationError, deploy_shared_core, verify_deployment
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -19,13 +19,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--shared-root', default=str(ROOT), help='Path to canonical claude-shared repo root')
     parser.add_argument('--runtime-root', default=str(Path.home() / '.claude' / 'scripts'), help='Runtime scripts directory')
     parser.add_argument('--dry-run', action='store_true', help='Print deploy plan without copying files')
+    parser.add_argument('--verify', action='store_true', help='Verify deployed tree against manifest and exit')
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    plan = deploy_shared_core(Path(args.shared_root), runtime_root=Path(args.runtime_root), dry_run=args.dry_run)
+    runtime_root = Path(args.runtime_root)
+    if args.verify:
+        try:
+            result = verify_deployment(runtime_root=runtime_root)
+        except DeployVerificationError as exc:
+            print(json.dumps({'ok': False, 'error': str(exc)}, indent=2))
+            return 1
+        print(json.dumps({'ok': True, **result}, indent=2))
+        return 0
+    plan = deploy_shared_core(Path(args.shared_root), runtime_root=runtime_root, dry_run=args.dry_run)
     print(json.dumps(plan, indent=2))
     return 0
 
