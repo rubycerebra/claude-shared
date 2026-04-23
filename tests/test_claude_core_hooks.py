@@ -100,3 +100,31 @@ def test_dispatch_by_role_falls_back_when_role_unknown(monkeypatch):
         fallback=lambda: calls.append("fallback"),
     )
     assert calls == ["fallback"]
+
+
+# --- walk_ancestor_pids ---
+
+def test_walk_ancestor_pids_follows_chain_to_init():
+    chain = {100: 90, 90: 80, 80: 1, 1: 0}
+    ancestors = hooks_mod.walk_ancestor_pids(100, ppid_lookup=lambda pid: chain.get(pid, 0))
+    assert ancestors == {100, 90, 80, 1}
+
+
+def test_walk_ancestor_pids_stops_on_cycle():
+    # Hypothetical broken ps output: self-parent loop
+    chain = {50: 40, 40: 50}
+    ancestors = hooks_mod.walk_ancestor_pids(50, ppid_lookup=lambda pid: chain.get(pid, 0))
+    assert ancestors == {50, 40}
+
+
+def test_walk_ancestor_pids_stops_when_ppid_missing():
+    # Lookup returns None when pid is no longer visible
+    ancestors = hooks_mod.walk_ancestor_pids(7, ppid_lookup=lambda pid: None)
+    assert ancestors == {7}
+
+
+def test_walk_ancestor_pids_ignores_invalid_ppid_values():
+    # ps can return 0, negatives, or huge numbers when a pid is gone
+    chain = {9: -1}
+    ancestors = hooks_mod.walk_ancestor_pids(9, ppid_lookup=lambda pid: chain.get(pid))
+    assert ancestors == {9}

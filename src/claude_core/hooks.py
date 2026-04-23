@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import time
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -81,6 +82,43 @@ class LockFile(AbstractContextManager):
             except FileNotFoundError:
                 pass
             self.held = False
+
+
+def _default_ppid_lookup(pid: int) -> int | None:
+    try:
+        res = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "ppid="],
+            capture_output=True, text=True, timeout=2,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if res.returncode != 0:
+        return None
+    out = res.stdout.strip()
+    if not out:
+        return None
+    try:
+        return int(out.split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def walk_ancestor_pids(
+    pid: int,
+    *,
+    ppid_lookup: Callable[[int], int | None] | None = None,
+    max_depth: int = 64,
+) -> set[int]:
+    lookup = ppid_lookup or _default_ppid_lookup
+    seen: set[int] = {pid}
+    current = pid
+    for _ in range(max_depth):
+        ppid = lookup(current)
+        if ppid is None or ppid <= 0 or ppid in seen:
+            break
+        seen.add(ppid)
+        current = ppid
+    return seen
 
 
 def dispatch_by_role(
