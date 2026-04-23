@@ -3,10 +3,10 @@ phase_status:
   shared_core_bootstrap: implemented
   exact_duplicate_migration: implemented_for_initial_helpers
   near_duplicate_split: implemented_for_health_parsers_and_sleep_fallback
-  hook_session_start_split: first_registered_hook_converted
+  hook_session_start_split: implemented_two_registered_hooks_converted_plus_cli
   deploy_hardening: implemented
-  large_file_decomposition: pending
-  final_adapter_pass: pending
+  large_file_decomposition: in_progress_pattern_proven_first_modules_split
+  final_adapter_pass: in_progress_settings_fixes_and_sequenced_gate_done
 surfaces:
   - surface: claude-shared/src/claude_core/config.py
     status: implemented
@@ -34,7 +34,23 @@ surfaces:
   - surface: claude-shared/src/claude_core/hooks.py
     status: implemented
     classification: shared-core
-    notes: cooldown + lockfile + device-role dispatch primitives for session-start hook family
+    notes: cooldown + lockfile + device-role dispatch + walk_ancestor_pids + check-role/sequenced-gate CLI
+  - surface: claude-shared/src/claude_core/diarium/location.py
+    status: implemented
+    classification: shared-core
+    notes: extracted from diarium_ingest.py — first decomposition slice
+  - surface: claude-shared/src/claude_core/health/discovery.py
+    status: implemented
+    classification: shared-core
+    notes: extracted from health_metrics.py — first decomposition slice
+  - surface: ~/.claude/hooks/icloud-prefetch.sh
+    status: converted
+    classification: registered-hook
+    target: claude_core.hooks check-role mac (Mac-only gate)
+  - surface: ~/.claude/hooks/sequenced-autopilot-session-start.sh
+    status: converted
+    classification: registered-hook
+    target: claude_core.hooks sequenced-gate (cooldown + lock check)
   - surface: claude-shared/docs/refactors/2026-04-agent-friendly-core/SURFACE_MAP.hooks.yaml
     status: implemented
     classification: handoff-docs

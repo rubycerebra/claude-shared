@@ -145,6 +145,47 @@ _ROLE_KEYWORDS = {
     "unknown": DeviceRole.UNKNOWN,
 }
 
+SEQUENCED_LAST_FILENAME = "sequenced-autopilot.last"
+SEQUENCED_LOCK_FILENAME = "sequenced-autopilot.lock"
+
+
+def sequenced_gate_status(
+    state_dir: Path,
+    *,
+    cooldown_seconds: int,
+    now: float | None = None,
+) -> dict:
+    state_dir = Path(state_dir)
+    last_file = state_dir / SEQUENCED_LAST_FILENAME
+    lock_file = state_dir / SEQUENCED_LOCK_FILENAME
+
+    current = int(now if now is not None else time.time())
+    gate = CooldownGate(last_file, cooldown_seconds=cooldown_seconds)
+    if not gate.should_run(now=current):
+        last = int(last_file.read_text(encoding="utf-8").strip()) if last_file.exists() else None
+        return {
+            "should_run": False,
+            "blocked_by": "cooldown",
+            "elapsed": current - last if last is not None else None,
+            "cooldown_seconds": cooldown_seconds,
+        }
+
+    if lock_file.exists():
+        raw = lock_file.read_text(encoding="utf-8").strip()
+        try:
+            lock_pid = int(raw)
+        except ValueError:
+            lock_pid = None
+        if lock_pid is not None and pid_is_alive(lock_pid):
+            return {
+                "should_run": False,
+                "blocked_by": "lock",
+                "lock_pid": lock_pid,
+                "lock_file": str(lock_file),
+            }
+
+    return {"should_run": True, "blocked_by": None}
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="claude_core.hooks")
@@ -152,6 +193,13 @@ def main(argv: list[str] | None = None) -> int:
 
     check = sub.add_parser("check-role", help="Exit 0 iff current device role matches keyword")
     check.add_argument("role", help="One of: mac, nuc, unknown")
+
+    gate = sub.add_parser(
+        "sequenced-gate",
+        help="Exit 0 iff cooldown has expired and no live lock holds the autopilot",
+    )
+    gate.add_argument("--state-dir", required=True)
+    gate.add_argument("--cooldown-seconds", type=int, required=True)
 
     args = parser.parse_args(argv)
 
@@ -164,6 +212,29 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
         return 0 if current_device_role() == expected else 1
+
+    if args.cmd == "sequenced-gate":
+        status = sequenced_gate_status(
+            Path(args.state_dir),
+            cooldown_seconds=args.cooldown_seconds,
+        )
+        if status["should_run"]:
+            return 0
+        reason = status.get("blocked_by", "unknown")
+        if reason == "cooldown":
+            print(
+                f"[SEQUENCED] cooldown active ({status.get('elapsed')}s < {status.get('cooldown_seconds')}s)",
+                file=sys.stderr,
+            )
+        elif reason == "lock":
+            print(
+                f"[SEQUENCED] already running (pid {status.get('lock_pid')})",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[SEQUENCED] blocked: {reason}", file=sys.stderr)
+        return 1
+
     return 2
 
 

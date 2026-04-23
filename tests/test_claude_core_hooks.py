@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import pytest
@@ -153,3 +154,63 @@ def test_cli_check_role_accepts_nuc_keyword(monkeypatch):
 def test_cli_check_role_rejects_unknown_keyword():
     rc = hooks_mod.main(["check-role", "moon"])
     assert rc == 2
+
+
+# --- sequenced gate ---
+
+def test_sequenced_gate_passes_when_no_state(tmp_path: Path):
+    status = hooks_mod.sequenced_gate_status(tmp_path, cooldown_seconds=60, now=1_000)
+    assert status["should_run"] is True
+    assert status["blocked_by"] is None
+
+
+def test_sequenced_gate_blocks_when_inside_cooldown(tmp_path: Path):
+    last = tmp_path / "sequenced-autopilot.last"
+    last.write_text("950", encoding="utf-8")
+    status = hooks_mod.sequenced_gate_status(tmp_path, cooldown_seconds=60, now=1_000)
+    assert status["should_run"] is False
+    assert status["blocked_by"] == "cooldown"
+
+
+def test_sequenced_gate_passes_after_cooldown(tmp_path: Path):
+    last = tmp_path / "sequenced-autopilot.last"
+    last.write_text("900", encoding="utf-8")
+    status = hooks_mod.sequenced_gate_status(tmp_path, cooldown_seconds=60, now=1_000)
+    assert status["should_run"] is True
+
+
+def test_sequenced_gate_blocks_when_live_lock_held(tmp_path: Path, monkeypatch):
+    lock = tmp_path / "sequenced-autopilot.lock"
+    lock.write_text("12345", encoding="utf-8")
+    monkeypatch.setattr(hooks_mod, "pid_is_alive", lambda pid: True)
+    status = hooks_mod.sequenced_gate_status(tmp_path, cooldown_seconds=60, now=1_000)
+    assert status["should_run"] is False
+    assert status["blocked_by"] == "lock"
+    assert status["lock_pid"] == 12345
+
+
+def test_sequenced_gate_passes_when_lock_pid_dead(tmp_path: Path, monkeypatch):
+    lock = tmp_path / "sequenced-autopilot.lock"
+    lock.write_text("999999", encoding="utf-8")
+    monkeypatch.setattr(hooks_mod, "pid_is_alive", lambda pid: False)
+    status = hooks_mod.sequenced_gate_status(tmp_path, cooldown_seconds=60, now=1_000)
+    assert status["should_run"] is True
+
+
+def test_cli_sequenced_gate_exits_zero_when_should_run(tmp_path: Path):
+    rc = hooks_mod.main([
+        "sequenced-gate",
+        "--state-dir", str(tmp_path),
+        "--cooldown-seconds", "60",
+    ])
+    assert rc == 0
+
+
+def test_cli_sequenced_gate_exits_nonzero_when_blocked(tmp_path: Path):
+    (tmp_path / "sequenced-autopilot.last").write_text(str(int(time.time())), encoding="utf-8")
+    rc = hooks_mod.main([
+        "sequenced-gate",
+        "--state-dir", str(tmp_path),
+        "--cooldown-seconds", "60",
+    ])
+    assert rc == 1
