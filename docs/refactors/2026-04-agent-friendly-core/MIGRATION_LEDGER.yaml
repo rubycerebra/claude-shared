@@ -1,0 +1,134 @@
+phase_status:
+  inventory_and_ownership: implemented_for_repo_docs
+  shared_core_bootstrap: implemented
+  exact_duplicate_migration: implemented_for_initial_helpers
+  near_duplicate_split: implemented_for_health_parsers_and_sleep_fallback
+  large_file_decomposition: pending
+  final_adapter_pass: pending
+surfaces:
+  - surface: claude-shared/src/claude_core/config.py
+    status: implemented
+    classification: shared-core
+  - surface: claude-shared/src/claude_core/device_roles.py
+    status: implemented
+    classification: shared-core
+  - surface: claude-shared/src/claude_core/runtime_deploy.py
+    status: implemented
+    classification: shared-core
+  - surface: claude-shared/src/claude_core/session_context.py
+    status: implemented
+    classification: shared-core
+  - surface: claude-shared/src/claude_core/external_integrations.py
+    status: implemented
+    classification: shared-core
+  - surface: claude-shared/src/claude_core/todo_integrity.py
+    status: implemented_from_existing
+    classification: shared-core
+    source: HEALTH/.helpers/akiflow_tracker.py
+  - surface: claude-shared/src/claude_core/diarium_ingest.py
+    status: implemented_from_existing
+    classification: shared-core
+    source: HEALTH/.helpers/parse_diarium.py
+  - surface: claude-shared/src/claude_core/health_metrics.py
+    status: implemented_from_existing
+    classification: shared-core
+    source:
+      - HEALTH/.helpers/parse_autosleep.py
+      - HEALTH/.helpers/parse_apple_health.py
+      - HEALTH/.helpers/sleep_fallback.py
+  - surface: claude-shared/scripts/deploy-claude-core.py
+    status: implemented
+    classification: deploy-tool
+  - surface: claude-shared/docs/refactors/2026-04-agent-friendly-core/SURFACE_MAP.shared.yaml
+    status: implemented
+    classification: handoff-docs
+  - surface: HEALTH/SURFACE_MAP.yaml
+    status: implemented
+    classification: repo-doc
+  - surface: HEALTH/ARCHITECTURE.md
+    status: implemented
+    classification: repo-doc
+  - surface: WORK/SURFACE_MAP.yaml
+    status: implemented
+    classification: repo-doc
+  - surface: WORK/ARCHITECTURE.md
+    status: implemented
+    classification: repo-doc
+  - surface: TODO/SURFACE_MAP.yaml
+    status: implemented
+    classification: repo-doc
+  - surface: TODO/ARCHITECTURE.md
+    status: implemented
+    classification: repo-doc
+  - surface: HEALTH/.helpers/import_conversation.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.session_context.import_conversation_main
+  - surface: HEALTH/.helpers/format_non_code_context.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.session_context.format_non_code_context_main
+  - surface: HEALTH/.helpers/parse_alter.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.external_integrations.alter_main
+  - surface: HEALTH/.helpers/akiflow_tracker.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.todo_integrity.main
+  - surface: HEALTH/.helpers/parse_diarium.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.diarium_ingest.main
+  - surface: HEALTH/.helpers/parse_autosleep.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.health_metrics.autosleep_main
+  - surface: HEALTH/.helpers/parse_apple_health.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.health_metrics.apple_health_main
+  - surface: HEALTH/.helpers/sleep_fallback.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.health_metrics.sleep_fallback_main
+  - surface: WORK/.helpers/import_conversation.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.session_context.import_conversation_main
+  - surface: WORK/.helpers/akiflow_tracker.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.todo_integrity.main
+  - surface: WORK/.helpers/parse_diarium.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.diarium_ingest.main
+  - surface: WORK/.helpers/parse_autosleep.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.health_metrics.autosleep_main
+  - surface: TODO/.helpers/import_conversation.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.session_context.import_conversation_main
+  - surface: TODO/.helpers/format_non_code_context.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.session_context.format_non_code_context_main
+  - surface: TODO/.helpers/parse_alter.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.external_integrations.alter_main
+  - surface: TODO/.helpers/akiflow_tracker.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.todo_integrity.main
+  - surface: TODO/.helpers/parse_autosleep.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.health_metrics.autosleep_main
+  - surface: TODO/.helpers/parse_apple_health.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.health_metrics.apple_health_main

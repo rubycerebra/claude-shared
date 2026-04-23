@@ -1,0 +1,21 @@
+surfaces:
+  - name: shared_core_package
+    path: src/claude_core/
+    classification: shared-core
+    owner: claude-shared
+    sync_policy: replicated_readonly
+  - name: shared_core_tests
+    path: tests/
+    classification: shared-test
+    owner: claude-shared
+    sync_policy: replicated_readonly
+  - name: shared_core_deploy_cli
+    path: scripts/deploy-claude-core.py
+    classification: deploy-tool
+    owner: claude-shared
+    sync_policy: replicated_readonly
+  - name: handoff_packet
+    path: docs/refactors/2026-04-agent-friendly-core/
+    classification: handoff-docs
+    owner: claude-shared
+    sync_policy: replicated_readonly
