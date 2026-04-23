@@ -128,3 +128,28 @@ def test_walk_ancestor_pids_ignores_invalid_ppid_values():
     chain = {9: -1}
     ancestors = hooks_mod.walk_ancestor_pids(9, ppid_lookup=lambda pid: chain.get(pid))
     assert ancestors == {9}
+
+
+# --- cli: check-role ---
+
+def test_cli_check_role_returns_zero_when_matching(monkeypatch, capsys):
+    monkeypatch.setattr(hooks_mod, "current_device_role", lambda: DeviceRole.MAC_INTERFACE)
+    rc = hooks_mod.main(["check-role", "mac"])
+    assert rc == 0
+
+
+def test_cli_check_role_returns_nonzero_when_not_matching(monkeypatch):
+    monkeypatch.setattr(hooks_mod, "current_device_role", lambda: DeviceRole.NUC_RUNTIME)
+    rc = hooks_mod.main(["check-role", "mac"])
+    assert rc == 1
+
+
+def test_cli_check_role_accepts_nuc_keyword(monkeypatch):
+    monkeypatch.setattr(hooks_mod, "current_device_role", lambda: DeviceRole.NUC_RUNTIME)
+    rc = hooks_mod.main(["check-role", "nuc"])
+    assert rc == 0
+
+
+def test_cli_check_role_rejects_unknown_keyword():
+    rc = hooks_mod.main(["check-role", "moon"])
+    assert rc == 2

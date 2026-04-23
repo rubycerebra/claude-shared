@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess
+import sys
 import time
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -135,3 +137,35 @@ def dispatch_by_role(
     if fallback is not None:
         return fallback()
     return None
+
+
+_ROLE_KEYWORDS = {
+    "mac": DeviceRole.MAC_INTERFACE,
+    "nuc": DeviceRole.NUC_RUNTIME,
+    "unknown": DeviceRole.UNKNOWN,
+}
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="claude_core.hooks")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    check = sub.add_parser("check-role", help="Exit 0 iff current device role matches keyword")
+    check.add_argument("role", help="One of: mac, nuc, unknown")
+
+    args = parser.parse_args(argv)
+
+    if args.cmd == "check-role":
+        expected = _ROLE_KEYWORDS.get(args.role.lower())
+        if expected is None:
+            print(
+                f"error: unknown role keyword {args.role!r} (expected mac/nuc/unknown)",
+                file=sys.stderr,
+            )
+            return 2
+        return 0 if current_device_role() == expected else 1
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
