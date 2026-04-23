@@ -9,7 +9,13 @@
 - Canonical tracking bead: `TODO-isgj`
 - Tracking beads: `HEALTH-o2s1`, `HEALTH-74g`
 
-## Implemented in this slice
+## Implemented in phase-04 slice (hook primitives)
+- Inventoried session-start hook surface in `docs/refactors/2026-04-agent-friendly-core/SURFACE_MAP.hooks.yaml`. Key finding: `hooks/session-start.sh` is orphaned — real SessionStart is 14 direct entries in `settings.json`.
+- Added `src/claude_core/hooks.py` with `CooldownGate`, `LockFile`, `dispatch_by_role`, `pid_is_alive`, `current_device_role`.
+- Added `tests/test_claude_core_hooks.py` — 10 tests, all passing. Full shared-core suite now **29 passed**.
+- Committed the prior phase-01→03 work on all 4 worktrees (`codex/claude-core-refactor` branch) before building on top — no more uncommitted refactor state.
+
+## Implemented in earlier slices
 - Created `claude-shared/pyproject.toml`
 - Created `claude-shared/src/claude_core/`
 - Added shared-core modules:

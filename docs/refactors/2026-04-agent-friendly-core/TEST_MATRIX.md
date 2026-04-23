@@ -13,6 +13,9 @@
 - Shared-core tests:
   - `python3 -m pytest tests/test_claude_core_device_roles.py tests/test_claude_core_session_context.py tests/test_claude_core_runtime_deploy.py tests/test_claude_core_health_metrics.py`
   - result: `11 passed in 0.09s`
+- Shared-core tests (phase-04, includes hooks module):
+  - `python3 -m pytest tests/`
+  - result: `29 passed in 0.36s`
 - HEALTH wrapper regression:
   - `python3 -m pytest tests/test_parse_diarium.py`
   - result: `5 passed in 0.09s`

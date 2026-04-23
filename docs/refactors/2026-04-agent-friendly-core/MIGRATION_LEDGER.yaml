@@ -1,8 +1,9 @@
 phase_status:
-  inventory_and_ownership: implemented_for_repo_docs
+  inventory_and_ownership: implemented_for_repo_docs_and_hooks
   shared_core_bootstrap: implemented
   exact_duplicate_migration: implemented_for_initial_helpers
   near_duplicate_split: implemented_for_health_parsers_and_sleep_fallback
+  hook_session_start_split: primitives_implemented_conversion_pending
   large_file_decomposition: pending
   final_adapter_pass: pending
 surfaces:
@@ -29,6 +30,13 @@ surfaces:
     status: implemented_from_existing
     classification: shared-core
     source: HEALTH/.helpers/parse_diarium.py
+  - surface: claude-shared/src/claude_core/hooks.py
+    status: implemented
+    classification: shared-core
+    notes: cooldown + lockfile + device-role dispatch primitives for session-start hook family
+  - surface: claude-shared/docs/refactors/2026-04-agent-friendly-core/SURFACE_MAP.hooks.yaml
+    status: implemented
+    classification: handoff-docs
   - surface: claude-shared/src/claude_core/health_metrics.py
     status: implemented_from_existing
     classification: shared-core
