@@ -11,7 +11,7 @@ SRC = ROOT / 'src'
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from claude_core.runtime_deploy import DeployVerificationError, deploy_shared_core, verify_deployment
+from claude_core.runtime_deploy import DeployVerificationError, deploy_shared_core, deploy_runtime_scripts, verify_deployment
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,6 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--runtime-root', default=str(Path.home() / '.claude' / 'scripts'), help='Runtime scripts directory')
     parser.add_argument('--dry-run', action='store_true', help='Print deploy plan without copying files')
     parser.add_argument('--verify', action='store_true', help='Verify deployed tree against manifest and exit')
+    parser.add_argument('--scripts', action='store_true', help='Also deploy standalone runtime scripts')
     return parser
 
 
@@ -37,6 +38,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     plan = deploy_shared_core(Path(args.shared_root), runtime_root=runtime_root, dry_run=args.dry_run)
     print(json.dumps(plan, indent=2))
+    if args.scripts:
+        scripts_plan = deploy_runtime_scripts(Path(args.shared_root), runtime_root=runtime_root, dry_run=args.dry_run)
+        print(json.dumps(scripts_plan, indent=2))
     return 0
 
 

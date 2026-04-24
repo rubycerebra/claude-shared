@@ -90,6 +90,50 @@ def deploy_shared_core(
     return plan
 
 
+def deploy_runtime_scripts(
+    shared_root: Path,
+    runtime_root: Path | None = None,
+    *,
+    dry_run: bool = False,
+) -> dict:
+    """Deploy standalone scripts from claude-shared/scripts/ to ~/.claude/scripts/."""
+    shared_root = shared_root.resolve()
+    runtime_root = (runtime_root or (Path.home() / '.claude' / 'scripts')).resolve()
+    scripts_src = shared_root / 'scripts'
+
+    deployed: list[dict] = []
+    changed: list[str] = []
+
+    for src in sorted(scripts_src.glob('*.py')):
+        if src.name == 'deploy-claude-core.py':
+            continue  # skip the deploy tool itself
+        rel = src.name
+        digest = _sha256_of(src)
+        deployed.append({'path': rel, 'sha256': digest})
+
+    plan = {
+        'scripts_src': str(scripts_src),
+        'runtime_root': str(runtime_root),
+        'deployed_at': datetime.now(timezone.utc).isoformat(),
+        'dry_run': dry_run,
+        'scripts': deployed,
+        'changed': changed,
+    }
+    if dry_run:
+        return plan
+
+    runtime_root.mkdir(parents=True, exist_ok=True)
+    for entry in deployed:
+        src = scripts_src / entry['path']
+        dst = runtime_root / entry['path']
+        if dst.exists() and _sha256_of(dst) == entry['sha256']:
+            continue
+        shutil.copy2(src, dst)
+        changed.append(f"updated:{entry['path']}")
+
+    return plan
+
+
 def verify_deployment(runtime_root: Path | None = None) -> dict:
     runtime_root = (runtime_root or (Path.home() / '.claude' / 'scripts')).resolve()
     manifest_path = runtime_root / MANIFEST_NAME
