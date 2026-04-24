@@ -179,7 +179,8 @@ def cleanup_transcription(text):
     if not text or len(text) < 20:
         return text
 
-    corrections_file = Path.home() / ".claude" / "config" / "transcription-fixes.json"
+    from ..config import build_runtime_config
+    corrections_file = build_runtime_config().paths.transcription_fixes
     custom_fixes = {}
     if corrections_file.exists():
         try:

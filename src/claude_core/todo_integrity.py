@@ -17,8 +17,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-CACHE_FILE_DEFAULT = Path.home() / ".claude" / "cache" / "session-data.json"
-TRACKER_DIR_DEFAULT = Path.home() / ".claude" / "cache" / "akiflow-tracker"
+from .config import build_runtime_config as _build_cfg
+
+_paths = _build_cfg().paths
+CACHE_FILE_DEFAULT = _paths.session_data
+TRACKER_DIR_DEFAULT = _paths.akiflow_tracker_dir
 LOCK_PHRASE_RE = re.compile(
     r"^✅ Time blocking finalised for (\d{4}-\d{2}-\d{2})\. Please start locked tracking\.$"
 )

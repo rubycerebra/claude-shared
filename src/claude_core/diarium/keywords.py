@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import re
 import sys
-from pathlib import Path
 
 
 def find_mental_health_keywords(text, use_ai=False):
@@ -17,7 +16,8 @@ def find_mental_health_keywords(text, use_ai=False):
     """
     if use_ai and text and len(text) > 50:
         try:
-            scripts_dir = str(Path.home() / ".claude" / "scripts")
+            from ..config import build_runtime_config
+            scripts_dir = str(build_runtime_config().paths.scripts_dir)
             if scripts_dir not in sys.path:
                 sys.path.insert(0, scripts_dir)
             from shared.ai_service import try_ai_analysis

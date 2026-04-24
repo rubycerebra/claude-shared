@@ -22,12 +22,12 @@ import os
 import sys
 import re
 import json
-import zipfile
 from pathlib import Path
 from datetime import datetime, timedelta
 
 # Image cache directory
-IMAGE_CACHE_DIR = Path.home() / ".claude" / "cache" / "diarium-images"
+from .config import build_runtime_config as _build_cfg
+IMAGE_CACHE_DIR = _build_cfg().paths.diarium_images_dir
 KNOWN_LOCATIONS_FILE = Path(__file__).resolve().parent / "known-locations.json"
 SECTION_STATUS_ABSENT = "ABSENT"
 SECTION_STATUS_PRESENT_EMPTY = "PRESENT_EMPTY"
@@ -505,7 +505,7 @@ def get_analysis_context(entry, use_ai=False):
     ai_analysis_done = False
     if use_ai and context['full_morning_pages']:
         try:
-            scripts_dir = str(Path.home() / ".claude" / "scripts")
+            scripts_dir = str(_build_cfg().paths.scripts_dir)
             if scripts_dir not in sys.path:
                 sys.path.insert(0, scripts_dir)
             from shared.ai_service import try_ai_analysis
@@ -827,16 +827,12 @@ def find_fallback_diarium_files(export_folder, today, now=None, recent_hours=48,
     return [row["path"] for row in selected], reason
 
 def main():
-    # Read diarium_export_dir from daemon config if available (NUC Windows uses C:\SyncData\Diarium-Export)
+    from .config import build_runtime_config
+    _paths = build_runtime_config().paths
+
+    # Read diarium_export_dir from daemon config if available
     _daemon_export_dir = None
-    _daemon_config_paths = [
-        # Service-local config (always accessible regardless of user profile context)
-        Path("C:/SyncData/claude-daemon/config.json"),
-        # User-profile config paths (work when Path.home() resolves correctly)
-        Path.home() / ".claude" / "daemon" / "config.json",
-        Path("C:/Users/James Cherry/.claude/daemon/config.json"),
-    ]
-    for _cfg_path in _daemon_config_paths:
+    for _cfg_path in _paths.daemon_config_candidates:
         try:
             _cfg = json.loads(_cfg_path.read_text(encoding="utf-8"))
             if _cfg.get("diarium_export_dir"):
@@ -846,18 +842,8 @@ def main():
             pass
 
     _candidate_dirs = [
-        # Daemon config override (NUC Windows: C:\SyncData\Diarium-Export)
         *([_daemon_export_dir] if _daemon_export_dir else []),
-        # NUC Windows hardcoded fallback (Syncthing-synced export dir)
-        Path("C:/SyncData/Diarium-Export"),
-        # macOS: Google Drive for Desktop (stream mode)
-        Path.home() / "My Drive (james.cherry01@gmail.com)" / "Diarium" / "Export",
-        # macOS: Google Drive for Desktop (mirror mode / CloudStorage)
-        Path.home() / "Library" / "CloudStorage" / "GoogleDrive-james.cherry01@gmail.com" / "My Drive" / "Diarium" / "Export",
-        # Windows native: Google Drive for Desktop mounts as a drive letter (e.g. G:\My Drive\Diarium\Export)
-        *(Path(f"{d}:/My Drive/Diarium/Export") for d in "GHIJKLMNOPQRSTUVWXYZ"),
-        # Windows/WSL: Google Drive for Desktop mounts as a drive letter
-        *(Path(f"/mnt/{d.lower()}") / "My Drive" / "Diarium" / "Export" for d in "GHIJKLMNOPQRSTUVWXYZ"),
+        *_paths.diarium_export_roots,
     ]
     export_folder = next((p for p in _candidate_dirs if p.exists()), None)
 
@@ -994,7 +980,7 @@ def main():
         # Markdown fallback: Syncthing-synced Diarium export
         _md_fallback_used = False
         if not matching_files:
-            md_fallback = Path.home() / ".claude" / "cache" / "diarium-md" / f"{today}.md"
+            md_fallback = _paths.diarium_md_dir / f"{today}.md"
             if md_fallback.exists():
                 _md_fallback_used = True
                 text = md_fallback.read_text(encoding="utf-8")

@@ -12,11 +12,8 @@ from typing import Sequence
 
 
 def _default_health_roots() -> list[Path]:
-    return [
-        Path.home() / "Library" / "CloudStorage" / "GoogleDrive-james.cherry01@gmail.com" / "My Drive" / "Apple Health",
-        Path.home() / "My Drive (james.cherry01@gmail.com)" / "Apple Health",
-        *(Path(f"/mnt/{drive.lower()}") / "My Drive" / "Apple Health" for drive in "GHIJKLMNOPQRSTUVWXYZ"),
-    ]
+    from ..config import build_runtime_config
+    return build_runtime_config().paths.apple_health_roots
 
 
 def _normalise_search_roots(search_roots: Sequence[str | Path] | None = None) -> list[Path]:

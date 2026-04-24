@@ -5,7 +5,8 @@ phase_status:
   near_duplicate_split: implemented_for_health_parsers_and_sleep_fallback
   hook_session_start_split: implemented_two_registered_hooks_converted_plus_cli
   deploy_hardening: implemented
-  large_file_decomposition: health_metrics_complete_diarium_pending
+  large_file_decomposition: health_metrics_complete_diarium_complete
+  path_centralisation: implemented_config_properties_plus_module_wiring
   final_adapter_pass: in_progress_settings_fixes_and_sequenced_gate_done
 surfaces:
   - surface: claude-shared/src/claude_core/config.py

@@ -59,7 +59,9 @@ def find_mental_health_keywords(dialogue_lines):
 
 def alter_main(argv: list[str] | None = None, *, alter_folder: Path | None = None) -> int:
     argv = list(argv or sys.argv[1:])
-    alter_folder = alter_folder or Path.home() / 'Library/Application Support/Alter/Transcripts'
+    if alter_folder is None:
+        from .config import build_runtime_config
+        alter_folder = build_runtime_config().paths.alter_transcripts_dir
     if argv:
         file_path = argv[0]
         metadata, dialogue = parse_alter_transcript(file_path)

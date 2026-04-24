@@ -11,8 +11,108 @@ from .device_roles import DeviceRole, guess_device_role
 class SharedPaths:
     project_root: Path
     claude_shared_root: Path
-    runtime_root: Path
-    cache_root: Path
+    runtime_root: Path        # ~/.claude
+    cache_root: Path           # ~/.claude/cache
+
+    # --- Cache files ---
+
+    @property
+    def session_data(self) -> Path:
+        return self.cache_root / "session-data.json"
+
+    @property
+    def health_live(self) -> Path:
+        return self.cache_root / "health-live.json"
+
+    @property
+    def diarium_images_dir(self) -> Path:
+        return self.cache_root / "diarium-images"
+
+    @property
+    def diarium_md_dir(self) -> Path:
+        return self.cache_root / "diarium-md"
+
+    @property
+    def akiflow_tracker_dir(self) -> Path:
+        return self.cache_root / "akiflow-tracker"
+
+    # --- Config files ---
+
+    @property
+    def config_dir(self) -> Path:
+        return self.runtime_root / "config"
+
+    @property
+    def daemon_config(self) -> Path:
+        return self.runtime_root / "daemon" / "config.json"
+
+    @property
+    def transcription_fixes(self) -> Path:
+        return self.config_dir / "transcription-fixes.json"
+
+    @property
+    def secrets(self) -> Path:
+        return self.runtime_root / "secrets.json"
+
+    # --- Scripts ---
+
+    @property
+    def scripts_dir(self) -> Path:
+        return self.runtime_root / "scripts"
+
+    @property
+    def shared_lib_dir(self) -> Path:
+        return self.scripts_dir / "shared"
+
+    # --- External data roots ---
+
+    @property
+    def gdrive_roots(self) -> list[Path]:
+        """Google Drive root candidates (Mac stream, Mac mirror, Windows drive letters)."""
+        return [
+            Path.home() / "My Drive (james.cherry01@gmail.com)",
+            Path.home() / "Library" / "CloudStorage" / "GoogleDrive-james.cherry01@gmail.com" / "My Drive",
+            *(Path(f"{d}:/My Drive") for d in "GHIJKLMNOPQRSTUVWXYZ"),
+            *(Path(f"/mnt/{d.lower()}") / "My Drive" for d in "GHIJKLMNOPQRSTUVWXYZ"),
+        ]
+
+    @property
+    def diarium_export_roots(self) -> list[Path]:
+        """Candidate Diarium export directories across devices."""
+        return [
+            Path("C:/SyncData/Diarium-Export"),
+            *(root / "Diarium" / "Export" for root in self.gdrive_roots),
+        ]
+
+    @property
+    def apple_health_roots(self) -> list[Path]:
+        """Candidate Apple Health export directories across devices."""
+        return [root / "Apple Health" for root in self.gdrive_roots]
+
+    @property
+    def alter_transcripts_dir(self) -> Path:
+        return Path.home() / "Library" / "Application Support" / "Alter" / "Transcripts"
+
+    # --- Session-end gate files ---
+
+    @property
+    def commit_gate_file(self) -> Path:
+        return self.config_dir / "session-end-allow-commit"
+
+    @property
+    def push_gate_file(self) -> Path:
+        return self.config_dir / "session-end-allow-push"
+
+    # --- Daemon config candidates (multi-device) ---
+
+    @property
+    def daemon_config_candidates(self) -> list[Path]:
+        """Daemon config paths tried in order (NUC service-local, user profile, Windows fallback)."""
+        return [
+            Path("C:/SyncData/claude-daemon/config.json"),
+            self.daemon_config,
+            Path("C:/Users/James Cherry/.claude/daemon/config.json"),
+        ]
 
 
 @dataclass(frozen=True)

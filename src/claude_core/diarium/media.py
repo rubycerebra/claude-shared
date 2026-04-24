@@ -7,7 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-IMAGE_CACHE_DIR = Path.home() / ".claude" / "cache" / "diarium-images"
+from ..config import build_runtime_config
+
+IMAGE_CACHE_DIR = build_runtime_config().paths.diarium_images_dir
 
 
 def extract_images_from_docx(file_path, date_str=None):
