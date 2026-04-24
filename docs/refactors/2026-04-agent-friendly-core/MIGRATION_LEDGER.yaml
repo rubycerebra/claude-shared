@@ -157,3 +157,31 @@ surfaces:
     status: wrapper
     classification: project-wrapper
     target: claude_core.health_metrics.apple_health_main
+  - surface: HEALTH/.helpers/format_memory.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.session_context.format_memory_main
+  - surface: TODO/.helpers/format_memory.py
+    status: wrapper
+    classification: project-wrapper
+    target: claude_core.session_context.format_memory_main
+  - surface: claude-shared/src/claude_core/dashboard_pipeline.py
+    status: deleted
+    classification: dead-code
+    notes: empty 5-byte stub, never had any logic
+  - surface: HEALTH/.helpers/sleep_fallback 2.py
+    status: deleted
+    classification: dead-code
+    notes: stale duplicate of sleep_fallback.py
+  - surface: HEALTH/.claude/hooks/session-end.sh
+    status: converted
+    classification: registered-hook
+    target: claude_core.hooks session-end --check-gates
+  - surface: TODO/.claude/hooks/session-end.sh
+    status: converted
+    classification: registered-hook
+    target: claude_core.hooks session-end
+  - surface: WORK/.claude/hooks/session-end.sh
+    status: converted
+    classification: registered-hook
+    target: claude_core.hooks session-end

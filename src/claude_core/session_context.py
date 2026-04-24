@@ -141,6 +141,105 @@ def generate_context(project_root: Path | None = None) -> str:
     return '\n'.join(output) + '\n'
 
 
+def format_calendar_events(events: list[dict]) -> str:
+    """Format calendar events into readable list (used by format_memory)."""
+    if not events:
+        return 'No events today'
+    output = []
+    for event in events:
+        time_range = format_time_range(event.get('start', ''), event.get('end', ''))
+        calendar = event.get('calendar', 'Unknown')
+        summary = event.get('summary', 'Untitled')
+        output.append(f"• **{summary}** ({time_range}) [{calendar}]")
+    return '\n'.join(output)
+
+
+def format_notes(notes: list[str]) -> str:
+    """Format Apple Notes references."""
+    if not notes:
+        return 'No notes available'
+    return '\n'.join([f'• {note}' for note in notes])
+
+
+def generate_memory(project_root: Path | None = None) -> str:
+    """Generate formatted memory snapshot from daemon cache."""
+    cfg = build_runtime_config(project_root)
+    cache_file = cfg.paths.cache_root / 'session-data.json'
+    if not cache_file.exists():
+        return "⚠️ **Daemon cache not found** - Run `~/.claude/daemon/data_collector.py` first"
+
+    data = json.loads(cache_file.read_text(encoding='utf-8'))
+
+    output = [
+        '# Memory Snapshot',
+        '',
+        f"**Generated:** {data.get('timestamp', '')}",
+        f"**Date:** {data.get('date_full', '')}",
+        f"**Time:** {data.get('time', '')}",
+        '',
+        '---',
+        '',
+        '## 📅 Calendar',
+        '',
+    ]
+
+    if data.get('calendar', {}).get('status') == 'success':
+        output.append(f"**Events today:** {data['calendar'].get('count', 0)}")
+        output.append('')
+        output.append(format_calendar_events(data['calendar'].get('events', [])))
+    else:
+        output.append(f"⚠️ Calendar: {data.get('calendar', {}).get('message', 'Error')}")
+
+    output.extend(['', '---', ''])
+
+    output.append('## 🌅 Diarium')
+    output.append('')
+    if data.get('diarium', {}).get('status') == 'success':
+        diarium = data['diarium']
+        output.append(f"**Grateful for:** {diarium.get('grateful', 'N/A')}")
+        output.append(f"**Intent for today:** {diarium.get('intent', 'N/A')}")
+    else:
+        output.append(f"⚠️ Diarium: {data.get('diarium', {}).get('message', 'Error')}")
+
+    output.extend(['', '---', ''])
+
+    output.append('## 📝 Apple Notes (Daily Notes)')
+    output.append('')
+    if data.get('notes', {}).get('status') == 'success':
+        output.append(format_notes(data['notes'].get('notes', [])))
+    else:
+        output.append(f"⚠️ Notes: {data.get('notes', {}).get('message', 'Error')}")
+
+    output.extend(['', '---', ''])
+
+    output.append('## 🔄 Open Loops (Yesterday)')
+    output.append('')
+    if data.get('open_loops', {}).get('status') == 'success':
+        loops = data['open_loops'].get('loops', [])
+        if loops:
+            for loop in loops:
+                output.append(f'• {loop}')
+        else:
+            output.append('✅ No open loops from yesterday')
+    else:
+        output.append(f"⚠️ Open loops: {data.get('open_loops', {}).get('message', 'No journal from yesterday')}")
+
+    return '\n'.join(output)
+
+
+def format_memory_main(project_root: Path | None = None, argv: list[str] | None = None) -> int:
+    """Generate and save memory.md from daemon cache."""
+    del argv
+    root = _project_root(project_root)
+    output_file = root / 'memory.md'
+    memory = generate_memory(project_root=project_root)
+    output_file.write_text(memory, encoding='utf-8')
+    print(f'✅ Memory generated: {output_file}')
+    print()
+    print(memory)
+    return 0
+
+
 def format_non_code_context_main(project_root: Path | None = None, argv: list[str] | None = None) -> int:
     del argv
     root = _project_root(project_root)
