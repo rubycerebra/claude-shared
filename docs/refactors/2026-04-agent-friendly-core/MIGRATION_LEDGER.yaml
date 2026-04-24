@@ -5,7 +5,7 @@ phase_status:
   near_duplicate_split: implemented_for_health_parsers_and_sleep_fallback
   hook_session_start_split: implemented_two_registered_hooks_converted_plus_cli
   deploy_hardening: implemented
-  large_file_decomposition: in_progress_pattern_proven_first_modules_split
+  large_file_decomposition: health_metrics_complete_diarium_pending
   final_adapter_pass: in_progress_settings_fixes_and_sequenced_gate_done
 surfaces:
   - surface: claude-shared/src/claude_core/config.py
@@ -185,3 +185,19 @@ surfaces:
     status: converted
     classification: registered-hook
     target: claude_core.hooks session-end
+  - surface: claude-shared/src/claude_core/health/autosleep.py
+    status: implemented
+    classification: shared-core
+    notes: extracted from health_metrics.py — AutoSleep CSV parser + CLI
+  - surface: claude-shared/src/claude_core/health/apple.py
+    status: implemented
+    classification: shared-core
+    notes: extracted from health_metrics.py — Apple Health CSV parser + CLI
+  - surface: claude-shared/src/claude_core/health/fallback.py
+    status: implemented
+    classification: shared-core
+    notes: extracted from health_metrics.py — sleep fallback orchestrator
+  - surface: claude-shared/src/claude_core/health_metrics.py
+    status: re-export-layer
+    classification: shared-core
+    notes: 736→76 lines, all logic moved to health/ submodules
