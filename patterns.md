@@ -40,6 +40,16 @@ Cross-project patterns observed over time. Updated by weekly analysis pipeline +
 - Reframe: Do things for their own sake, self-acknowledge accomplishments
 - Note for therapy: Discuss with Samantha
 
+### Favouritism Accusation → Dad/Sister Wound (New: 2026-04-23)
+- Janna accused Jim of favouring Blossom over Tilly — hit a generational nerve
+- Triggers childhood wound: dad and sister dynamic, "being told I'm causing harm when I'm doing my best"
+- Jim connects more easily with Blossom (shared spectrum traits) but this ≠ favouritism — therapy confirmed this distinction (Samantha, 2026-04-23)
+- Distinct from Recognition Deficit: that pattern is about invisible labour; this is about being cast as harmful parent
+- Jim admits shutting Tilly down faster when she's difficult — worth honest self-monitoring without self-punishment
+- Containment response: chose not to react, routed to therapy — Adaptive Compression in action
+- Evidence: 2026-04-23 Diarium + therapy transcript
+- **Watch for:** this one runs deep and will likely resurface during high-stress parenting moments
+
 ### "Should" Language Awareness (From Therapy)
 - "Should" creates pressure and self-criticism
 - Replace with: "It would have been nice to..." or "I can learn from that"
