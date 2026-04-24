@@ -1,26 +1,23 @@
 # Next Action
 
-## Completed in this session (phase-10)
-- Decomposed `health_metrics.py` (736 LOC) into 4 submodules:
-  - `health/autosleep.py` (149 LOC) — AutoSleep CSV parser + CLI
-  - `health/apple.py` (253 LOC) — Apple Health CSV parser + CLI
-  - `health/fallback.py` (332 LOC) — Sleep fallback orchestrator (AutoSleep → Apple Health → HealthFit)
-  - `health/discovery.py` (112 LOC) — already extracted in phase-07
-- `health_metrics.py` is now 76 lines of re-exports for backward compatibility
+## Completed in this session (phase-11)
+- Decomposed `diarium_ingest.py` (2,170 LOC → 1,305 LOC) into 5 submodules:
+  - `diarium/media.py` (109 LOC) — image/media extraction from DOCX/ZIP
+  - `diarium/text.py` (370 LOC) — text extraction, HTML→text, cleanup, strip functions
+  - `diarium/keywords.py` (191 LOC) — mental health keyword detection (7 domains)
+  - `diarium/todos.py` (192 LOC) — todo extraction, categorisation, estimation
+  - `diarium/location.py` (111 LOC) — already extracted in phase-07
+- `diarium_ingest.py` retains: parse_diarium_entry, structured extractors, get_analysis_context, file discovery, main
 - All 84 tests pass — no regressions
 
-## Previously completed (phase-09)
-- Dead code cleanup, format_memory migration, submodule tests, session-end hook dedup
+## Previously completed
+- Phase-10: health_metrics.py decomposed (736 → 76 LOC re-exports + 4 submodules)
+- Phase-09: dead code cleanup, format_memory migration, submodule tests, session-end hook dedup
 
-## Do next (post phase-10)
-1. **Decompose `diarium_ingest.py`** (2,170 LOC). Clusters identified:
-   - images/media extraction (~5 functions)
-   - todo extraction (~5 functions)
-   - text cleaning/parsing (~10 functions)
-   - mental health keyword analysis (~5 functions)
-   - core entry parsing (remaining ~15 functions — stays in main module)
+## Do next (post phase-11)
+1. **Centralise hardcoded paths into `claude_core.config`.** Many scripts and CLAUDE.md files reference `~/.claude/cache/`, `~/.claude/scripts/`, Google Drive paths, etc. as hardcoded strings. Move these into `config.py` so agents can look up paths programmatically instead of scanning for them.
 2. **Version-control runtime scripts.** Move `~/.claude/scripts/api-server.py` and `~/.claude/scripts/run-sequenced-codex.py` source-of-truth into `claude-shared`.
 3. **Triage 13 unrelated pending files** in `~/.claude/scripts` working tree.
 
 ## Bead updates needed
-- `TODO-isgj` — note phase-10 complete; health_metrics fully decomposed.
+- `TODO-isgj` — note phase-11 complete; diarium_ingest fully decomposed.
