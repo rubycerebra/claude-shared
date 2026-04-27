@@ -387,3 +387,24 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - Over-investment in worries beyond control creates anxiety spiral; pattern breaks with reminder 'I can only do so much as one person'
 - Work concerns intrude on personal time even with minimal workload; requires explicit time-blocking to compartmentalize
 - Heightened sensory sensitivity (aversion to loud noises) emerges during high-stress family situations
+
+
+## AI refresh — 2026-04-27
+- Work anxiety cycle: recurring worry about lack of work, project delays, contact relationships — escalates overthinking about being 'not enough'
+- Parenting vulnerability pattern: when emotionally drained (Tilly meltdown), receives criticism instead of support — triggers childhood wound of 'being told I'm causing harm when doing my best' (father/sister dynamic)
+- Body signals anxiety early: throat tension (work worry), 'lightness and anxiety' (possibly medication timing) — body is reliable early-warning system
+- Pre-event cascade: stag do prep + family conflict + work uncertainty compound together, creating spiral of dread and emotional depletion
+
+
+## AI refresh — 2026-04-27
+- Work anxiety localizes in throat as physical tension when overthinking about adequacy/people-pleasing — 2026-04-21
+- Family conflict around parenting triggers deep paternal wound: being blamed/accused of causing harm when doing his best mirrors father/sister dynamic — hit deep 2026-04-23
+- Emotional depletion after intensive caregiving (Tilly's difficult day) + feeling unappreciated reduces patience and triggers defensiveness — 2026-04-23 evening collapse
+- Medication side effects (anxiety/lightness) compound stress during work uncertainty periods — noticed as separate from anxiety source 2026-04-22
+
+
+## AI refresh — 2026-04-27
+- Work uncertainty + external delays trigger throat tension and self-doubt about adequacy despite intellectually knowing the delay is external — overthinking masks real facts (2026-04-21/22)
+- Unappreciation or criticism from partner after high-emotional-labour parenting days triggers childhood trauma (dad/sister blame dynamic) and sleep rupture; apologies become one-way (2026-04-23)
+- Anxiety about medication effectiveness emerges as unexplained lightness/anxiety sensations; Jim catches it and monitors (2026-04-22)
+- Hip stiffness from prolonged sitting exacerbates anxiety and body tension; movement breaks are regulatory (2026-04-22)
