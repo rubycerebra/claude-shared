@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated": "2026-04-18",
+  "generated": "2026-04-27",
   "projects": {
     "WORK": {
       "root": "/Users/jamescherry/Documents/Claude Projects/WORK",
@@ -8,9 +8,6 @@
       "bridge_file": "/Users/jamescherry/Documents/Claude Projects/WORK/.claude/persona/bridge.md",
       "read_paths": [
         "/Users/jamescherry/Documents/Claude Projects/WORK/.claude/persona",
-        "/Users/jamescherry/Documents/Claude Projects/WORK/.cache/work-projects.json",
-        "/Users/jamescherry/Documents/Claude Projects/WORK/outreach/chris-rate-draft.md",
-        "/Users/jamescherry/Documents/Claude Projects/WORK/.plan/freelance-chris-2026.md",
         "/Users/jamescherry/.claude/cache/session-brief-WORK.md"
       ],
       "qmd_collections": [
@@ -35,11 +32,6 @@
       "bridge_file": "/Users/jamescherry/Documents/Claude Projects/HEALTH/.claude/persona/bridge.md",
       "read_paths": [
         "/Users/jamescherry/Documents/Claude Projects/HEALTH/.claude/persona",
-        "/Users/jamescherry/Documents/Claude Projects/HEALTH/fitness-log.md",
-        "/Users/jamescherry/Documents/Claude Projects/HEALTH/therapy-brief-2026-04-18.md",
-        "/Users/jamescherry/Documents/Claude Projects/HEALTH/therapy-brief-2026-04-17.md",
-        "/Users/jamescherry/Documents/Claude Projects/claude-shared/patterns.md",
-        "/Users/jamescherry/Documents/Claude Projects/claude-shared/what-works.txt",
         "/Users/jamescherry/.claude/cache/session-brief-HEALTH.md"
       ],
       "qmd_collections": [
@@ -64,11 +56,7 @@
       "bridge_file": "/Users/jamescherry/Documents/Claude Projects/TODO/.claude/persona/bridge.md",
       "read_paths": [
         "/Users/jamescherry/Documents/Claude Projects/TODO/.claude/persona",
-        "/Users/jamescherry/Documents/Claude Projects/TODO/.claude/CLAUDE.md",
-        "/Users/jamescherry/Documents/Claude Projects/TODO/BEAD-LABELS.md",
-        "/Users/jamescherry/Documents/Claude Projects/TODO/non-code-context.md",
-        "/Users/jamescherry/.claude/cache/session-brief-TODO.md",
-        "/Users/jamescherry/Documents/Claude Projects/claude-shared/context-bridge.md"
+        "/Users/jamescherry/.claude/cache/session-brief-TODO.md"
       ],
       "qmd_collections": [
         "system",
@@ -85,5 +73,6 @@
         "\\b[A-Z][A-Za-z0-9_-]+\\b"
       ]
     }
-  }
+  },
+  "note": "Token-lean per-project manifest: startup read paths only; deeper docs discovered via project persona INDEX/QMD on demand."
 }
