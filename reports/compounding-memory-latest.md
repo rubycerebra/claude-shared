@@ -1,25 +1,21 @@
-# Compounding Memory Snapshot — 2026-03-23
+# Compounding Memory Snapshot — 2026-04-28
 
 This file is updated from the dashboard compounding layer so future sessions/QMD can recall cross-day context, not just same-day UI state.
 
-- Headline: Momentum and Physical can carry the day, but recovery needs pacing.
-- Today throughput: 13
-- 7d throughput avg: 25.0
-- 30d throughput avg: 25.0
+- Headline: Emotional and Physical can carry the day, but focus needs pacing.
+- Today throughput: 0
+- 7d throughput avg: 11.0
+- 30d throughput avg: 19.6
 
 ## Increasing
-- Admin is the strongest completed domain today.
+- The compounding layer is online, but it still needs a few more days of snapshots for stronger trend claims.
 
 ## Stalling
-- Fix recurring gmail error keeps resurfacing and needs a real close-loop move.
-- Maintenance drag is building faster than it is being closed.
+- No major repeating stall surfaced beyond the live task load.
 
 ## Prioritise next
-- Fix recurring gmail error — seen 5 days, prevents decay.
-- Do morning yoga stretch before other tasks — seen 5 days, prevents decay.
-- Get as much fresh air as possible — seen 5 days, admin is a domain with recent follow-through.
+- No compounding priority candidates yet — fall back to the clearest single next task.
 
 ## Conversation recall cues
-- Fix recurring gmail error — seen 5 days, prevents decay.
-- Do morning yoga stretch before other tasks — seen 5 days, prevents decay.
-- Fix recurring gmail error keeps resurfacing and needs a real close-loop move.
+- No compounding priority candidates yet — fall back to the clearest single next task.
+- No major repeating stall surfaced beyond the live task load.
