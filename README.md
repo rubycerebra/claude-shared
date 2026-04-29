@@ -1,41 +1,9 @@
-# 🧠 claude-shared
+# claude-core
 
-This folder is now split by purpose.
+Claude-first shared-core package for the HEALTH, WORK, TODO, and `~/.claude` runtime surfaces.
 
-## Keep at root
-
-Only keep files here if they are:
-
-- shared context used across projects
-- dashboard generators / outputs
-- current Codex prompts
-- current weekly summaries you actively read
-
-Examples:
-
-- `journal/`
-- `wins.md`
-- `patterns.md`
-- `mental-health-insights.md`
-- `context-bridge.md`
-- `PERSONAL-PREFERENCES-v3.md`
-- `generate-dashboard.py` (legacy HTML snapshot generator)
-- `CODEX-PROMPT-*.md`
-
-## New homes
-
-- `guides/` → integration notes, MCP rules, sync docs
-- `reports/` → dated audits, status write-ups, system reviews
-- `setup-notes/` → older setup instructions and setup-era status docs
-
-### Auto-routing
-
-The weekly tidy script also auto-files dated shared status-style docs into:
-
-- `reports/auto/YYYY-MM/`
-
-## Rule of thumb
-
-- If it is **project-specific**, do **not** put it here.
-- If it is **shared and current**, keep it here.
-- If it is **shared but historical**, move it into a subfolder.
+## Principles
+- `claude-shared` is the canonical authoring source.
+- `~/.claude` is runtime/deploy output.
+- NUC/Windows owns canonical always-on runtime writes.
+- Mac acts as interface / bridge / overlay.

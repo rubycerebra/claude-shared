@@ -1,0 +1,32 @@
+{
+  "locations": [
+    {
+      "canonical": "40B Whinyates Road, London SE9 6NN",
+      "aliases": [
+        "Whinyates Road",
+        "Whinyates Rd",
+        "40B Whinyates Road",
+        "40 Whinyates Road",
+        "40 P Winnieux Road",
+        "P Winnieux Road",
+        "Winnieux Road",
+        "SE9 6NN",
+        "SE96NN",
+        "S E 96NN"
+      ]
+    },
+    {
+      "canonical": "Paddington Station, London",
+      "aliases": [
+        "Paddington Station",
+        "London Paddington"
+      ]
+    },
+    {
+      "canonical": "Woolwich, London",
+      "aliases": [
+        "Woolwich"
+      ]
+    }
+  ]
+}

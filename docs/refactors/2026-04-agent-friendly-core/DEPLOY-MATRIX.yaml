@@ -1,0 +1,21 @@
+deploy_targets:
+  - name: claude_shared_source
+    role: authoring_source
+    path: /Users/jamescherry/Documents/Claude Projects/claude-shared
+    writable: true
+  - name: runtime_output
+    role: deployed_runtime
+    path: /Users/jamescherry/.claude/scripts
+    writable: true
+  - name: mac_interface
+    role: mac_interface
+    path: /Users/jamescherry/Documents/Claude Projects
+    writable: true
+  - name: nuc_runtime
+    role: nuc_runtime
+    path: C:/SyncData
+    writable: true
+sync_policies:
+  session-data.json: single_writer
+  local-overlays: local_overlay
+  source-repos: replicated_readonly

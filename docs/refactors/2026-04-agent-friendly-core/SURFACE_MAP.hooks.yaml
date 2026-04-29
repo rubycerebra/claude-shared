@@ -1,0 +1,84 @@
+# Hook / session-start surface inventory
+# Generated during phase-04 of the agent-friendly-core refactor.
+#
+# Registration reality (~/.claude/settings.json -> SessionStart):
+#   The SessionStart event runs 14 hooks DIRECTLY — it does NOT invoke
+#   ~/.claude/hooks/session-start.sh. That file is an orphaned canonical
+#   wrapper kept for audit compliance. Converting it is a low-risk proof
+#   slice; the real orchestration surface is the settings.json array.
+#
+# Role tags:
+#   shared     — logic that should live in claude_core, no device branching
+#   mac        — Mac-interface-specific (bridge, iCloud, notes, etc.)
+#   nuc        — NUC-runtime-specific (daemon, API, schtasks, NSSM)
+#   agnostic   — runs fine on both, no device dependency
+#   device     — branches internally on device role
+#   guard      — defensive / refusal gate (no orchestration)
+
+registered_session_start_hooks:
+  - script: scripts/regenerate_session_brief.py
+    role: shared
+    notes: cache-writer for per-project brief; writes to ~/.claude/cache
+  - script: external (bd prime --mcp)
+    role: agnostic
+  - script: hooks/icloud-prefetch.sh
+    role: mac
+    notes: macOS-only iCloud brctl prefetch
+  - script: hooks/token-milestone-alert.sh
+    role: agnostic
+  - script: hooks/triage-ideas-note.sh
+    role: agnostic
+  - script: hooks/sequenced-autopilot-session-start.sh
+    role: shared
+    notes: cooldown + lock + mode dispatch + backgrounded python runner — prime extraction target
+  - script: hooks/audit-warning.sh
+    role: agnostic
+  - script: hooks/session-timer.sh
+    role: agnostic
+  - script: hooks/session-lifecycle.sh start
+    role: shared
+    notes: session tracking; candidate for claude_core.hooks session wiring
+  - script: hooks/bead-code-probe.sh
+    role: agnostic
+  - script: hooks/vexp-integrity-check.sh
+    role: agnostic
+  - script: hooks/bead-prompt-audit.sh
+    role: agnostic
+  - script: hooks/lumen-reindex.sh
+    role: device
+    notes: Mac/NUC/WSL branching present; re-index pipeline
+  - script: scripts/sync-sessions-to-qmd.py (bash background)
+    role: shared
+
+orphaned_hooks:
+  - script: hooks/session-start.sh
+    role: shared
+    notes: kept for audit compliance; safe proof-of-conversion target
+
+device_branching_hooks:
+  - hooks/lumen-reindex.sh
+  - hooks/wsl-guard.sh
+
+guard_hooks:
+  - hooks/wsl-guard.sh
+  - hooks/block-git-push.sh
+  - hooks/bypass-hardcoded-dirs.sh
+  - hooks/beads-prefix-guard.sh
+  - hooks/vexp-guard.sh
+
+extraction_order:
+  - priority: 1
+    target: cooldown + lockfile primitives
+    source: hooks/sequenced-autopilot-session-start.sh
+    destination: claude_core.hooks
+    rationale: only hook with non-trivial orchestration worth centralising
+  - priority: 2
+    target: device-role dispatch helper
+    source: cross-cutting (currently duplicated in lumen-reindex.sh, wsl-guard.sh)
+    destination: claude_core.hooks.dispatch_by_role
+    rationale: one source of truth for Mac/NUC branching
+  - priority: 3
+    target: session-start canonical wrapper
+    source: hooks/session-start.sh
+    destination: python3 -m claude_core.hooks session_start
+    rationale: proof slice; orphaned so low blast radius
