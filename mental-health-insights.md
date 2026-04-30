@@ -2,7 +2,7 @@
 
 Key patterns and insights extracted from Diarium entries, therapy sessions, and weekly analyses. Updated by weekly analysis pipeline.
 
-<!-- _last_updated: 2026-W14 | _auto_update: update-living-docs.py -->
+<!-- _last_updated: 2026-W16 | _auto_update: update-living-docs.py -->
 
 ---
 
@@ -286,3 +286,38 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 *Pieces Persona Sync section removed 2026-03-10: auto-sync was pulling truncated third-party data (Paul Wilson, Meghan Rainsberry), not Jim's persona. Needs rebuild if Pieces persona is useful for therapy context.*
 
 *Pieces Persona Sync removed — auto-sync was pulling third-party data (not Jim's persona). 2026-04-06.*
+
+
+## AI refresh — 2026-04-19
+- Being present with daughters' nervousness helps them stay calm — Jim's calmness cascades to them
+- Can only do so much as one person; over-investment in worries reduces effectiveness
+- Different forms of caring work for different people; finding the right form matters more than trying harder
+- Energy management principle: with less sleep, accept quarter less effort instead of pushing
+
+
+## AI refresh — 2026-04-19
+- Co-regulation with daughters works bidirectionally — being calm and present for them regulates my own nervous system, not the other way around
+- Purpose anchor (being there for daughters' growth/thriving) provides emotional stability and reduces baseline anxiety
+- Physical wellness (hydration, shower) directly impacts nervous system state; neglecting basics amplifies anxious arousal
+- Accepting personal limitations as one human reduces anxiety spiral and clarifies what's actually actionable
+
+
+## AI refresh — 2026-04-27
+- Early meta-awareness of anxiety loop: recognizes his own overthinking in real time ('I know it's overthinking') — useful lever for breaking thought spirals
+- Partnership support gap is critical: lacks emotional validation when vulnerable; receives criticism instead — deepens distress and activates historical family patterns
+- Explicitly distinguishes connection ease from favoritism: aware he connects more easily with Blossom but insists equal love — important self-awareness given family accusation
+- Childhood trauma activation in real time: current family conflict (Janna saying he's causing harm) directly mirrors unresolved father/sister dynamic — ongoing differentiation work needed
+
+
+## AI refresh — 2026-04-27
+- Differentiating equal love from different attachment ease reduces guilt — 'I love both girls equally' but connects more easily with Blossom right now, not favouritism — 2026-04-23
+- Task granularity is critical when dysregulated — 'the first step isn't small enough' is a self-correction tool, not avoidance — 2026-04-23
+- Proactive apology + self-awareness of emotional state shows developing emotional literacy — apologized for upset even when feeling unheard — 2026-04-23
+- Giving yourself breaks *between* tasks prevents fatigue collapse more than pushing through does — listed as evening insight 2026-04-23
+
+
+## AI refresh — 2026-04-27
+- Parenting with different connection patterns to each child (Blossom easier, Tilly more effortful) is normal variability, not favouritism; accusations trigger deep core trauma about unfair blame (2026-04-23)
+- Lack of emotional reciprocity in partnership after caregiving exhaustion creates relational rupture; criticism instead of support signals unmet need for validation (2026-04-23)
+- Body signals (throat tension, hip stiffness) are reliable anxiety indicators appearing before cognitive recognition — body as early-warning system (multiple entries)
+- Pre-event anxiety and genuine gratitude/excitement coexist without contradiction — excitement doesn't cancel anxiety, both are real (2026-04-23)

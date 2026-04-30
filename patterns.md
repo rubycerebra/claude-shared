@@ -2,7 +2,7 @@
 
 Cross-project patterns observed over time. Updated by weekly analysis pipeline + coaching sessions.
 
-<!-- _last_updated: 2026-W14 | _auto_update: update-living-docs.py -->
+<!-- _last_updated: 2026-W16 | _auto_update: update-living-docs.py -->
 
 ---
 
@@ -39,6 +39,16 @@ Cross-project patterns observed over time. Updated by weekly analysis pipeline +
 - Trap: Doing things for recognition = always feeling short-changed
 - Reframe: Do things for their own sake, self-acknowledge accomplishments
 - Note for therapy: Discuss with Samantha
+
+### Favouritism Accusation → Dad/Sister Wound (New: 2026-04-23)
+- Janna accused Jim of favouring Blossom over Tilly — hit a generational nerve
+- Triggers childhood wound: dad and sister dynamic, "being told I'm causing harm when I'm doing my best"
+- Jim connects more easily with Blossom (shared spectrum traits) but this ≠ favouritism — therapy confirmed this distinction (Samantha, 2026-04-23)
+- Distinct from Recognition Deficit: that pattern is about invisible labour; this is about being cast as harmful parent
+- Jim admits shutting Tilly down faster when she's difficult — worth honest self-monitoring without self-punishment
+- Containment response: chose not to react, routed to therapy — Adaptive Compression in action
+- Evidence: 2026-04-23 Diarium + therapy transcript
+- **Watch for:** this one runs deep and will likely resurface during high-stress parenting moments
 
 ### "Should" Language Awareness (From Therapy)
 - "Should" creates pressure and self-criticism
@@ -342,3 +352,59 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 **Sleep as Bottleneck:** Confirmed across all weeks. HRV trending down W11–W14 despite high exercise volume. Social hosting anxiety (April 1) followed a late bedtime due to hyperarousal loop. Bedtime remains the highest-leverage unaddressed variable.
 
 ---
+
+---
+
+<!-- weekly-update: 2026-W16 -->
+## 2026-W16 — Pattern Verdicts
+
+## 2. Pattern Verification
+
+**Application Anxiety → Breakthrough.** *Not evidenced — sixth consecutive week.* Chris Milton work is now live income, not outreach. Cold-application path still dormant.
+
+**Sleep as Nervous System Bottleneck.** *Confirmed, sharply.* Four of seven nights past midnight. Monday near-midnight, Tuesday "near midnight", Wednesday "half twelve", averaging 6.7h across the week. HRV 33.8ms — the downward trend continues (W11 39.7 → W16 33.8). Jim himself names it Wednesday: *"working at 75%... rather than pushing to 100% on not enough sleep."* Insight present; behaviour unchanged.
+
+**Compulsion vs Hyperfocus.** *Partially confirmed.* Saturday's *"vibe coding, thinking about things I want to improve in my Claude system"* on a family day — the compulsion signature (coding during designated family time). But crucially: he stopped, went to the woods, named the happiness. The "chink" held.
+
+**PDA Demand Spiral.** *Partially confirmed.* Thursday's anticipatory ruminating about subtitles — *"it's sitting at the forefront of my mind rather than being something I can place down"* — is textbook PDA (the demand frame creating the stuckness, not the task itself). But he did it. No 48h stall.
+
+**Recognition Deficit in Relationship / Drama Triangle.** *Confirmed.* Friday: *"she still managed to make me feel terrible"* + *"I need to be more caring, but how do I be caring when she rejects my care?"* This is the Rescuer tilting to Victim in real time. Named it himself.
+
+**Adaptive Compression.** *Confirmed.* Sunday's *"Being worried about everything. It will be fine. Don't get so invested — I can only do so much as one person"* is deliberate release, not suppression. Said while walking, after a fraught morning.
+
+**Motion-as-Safety.** *Not evidenced this week.* Journal entries are present every day. Work was genuine demand, not avoidance dressed as doing.
+
+
+## AI refresh — 2026-04-19
+- Janna expresses unhappiness by acting childlike; Jim holds adult role but takes it personally — talking through it afterward helps her respond well
+- Recurring back tension needs yoga or movement after sitting work
+- Going to bed late creates worry but sleep quality stays good once asleep
+- Vibe coding (thinking about system improvements) feels energizing and flow-like
+
+
+## AI refresh — 2026-04-19
+- Nervous energy manifests physically in throat/chest when managing daughters' anxiety or complex family logistics
+- Over-investment in worries beyond control creates anxiety spiral; pattern breaks with reminder 'I can only do so much as one person'
+- Work concerns intrude on personal time even with minimal workload; requires explicit time-blocking to compartmentalize
+- Heightened sensory sensitivity (aversion to loud noises) emerges during high-stress family situations
+
+
+## AI refresh — 2026-04-27
+- Work anxiety cycle: recurring worry about lack of work, project delays, contact relationships — escalates overthinking about being 'not enough'
+- Parenting vulnerability pattern: when emotionally drained (Tilly meltdown), receives criticism instead of support — triggers childhood wound of 'being told I'm causing harm when doing my best' (father/sister dynamic)
+- Body signals anxiety early: throat tension (work worry), 'lightness and anxiety' (possibly medication timing) — body is reliable early-warning system
+- Pre-event cascade: stag do prep + family conflict + work uncertainty compound together, creating spiral of dread and emotional depletion
+
+
+## AI refresh — 2026-04-27
+- Work anxiety localizes in throat as physical tension when overthinking about adequacy/people-pleasing — 2026-04-21
+- Family conflict around parenting triggers deep paternal wound: being blamed/accused of causing harm when doing his best mirrors father/sister dynamic — hit deep 2026-04-23
+- Emotional depletion after intensive caregiving (Tilly's difficult day) + feeling unappreciated reduces patience and triggers defensiveness — 2026-04-23 evening collapse
+- Medication side effects (anxiety/lightness) compound stress during work uncertainty periods — noticed as separate from anxiety source 2026-04-22
+
+
+## AI refresh — 2026-04-27
+- Work uncertainty + external delays trigger throat tension and self-doubt about adequacy despite intellectually knowing the delay is external — overthinking masks real facts (2026-04-21/22)
+- Unappreciation or criticism from partner after high-emotional-labour parenting days triggers childhood trauma (dad/sister blame dynamic) and sleep rupture; apologies become one-way (2026-04-23)
+- Anxiety about medication effectiveness emerges as unexplained lightness/anxiety sensations; Jim catches it and monitors (2026-04-22)
+- Hip stiffness from prolonged sitting exacerbates anxiety and body tension; movement breaks are regulatory (2026-04-22)
