@@ -293,6 +293,7 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 - Can only do so much as one person; over-investment in worries reduces effectiveness
 - Different forms of caring work for different people; finding the right form matters more than trying harder
 - Energy management principle: with less sleep, accept quarter less effort instead of pushing
+<<<<<<< HEAD
 
 
 ## AI refresh — 2026-04-19
@@ -300,6 +301,15 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 - Purpose anchor (being there for daughters' growth/thriving) provides emotional stability and reduces baseline anxiety
 - Physical wellness (hydration, shower) directly impacts nervous system state; neglecting basics amplifies anxious arousal
 - Accepting personal limitations as one human reduces anxiety spiral and clarifies what's actually actionable
+=======
+
+
+## AI refresh — 2026-04-19
+- Co-regulation with daughters works bidirectionally — being calm and present for them regulates my own nervous system, not the other way around
+- Purpose anchor (being there for daughters' growth/thriving) provides emotional stability and reduces baseline anxiety
+- Physical wellness (hydration, shower) directly impacts nervous system state; neglecting basics amplifies anxious arousal
+- Accepting personal limitations as one human reduces anxiety spiral and clarifies what's actually actionable
+>>>>>>> origin/main
 
 
 ## AI refresh — 2026-04-27
