@@ -408,3 +408,10 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - Unappreciation or criticism from partner after high-emotional-labour parenting days triggers childhood trauma (dad/sister blame dynamic) and sleep rupture; apologies become one-way (2026-04-23)
 - Anxiety about medication effectiveness emerges as unexplained lightness/anxiety sensations; Jim catches it and monitors (2026-04-22)
 - Hip stiffness from prolonged sitting exacerbates anxiety and body tension; movement breaks are regulatory (2026-04-22)
+
+
+## AI refresh — 2026-05-01
+- Abrupt morning waking pattern—recurring 04-28, 04-29, 05-01, typically triggered by Coco; consistent despite adequate sleep hours; leaves grogginess/low capacity despite 8+ hours
+- Chronic stomach sensitivity/cramping—documented 04-28, 04-29, 05-01 across multiple days; responding to light foods but recurring; may signal ongoing digestive or stress-related baseline
+- Left shoulder rotation limitation—May 1 explicitly noted as 'permanent thing now'; chronic pain + mobility loss without recovery despite rest
+- Relationship friction pattern when needing recovery time—04-28/29 Janna tension over fatigue/presence gap; Jim's perception: being present but low capacity misread as absence or neglect

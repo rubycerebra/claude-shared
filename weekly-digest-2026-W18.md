@@ -1,55 +1,68 @@
 # Week in Review
 
-You had a high-output systems week with strong follow-through: **34 beads created, 37 closed** (HEALTH: 11/12, TODO: 23/25).  
-Your journal shows a consistent execution theme — “be present and do the work” (21 Apr), then “focus on one thing at a time” (22 Apr), then simplifying activation (“the first step isn’t small enough”, 23 Apr).  
-Overall: solid delivery under fatigue, with good self-awareness about friction and task-switching.
+**25 April – 1 May 2026**
+
+A solid week of meaningful output: you cleared more work than you created in HEALTH, kept your head down on genuinely hard technical tasks, and had a grounding Wednesday and Saturday despite some tiredness. Journal coverage was thin but what's there is warm and rooted.
+
+---
 
 ## Emotional arc
 
-The week started with deliberate self-direction (presence over procrastination), shifted into grounded gratitude and single-task intent midweek, and ended with practical preparation under lower energy.  
-Emotionally, there was stability rather than volatility: you kept functioning and shipping despite feeling more drained later in the week.  
-Key pattern: when expectations were narrowed to one clear priority, anxiety friction appeared lower and execution stayed strong.
+The single journal entry (Wednesday 29 April) landed in a quiet, grateful place — girls at school, a good walk with the dog, appreciation for a boss who pays fairly. The intent was deliberately modest: *get to work and back*. That's not low ambition, that's good self-knowledge. You set a target you could hit and hit it.
 
-## Mood arc (if mood data available)
+---
 
-From **Tuesday to Saturday**, mood stayed mostly stable but moved from **😐 ok** into sustained **😐 apprehensive** with “drained/tired” notes from Wednesday onward.  
-The main shift appears to be **energy depletion rather than emotional swings**: mood didn’t crash, but baseline capacity dropped and apprehension persisted.  
-Likely driver from the log pattern: cumulative load + fatigue, with no obvious recovery rebound before weekend.
+## Mood arc
+
+Two data points this week: Wednesday felt ok and stable, Saturday arrived as apprehensive and tired — also stable, not spiralling. The pattern is a gentle dip toward the end of the week rather than a mid-week crash, which suggests energy and regulation held reasonably well through the working days. "Apprehensive" on Saturday may reflect the weekly-review moment itself; being tired and facing a system audit is a known trigger, not a crisis.
+
+---
 
 ## Fitness progress (numbers)
 
-- **Programme start:** 2026-04-20  
-- **Current load:** **20lb**, **2 × 8 reps** baseline structure  
-- **Progression ladder:** **8 → 9 → 10 reps (3 sessions each), then 22.5lb target**  
-- **Workout pattern:** **A → Yoga → B → Yoga → repeat**  
-- **Health data coverage this week:** healthfit_days **0**, autosleep_days **0**, apple_health_days **0**  
-- **Available averages (quoted):** avg_steps **null**, avg_hrv **null**, avg_exercise_minutes **null**, avg_resting_hr **null**, avg_sleep_hours **null**
+| Metric | Value |
+|---|---|
+| Programme start | 20 April 2026 |
+| Current phase | Week 1 of new programme |
+| Working weight | 20 lb |
+| Scheme | 2 sets × 8 reps (progressing toward 10) |
+| Romanian Deadlift | 20 lb × 10 reps |
+| Progression target | 8 → 9 → 10 reps per session block, then +2.5 lb (aim: 22.5 lb) |
+
+No wearable health data synced this week (HealthFit, AutoSleep, Apple Health all at 0 days). Steps, HRV, sleep hours, and resting HR are unavailable. Check device sync before next Friday's export.
+
+---
 
 ## Habit streak health
 
-**Healthy signals**
-- No recorded streak break events in-window (**missed: 0, skipped: 0**).
+No streak data was recorded in the review window — 0 tasks, 0 completions, 0 misses. This is a **data gap**, not necessarily a behaviour gap. The most likely cause is a sync or export issue (consistent with the wearable data also being absent).
 
-**At-risk signals**
-- Tracking reliability is currently the issue: **source: null**, **rows_in_window: 0**, **task_count: 0**, **completed: 0**.  
-- This means habit health is **not observable** right now; risk is hidden drift rather than confirmed non-compliance.
+**Action required:** Confirm the streak tracker ran this week and check whether the Friday export step (HEALTH-4k85, now closed) captured data correctly.
+
+---
 
 ## Wins with evidence
 
-- **Major execution throughput:** closed more beads than created (**37 closed vs 34 created**). *(source: weekly bead totals)*  
-- **Core HEALTH delivery completed:** calendar schedule hardening, Codex auth bootstrap, dashboard insights fallback, and fitness progression tracker all closed. *(source: closed beads: HEALTH-rcon, HEALTH-c81a, HEALTH-wg4p, HEALTH-s4e9)*  
-- **Risky/complex research completed:** medication interaction research bead closed. *(source: HEALTH-t9md closed)*  
-- **Strong intention hygiene in journal:** explicit anti-procrastination and single-task focus statements across multiple days. *(source: journal highlights, 21–23 Apr)*
+- **Closed a 567 KB monolith refactor** — `HEALTH-9luc`: FastAPI router structure delivered and closed. That is a substantial structural improvement to the API server.
+- **Decomposed a 2,111-line component** — `HEALTH-q8ni`: the Now tab is now split into 6 focused components. Fewer than 5% of developers would voluntarily take on a task that size.
+- **Shipped dashboard consolidation** — `HEALTH-fgtv`: deploy paths consolidated and new work/system sections restyled.
+- **Added completion momentum visualisation** — `HEALTH-2lul`: count-not-percentage display, a deliberate UX decision worth noting.
+- **Progressive disclosure in More tab** — `HEALTH-s0a6`: all sections default collapsed — reduces cognitive load in a tool you use daily.
+- **Week net throughput: TODO project** — 49 created, 30 closed (61% close rate on a high-volume week). High intake suggests active thinking, not backlog bloat.
+- **HEALTH project net positive** — 16 closed vs 14 created; the system is clearing faster than it accumulates.
+
+---
 
 ## Anxiety reduction average
 
-No anxiety reduction entries were logged in this window: **count = 0**, **average = null**.  
-So there is **no computable weekly average** yet; this is a data-capture gap, not a failure signal.
+No anxiety scores were logged this week (0 entries). No average available.
+
+---
 
 ## Next week priorities
 
-1. **Re-enable data capture first (Monday):** fix/verify HealthFit + Apple Health + sleep ingestion so averages are no longer null.  
-2. **Log one anxiety-reduction score daily (1–10):** minimum 5 entries this week to produce a real average.  
-3. **Run the fitness progression as written:** complete **3 sessions** at current rung and record rep outcomes per session.  
-4. **Protect energy with a hard midweek recovery block:** schedule one low-load evening (no context-switch tasks after a set time).  
-5. **Use “smallest first step” rule daily:** define the first action as a ≤5-minute start task before any major work block.
+1. **Fix the data pipeline** — wearables, streaks, and anxiety scores all came in empty. Spend 20 minutes on Monday tracing why HealthFit/AutoSleep didn't sync and whether the Friday export script ran cleanly. Evidence-free reviews are harder to trust.
+2. **Log at least 3 journal entries** — one entry this week made the emotional arc sparse. Even two sentences each on Monday, Wednesday, and Friday gives next week's review something real to work with.
+3. **Log anxiety scores when they occur** — you don't need to manufacture them, but when you notice anxiety, record the number. Three data points would restore the average section.
+4. **Progress the fitness reps** — you're at 8 reps; next session block aims for 9. Track completions explicitly so the log shows sessions done this week, not just programme structure.
+5. **Close HEALTH-fwm6 (Codex CLI backup before heuristic diary insights)** — this was created but not closed; it protects diary insight reliability and is worth prioritising before the next weekly analysis run.

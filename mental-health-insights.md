@@ -331,3 +331,8 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 - Lack of emotional reciprocity in partnership after caregiving exhaustion creates relational rupture; criticism instead of support signals unmet need for validation (2026-04-23)
 - Body signals (throat tension, hip stiffness) are reliable anxiety indicators appearing before cognitive recognition — body as early-warning system (multiple entries)
 - Pre-event anxiety and genuine gratitude/excitement coexist without contradiction — excitement doesn't cancel anxiety, both are real (2026-04-23)
+
+
+## AI refresh — 2026-05-01
+- Presence ≠ capacity distinction—Jim can be emotionally/physically present while exhausted and low-energy; misalignment with partner's expectations or needs when capacity is limited; reframing this openly may reduce relationship friction
+- Girls' emotional sensitivity mirrors own—May 1 Blossom's empathy for art/buyer in Banksy video, emotional response to misunderstanding; suggests modeling acceptance and talking through confusion works with kids
