@@ -336,3 +336,16 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 ## AI refresh — 2026-05-01
 - Presence ≠ capacity distinction—Jim can be emotionally/physically present while exhausted and low-energy; misalignment with partner's expectations or needs when capacity is limited; reframing this openly may reduce relationship friction
 - Girls' emotional sensitivity mirrors own—May 1 Blossom's empathy for art/buyer in Banksy video, emotional response to misunderstanding; suggests modeling acceptance and talking through confusion works with kids
+
+## Pieces Persona Sync
+
+*Auto-synced from Pieces persona summary on 2026-05-02 (hash: 7f688cb18d578127)*
+
+### Job search anxiety patterns
+- Code Debugging & Therapy Prep
+
+### Coping mechanisms Pieces has observed
+- Code Debugging & Therapy Prep
+
+### Work habits Pieces has observed
+- Code Debugging & Therapy Prep
