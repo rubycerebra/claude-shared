@@ -388,8 +388,8 @@ def _latest_sleep_hours(cache: Dict[str, Any]) -> float | None:
     _today_str = _today.strftime("%Y-%m-%d")
     _today_dmy = _today.strftime("%d/%m/%Y")
 
-    # 0. health-live.json file — freshest source (shared mtime-cached read)
-    _hl_metrics = _get_health_live_metrics()
+    # 0. health-live.json file — use pre-parsed metrics from cache if available, else read directly
+    _hl_metrics = cache.get("health_live_metrics") or _get_health_live_metrics()
     for _e in sorted(_hl_metrics.get("sleep_analysis", []), key=lambda x: str(x.get("date", "")), reverse=True):
         if isinstance(_e, dict) and str(_e.get("date", ""))[:10] == _today_str:
             _asleep = _to_float(_e.get("asleep")) or _to_float(_e.get("totalSleep"))
@@ -465,8 +465,8 @@ def _latest_hrv(cache: Dict[str, Any], steps_history: list) -> float | None:
     _today_str = _today.strftime("%Y-%m-%d")
     _today_dmy = _today.strftime("%d/%m/%Y")
 
-    # 1. health-live.json file (shared mtime-cached read) — latest HRV reading today
-    _hl_metrics = _get_health_live_metrics()
+    # 1. health-live.json file — use pre-parsed metrics from cache if available, else read directly
+    _hl_metrics = cache.get("health_live_metrics") or _get_health_live_metrics()
     _hrv_entries = _hl_metrics.get("heart_rate_variability", [])
     _today_pts = [e for e in _hrv_entries if isinstance(e, dict) and str(e.get("date", ""))[:10] == _today_str]
     if _today_pts:
