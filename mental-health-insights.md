@@ -339,13 +339,13 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ## Pieces Persona Sync
 
-*Auto-synced from Pieces persona summary on 2026-05-02 (hash: 7f688cb18d578127)*
+*Auto-synced from Pieces persona summary on 2026-05-03 (hash: a0ede277700543c4)*
 
 ### Job search anxiety patterns
-- Code Debugging & Therapy Prep
+- Code Refactoring & Data Integrity · System Stability & Therapy Prep · Therapy, Coding, & Logistics
 
 ### Coping mechanisms Pieces has observed
-- Code Debugging & Therapy Prep
+- Code Refactoring & Data Integrity · System Stability & Therapy Prep · Therapy, Coding, & Logistics
 
 ### Work habits Pieces has observed
-- Code Debugging & Therapy Prep
+- Code Refactoring & Data Integrity · System Stability & Therapy Prep · Therapy, Coding, & Logistics
