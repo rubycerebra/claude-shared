@@ -73,8 +73,25 @@ WEEKDAY_NAME_TO_INDEX = {
 
 ACTION_ITEM_DEFER_FILE = Path.home() / ".claude" / "cache" / "action-item-defer.json"
 ACTION_ITEM_STATE_FILE = Path.home() / ".claude" / "cache" / "action-item-state.json"
+DIARY_TODOIST_MAP_FILE = Path.home() / ".claude" / "cache" / "diary-todoist-map.json"
 ACTION_ITEM_STATE_CARRY_DAYS = 7
 ACTION_ITEM_MODEL_VERSION = 2
+
+_diary_todoist_map_cache: dict[str, str] | None = None
+
+
+def _load_diary_todoist_map() -> dict[str, str]:
+    global _diary_todoist_map_cache
+    if _diary_todoist_map_cache is not None:
+        return _diary_todoist_map_cache
+    if DIARY_TODOIST_MAP_FILE.exists():
+        try:
+            loaded: dict[str, str] = json.loads(DIARY_TODOIST_MAP_FILE.read_text(encoding="utf-8"))
+            _diary_todoist_map_cache = loaded
+            return loaded
+        except Exception:
+            pass
+    return {}
 
 
 def _is_legacy_external_source(row: dict) -> bool:
@@ -738,6 +755,14 @@ def _normalise_state_row(row: dict, effective_date: str) -> dict | None:
     due_today_override = bool(row.get("due_today_override", False))
     if bucket == "future" and target_date and target_date > effective_date:
         due_today_override = False
+    stable_id = str(row.get("stable_id", "")).strip()
+    todoist_task_id = str(row.get("todoist_task_id", "")).strip()
+    todoist_url = str(row.get("todoist_url", "")).strip()
+    if stable_id and not todoist_task_id:
+        _tid = _load_diary_todoist_map().get(stable_id, "")
+        if _tid:
+            todoist_task_id = _tid
+            todoist_url = f"https://todoist.com/app/task/{_tid}"
     return {
         "task_key": key,
         "text": text,
@@ -759,6 +784,9 @@ def _normalise_state_row(row: dict, effective_date: str) -> dict | None:
         "last_live_seen_date": str(row.get("last_live_seen_date", "")).strip(),
         "completed_date": str(row.get("completed_date", "")).strip(),
         "updated_at": str(row.get("updated_at", "")).strip(),
+        "stable_id": stable_id,
+        "todoist_task_id": todoist_task_id,
+        "todoist_url": todoist_url,
     }
 
 
