@@ -654,6 +654,7 @@ def save_action_item_state(
             "last_seen_date": effective_date,
             "last_live_seen_date": last_live_seen_date,
             "updated_at": now_iso,
+            "stable_id": str(item.get("stable_id", "") or prev.get("stable_id", "")).strip(),
         }
         if is_done:
             next_rows[key]["completed_date"] = effective_date
