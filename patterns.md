@@ -328,6 +328,16 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **What it is:** Tracking heart rate variability as a biomarker for nervous system regulation, where lower scores indicate a more chronically activated stress response. This person's HRV of 30-35 (vs age-average of 50) objectively confirms their subjective experience that their baseline is already near capacity, explaining why minor demands tip them over.
 - **W15 (2026-04-11):** Auto-added from session transcript.
 
+### Language Reframing
+- **Source:** Samantha — session 2026-05-02
+- **What it is:** A cognitive technique where the speaker consciously replaces self-pressuring phrases like 'I should' and 'I need to' with less demanding alternatives. This helps reduce the internal pressure and self-criticism that fuels anxiety, creating a more compassionate inner dialogue.
+- **W19 (2026-05-02):** Auto-added from session transcript.
+
+### Neuroplasticity
+- **Source:** Samantha — session 2026-05-02
+- **What it is:** The scientific framework that the brain can be rewired through repeated practice of new behaviors and thought patterns, which the speaker explored during their PhD research. Understanding this gives the speaker evidence-based confidence that persistent effort to change habits will eventually create lasting neural pathways, even when progress feels slow.
+- **W19 (2026-05-02):** Auto-added from session transcript.
+
 ---
 
 <!-- weekly-update: 2026-W14 -->
