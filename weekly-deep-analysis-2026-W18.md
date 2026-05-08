@@ -1,104 +1,115 @@
-# Weekly Deep Analysis — W18 (25 Apr – 01 May 2026)
+# Weekly Deep Analysis — W18 (27 Apr – 03 May 2026)
 
 ## 1. Emotional Arc
 
-The shape of this week is **a body trying to rest while a life keeps asking things of it**. There is no dramatic rupture, no breakthrough moment — just a man navigating physical depletion with increasingly sophisticated self-regulation, while the emotional temperature quietly drops.
+A week shaped like a slow drain followed by a sharp rupture. The opening days carry post-stag-weekend depletion forward — Tuesday's Diarium entry (which appears to have been duplicated to Wednesday by a sync issue, but the content reads true to both) is striated with low-grade marital tension: *"Probably Janna. She could go, but what am I supposed to say to that?"* The emotional posture there is defended-but-fair — Jim is naming Janna's reaction as unreasonable without escalating, and explicitly choosing recovery (*"today is just about looking after myself"*).
 
-The week opens (April 28) with Jim in conscious recovery mode: *"I'm recovering from a slower end to the week, so I'm not putting any pressure on myself."* This is mature pacing — the kind of self-permission that took months of therapy to reach. But underneath, the Janna tension hums: *"She's been unreasonable and I don't think it's fair. All I did was try to recover."* The frustration is contained but unprocessed — parked, not released.
+**Lowest point: Friday 1 May, mid-morning.** The body is in open revolt — headache, stomach cramps, light sensitivity strong enough to require sunglasses, the left shoulder named for the first time as *"a permanent thing now."* The mental tone collapses to bare-minimum coping: *"You can do this. Just do the minimum — everything else is a bonus."* That self-instruction is itself adaptive — it's PDA-aware language directed inward — but the affect underneath is flat.
 
-By April 29, the containment holds. Jim works an eight-hour shift (2pm–10pm), emails Chris about more work, buys hamster bedding and dog treats, actively researches how to be more sensitive to Tilly — *"Read about how to look after the girls better."* This is quiet, unglamorous labour: parenting homework done without fanfare or recognition.
+**Turning point one: Friday afternoon at work.** Jim stands his ground with Adam over pay (*"He tried to short-cha…"* — the entry truncates but the move is named as Brave). Despite physical depletion, an assertiveness win lands. Then a small act of attunement: ice cream with Tilly to repair her tired morning.
 
-**May 1 is the week's lowest point**, but also its most honest. Jim wakes with a headache, stomach cramps, shoulder pain, light sensitivity — the body is speaking loudly. *"Just getting through today, honestly."* But within this depleted state, three things happen that matter enormously: he reframes his financial situation with genuine competence (*"It's only the 1st and there's already £700 in... that's £2,000. Could be worse"*); he has an unscripted, beautiful parenting moment with Blossom about the Banksy shredder and the meaning of art; and he arrives at the most grounded affirmation in the dataset: *"Abandon any preconceptions of what I should be doing. There is only now."*
+**Turning point two: Saturday 2 May, morning argument.** A multi-stressor incident — Tilly spitting and scratching at Janna, Janna's regulation collapsing, Jim attempting de-escalation, **Janna lashing out at Jim physically.** This is the high-charge event of the week. The arc from there moves into containment: text exchange, gardening for Janna, then therapy with Samantha.
 
-**Lowest point:** May 1 morning — multi-system physical discomfort, low energy, dreading an evening alone with the children.
-**Highest point:** May 1 with Blossom — showing her the Banksy video, talking through art's value together, connecting through shared curiosity rather than obligation.
+**Highest point (in the recovery sense): Saturday afternoon.** Therapy session, gardening completed, evening apparently steady enough to leave Sunday clear for code work. Not a "good" high — a regulated one.
 
-The overall arc is **flat but honest** — no dramatic peaks, no spirals. The week's signal is that Jim is learning to function inside discomfort rather than fighting it or performing through it.
+Where Diarium and journal diverge: the journals are mostly Ta-Dah lists and structural scaffolding this week. Diarium carries the emotional load almost entirely.
 
 ## 2. Pattern Verification
 
-### Application Anxiety → Breakthrough Pattern
-**Not evidenced this week.** No job applications attempted or discussed. The work mode is purely "show up and get paid" — which is realistic given the physical state. The Chris email (Apr 29) is relational maintenance, not a breakthrough push.
+- **Recognition Deficit in Relationship — Confirmed.** Tuesday Diarium: *"All I did yesterday was try to recover, do some work, and get the girls — walked the dog too… I have been present, I'm just tired and my brain's trying to catch up. She can either understand that or she can't."* This is the pattern in pure form — labour catalogued, recognition absent, the defensive "she can either understand" is the protective wall going up.
 
-### Hyperfocus Distractions / Compulsion vs Hyperfocus
-**Partially confirmed.** April 29 notes *"did lots of good Claude build-up and coding"* — the qualifier "good" is the rationalisation signature identified in W16. However, the week's physical depletion appears to have naturally throttled the compulsive pull. When the body is this depleted, hyperfocus can't sustain itself. This is regulation by exhaustion, not by choice — worth distinguishing.
+- **Favouritism Accusation → Dad/Sister Wound — Partially confirmed.** Saturday's argument doesn't replay favouritism explicitly, but the shape is there: Jim cast as the harmful party for trying to de-escalate (*"she lashed out at me physically"*; her later text said *"she didn't feel supported by me"*). Same wound, different mechanism — the role of "you're causing harm when you're doing your best" is reactivated.
 
-### Pacing Works
-**Confirmed — and deepening.** *"I'm not putting any pressure on myself"* (Apr 28). *"Just do the minimum — everything else is a bonus"* (May 1). *"Abandon any preconceptions of what I should be doing"* (May 1). This is no longer the effortful 75% throttle of W16 — it's a quieter, more embodied acceptance. The language has shifted from calibrating output to releasing expectation entirely.
+- **Adaptive Compression — Confirmed (significant).** Friday: *"there's no point fighting it — just have to accept it for what it is. Go to the toilet, get the film set up, and everything will be fine. It's no big deal."* This is regulated processing under physical distress without rumination. Saturday after the argument: *"I texted her afterwards… I want to hold onto and bring to therapy today."* Routing to therapy rather than escalating is Adaptive Compression in action.
 
-### Open Loops = Anxiety
-**Partially confirmed.** Tilly's birthday presents appear across multiple days as an active loop — *"tried to sort some of Tilly's presents — will do the rest tomorrow"* (Apr 29), with the plan carrying forward. The loop is managed (parked with a next step) but still present. The *"familiar feeling of not doing enough"* (Apr 28, Apr 29) is the open-loop anxiety generalised.
+- **Motion-as-Safety — Partially confirmed.** Saturday's gardening reads as motion-as-repair more than motion-as-avoidance — it's named explicitly as *"making Janna happy"*. The *Pieces* sessions on Sunday (five sessions, heavy refactoring) are a more classic motion-as-safety signature after an emotionally taxing Saturday.
 
-### Recognition Deficit in Relationship
-**Confirmed.** *"All I did yesterday was try to recover, do some work, and get the girls — walked the dog too. I wasn't feeling great, so it's not really my fault."* The defensive framing — listing contributions to justify his right to rest — is the recognition deficit speaking. Jim shouldn't need to prove he's done enough to earn recovery time. The fact that he catalogues his output before giving himself permission reveals how deep this pattern runs.
+- **Compulsion vs Hyperfocus — Confirmed (Sunday).** Sunday's five Pieces sessions on therapy prep, refactoring, system stability are the signature of post-stress compulsive coding. No Diarium entry Sunday — the silence is itself a signal.
 
-### Favouritism Accusation → Dad/Sister Wound
-**Partially confirmed, through action rather than words.** The Tilly-focused effort — researching how to be more sensitive to her needs, planning birthday presents, considering taking her to a café to cheer her up — reads as Jim actively working against the accusation from W16. He's not just defending himself; he's genuinely trying. The Blossom/Banksy moment on May 1 is naturally autistic-spectrum bonding (shared intellectual curiosity), which is exactly the kind of connection Janna may read as favouritism. Worth watching.
+- **Sleep as Nervous System Bottleneck — Confirmed.** Avg 7.5h is the best week in some time, but it's masking variability: at least one night under restoration, Saturday morning explicitly *"woke up groggy, not enough sleep. Went to bed too late and woke up snappy — upset Tilly."* The bedtime swing remains the bottleneck.
 
-### "Should" Language Awareness
-**Confirmed — and the strongest evidence yet of internalisation.** *"Abandon any preconceptions of what I should be doing. There is only now."* This isn't the therapeutic substitution ("I would like to...") but something deeper — a direct rejection of the should-frame entirely. Arrived at under physical duress, which suggests it's becoming embodied rather than cognitive.
+- **Drama Triangle — Confirmed (Saturday).** Jim's intervention attempt — *"telling her she was being a child and needed to give everyone space to calm down"* — is a Persecutor move dressed as Rescuer. Worth naming honestly: this was not Adult ego state. The text exchange afterward and the routing to therapy are Adult-state recoveries.
 
-### Motion-as-Safety
-**Not evidenced.** The physical depletion this week appears to have prevented the motion-as-safety pattern from activating. Jim can't run from discomfort when his body won't cooperate. Paradoxically, this forced stillness may be doing the regulation work that chosen motion sometimes avoids.
+## 3. Regulation & Body Signals
 
-### Sleep as Nervous System Bottleneck
-**Partially disconfirmed — and this is significant.** Average sleep this week: **8.0 hours** — up from 7.6h (W17) and 6.7h (W16), and hitting the stated 8h target for the first time in the dataset. Yet HRV remains low (33.4ms), physical symptoms are prominent, and the emotional dimension shows a sharp decline. This suggests the sleep debt is deeper than one good week can repay, or that the nervous system load this week is coming from sources other than sleep (physical recovery from go-karting, Janna tension, stomach issues). The sleep improvement is real and worth building on, but it hasn't yet translated into felt recovery.
+The body is a louder signal than the words this week. Stomach cramps run from Tuesday through to Saturday — Jim names this as ongoing, attributes it to heavy eating around the stag weekend. The left shoulder reframe (*"can't rotate it, seems to be a permanent thing now"*) is clinically significant — that's a shift from "injured" to "damaged", and it's the first time the language of permanence has appeared. Worth flagging for physiotherapy attention.
 
-### Adaptive Compression
-**Confirmed.** *"She can either understand that or she can't"* (Apr 28) — this is compression, not rumination. Jim names the Janna situation, makes a decision (not to respond yet), and moves on. *"Any conception of not doing enough today — think about what I have done and reframe my mind"* (Apr 29, Letting Go) is the technique deployed in real time.
+HRV at 38.6ms (week average) is broadly stable against the W11–W14 trough but doesn't show recovery momentum either. The strong correlation `hrv vs context_switches: r=0.23 (n=44)` is telling — autonomic state is tracking task fragmentation more than any single intervention.
 
-### Nighttime Hyperarousal / Compulsive Loop
-**Not evidenced.** Sleep has improved; no mentions of compulsive night-time feelings. Either the pattern is dormant this week or the physical exhaustion is overriding it. Monitor.
+**What regulated Jim this week:**
+- Friday's *"just do the minimum"* self-instruction — PDA-aware downshift under physical load
+- Saturday's therapy session with Samantha — explicit containment of the morning incident
+- Gardening Saturday — purposeful physical work with relational meaning
+- Coco walks (named multiple days)
+- Eating lighter food when the stomach signalled
 
-### Social Hosting Anxiety
-**Partially evidenced.** May 1: *"save energy for this evening because I'm on my own"* — the anticipatory anxiety about being sole parent for the evening. Not a hosting scenario, but the same mechanism: anticipating solo responsibility with the children, budgeting energy, worrying about capacity. The structural echo of the original pattern is present.
+**What dysregulated Jim:**
+- The compounding of stag-weekend exhaustion + immediate work demands (his boss's illness forcing him back early)
+- Saturday's family argument and physical incident with Janna
+- Sleep variability — early bedtimes some nights, late on Friday/Saturday
+- The Pieces session count on Sunday (five sessions) suggests post-rupture compulsive engagement, not recovery
 
-## 3. Fitness–Mental Health Correlation
+The 7-day state vector is unambiguous: **strain rising while energy falls** is the system flagging unsustainable load. The 4-week journal language data is more concerning — positive language down 62% vs the 16-week baseline, demand language strongly rising. This is the linguistic signature of a depleted nervous system filtering inputs through threat-assessment.
 
-**Sleep has finally reached target — but the body hasn't caught up.**
+## 4. PDA & Demand Dynamics
 
-Sleep averaging 8.0h is the week's most significant physiological achievement, up from 6.7h just two weeks ago. The sleep_hours vs HRV correlation (r=0.27, n=8, building) predicts this should improve nervous system recovery, but HRV at 33.4ms shows no meaningful gain yet. The most likely explanation: Jim is repaying accumulated sleep debt. The body needs weeks of adequate sleep to restore baseline, not days. The improvement should be celebrated as an input change whose output is still incoming.
+Active throughout, but with notable signs of awareness and adaptive response.
 
-The **body language trend rising sharply** in the theme-ledger (10.9/100, up from 4w avg of 6.8) maps precisely onto what the journals show: stomach cramps, headache, shoulder pain, light sensitivity, soreness from go-karting. Jim's increased somatic awareness — naming physical states in detail rather than pushing through — is both a sign of integration (he's listening to his body) and a flag (the body has a lot to say right now).
+**Where demand avoidance was active:**
+- Tuesday/Wednesday's *"I'm not putting any pressure on myself"* — necessary recovery framing, but also a low-key PDA defence against the implicit demand of catching up after the stag weekend
+- The implicit demand of Janna's text earlier in the week — Jim parks it (*"Maybe I'll ask Claude in a minute whether I should respond"*) rather than freezing or capitulating; this is healthy deferral
+- Sunday's invisible day — no Diarium, five Pieces sessions. Classic compulsion-as-defence after Saturday's relational rupture
 
-Exercise at 77.6 min/day remains high, and steps at 10,067 are solid. But the **absence of yoga this week is notable** — it was the same gap identified in W16. Yoga Downshift shows a neutral HRV delta (+0.0ms across 11 uses), but its real value is nervous system regulation and back/shoulder maintenance, both of which Jim explicitly needs. The shoulder that *"can't rotate... seems to be a permanent thing now"* deserves attention, not resignation.
+**Where Jim acted through demand pressure (wins, name them):**
+- **Standing ground with Adam (Friday) for proper pay.** This is significant — assertiveness through physical depletion, against an external authority figure who tried to short-change him. PDA states usually make this kind of confrontation feel impossible.
+- **Gardening for Janna on Saturday** after the morning rupture. Doing something *for* a partner who has just lashed out physically requires regulated motivation, not capitulation.
+- **Reading on compassion-focused therapy** (therapy homework, recently evidenced). This is autonomy-led learning — exactly the channel that bypasses PDA.
+- **Implementing parenting podcast strategies with Tilly** — *"meet Tilly where she is rather than reacting negatively."* This is sophisticated demand reframing for parenting.
 
-**Movement Reset Walk remains the standout intervention** at +4.5ms HRV delta (6 uses). The morning dog walks Jim references are likely contributing to whatever nervous system recovery is happening. Physiological Sigh (+0.3ms, 9 uses) is the only other positive-delta intervention. The negative deltas on Externalise And Choose 1 (-5.6ms, 12 uses) likely reflect deployment during already-elevated stress rather than the intervention causing harm — but the pattern is worth tracking.
+**Demand frames active this week:**
+- **External:** Adam's expectation Jim cover work despite stag-weekend depletion; Janna's expectation of support during the morning incident
+- **Self-imposed:** *"that familiar feeling of not doing enough"* (Tuesday) — the most persistent voice in the week
+- **Anticipatory:** *"nervous about therapy — getting everything ready beforehand feels like a lot"* — a low-grade signature of the same anticipatory dread that drives Social Hosting Anxiety
 
-**Focus and productivity** show a concerning pattern: productive minutes peak on Thursday (381 min) and Monday (285 min) but drop sharply on other days. The apprehensive→tired mood arc (6 occurrences — the dominant pattern) suggests Jim starts days with anticipatory anxiety that resolves into depletion rather than satisfaction. Focus score at 42 (7d avg 48, 28d avg 63) shows a significant downward trend that maps onto the physical symptoms.
+**What the avoidance was protecting from:**
+The Sunday silence and code-immersion was protecting Jim from sitting with Saturday's incident. Being lashed out at physically by Janna is a category of relational rupture that doesn't have an obvious processing path — code work provides controllability when the relational world has just demonstrated it isn't controllable. Worth naming as protection, not as failure.
 
-**The screen_time vs mood correlation (r=-0.67, n=4, sparse)** is the loudest signal in the correlation data, despite small sample size. More screen time, worse mood. This aligns with the compulsion pattern — the relationship is likely bidirectional (low mood → screen refuge → lower mood).
+## 5. Therapy Arc
 
-## 4. Therapy Integration
+Saturday's session with Samantha did serious work — the structured summary in the journal shows the breadth: stag weekend processing, work demands, parenting Tilly, the morning incident.
 
-Three therapeutic threads surface this week, none through formal sessions but through lived practice:
+Visible therapy frameworks in this week's material:
 
-**Self-compassion under duress.** The May 1 entry — *"You can do this. Just do the minimum — everything else is a bonus"* — is Jim speaking to himself in the voice his therapist has been modelling. The shift from "should" to "can" and from "enough" to "bonus" mirrors Samantha's reframing work. He's not performing self-compassion for the journal; he's deploying it to get through a genuinely difficult day.
+- **Adult ego state (Transactional Analysis):** Jim's text exchange with Janna after the morning incident is Adult-to-Adult — neither defensive nor placating. Janna's reply (*"she knew where she was in the wrong, but that she didn't feel supported by me"*) actually invited an Adult exchange in return. That Jim didn't escalate or collapse — instead routed it to therapy — is Adult ego state under pressure.
 
-**Active repair of the Tilly dynamic.** The W16 therapy session named the favouritism accusation and Jim's tendency to shut Tilly down faster. This week, without explicit prompting, Jim researches how to be more sensitive to Tilly's needs, plans birthday presents across multiple days, and considers a spontaneous café trip to cheer her up. This is therapy homework being done without it appearing on any homework list — the insight has moved from session to behaviour.
+- **Drama Triangle:** Jim names his intervention attempt during the argument honestly. The de-escalation move (*"telling her she was being a child"*) was Persecutor energy in Rescuer clothing. The post-incident behaviour — text, gardening, therapy — was a deliberate exit from the Triangle. Worth naming both halves.
 
-**Financial reframing.** The May 1 calculation — *"It's only the 1st and there's already £700 in... that's £2,000. Could be worse"* — is a reality-check technique applied spontaneously. Jim names the facts, does the maths, and arrives at "could be worse" instead of catastrophising. The financial stress pattern from the insights is still present but is being met with data rather than dread.
+- **PDA-aware strategies:** Everywhere this week. Friday's *"just do the minimum — everything else is a bonus"* is textbook PDA self-regulation. Saturday's *"There is only now. Do what I can — don't put pressure on myself."*
 
-**Therapy homework status:** "Pack bag for the stag do" appears complete (go-karting soreness suggests the event happened). "Read about compassion-focused therapy" was evidenced in the prior fortnight. Holiday planning and daily task lists remain open but not pressured.
+- **Self-compassion work:** The compassion-focused therapy reading (homework, evidenced as completed in the past 14 days) maps directly onto the self-compassion deficits Samantha has been working on. This is psychological homework actually landing.
 
-## 4b. Wins Pattern Analysis
+- **Boundary-setting:** With Adam over the pay. Quiet but real.
 
-The Ta-Dah data reveals a meaningful shift. Mean win score at 2.9/5 is modest, but **emotional_growth scores highest at 4.5** — Jim rates his psychological wins as the most valuable, even though this category is trending down in frequency. The gap between valuation (high) and volume (declining) suggests emotional growth is happening but Jim may lack the energy to name it right now.
+The therapy summary names the speaker as having *"focused on personal growth and future plans"* — which is itself a frame Jim is now using about his own week. That language uptake (therapy frame becoming self-frame) is worth noting.
 
-**Most repeated wins** — "Carrying forward" (8x), "Tidy" (7x), "Relax" (7x), "Giving myself a break between tasks" (6x) — reveal what Jim's baseline self-worth is built on: maintenance, rest permission, and task continuity. These are infrastructure wins, not achievement wins. The emerging themes (family, self_care, household, admin, social, work) are all practical; "moments" is sporadic. Worth gentle curiosity: Jim logs what he *does* more readily than what he *experiences*. The Blossom/Banksy conversation, for instance, is the week's richest moment but may not appear on any ta-dah list.
+## 6. Wins & Values
 
-## 5. Observations
+The Ta-Dah data is unambiguous: volume rising (16.7/day on 30d, increasing trend), mean win score up +0.2, emotional_growth-themed wins scoring highest (4.5/5). Jim is logging more, scoring higher, recognising emotional work as legitimate.
 
-**What's working:** Jim's self-regulation language has matured noticeably. Compare W16's effortful *"working at 75% of my potential"* with this week's *"abandon any preconceptions of what I should be doing."* The first is still performance-framed; the second is genuine release. Sleep reaching 8.0h after weeks of deficit is a concrete, measurable win. The Tilly-focused effort shows therapy insights translating into changed behaviour without external prompting.
+What he's logging this week reveals values: **recovery as a legitimate use of time** (Tuesday's diary frames a slow day as recovery, not failure), **paid work as foundational** (mentioned with relief in the financial accounting on Friday), **family-as-attunement** (Tilly ice cream, parenting podcast reading, gardening for Janna), **assertiveness with authority** (standing ground with Adam).
 
-**Worth noting gently:** The April 28 and April 29 Diarium entries are **identical in their opening sections** — same "How I Woke Up," same "What's on My Mind," same "Body Check." This is almost certainly a system duplication rather than Jim writing the same words twice, but it means we have less authentic data for one of those days. The emotional dimension's sharp decline (50, down from 28d avg of 60) and the strain-rising-while-energy-falling flag in the state vectors deserve attention — Jim is holding it together outwardly while the internal reserves are drawing down. **No anxiety scores were captured this week**, which limits analysis precision.
+What he's *not* logging that's visible in the material:
+- The compassion-focused therapy reading (therapy homework completed — this is significant psychological work)
+- The de-escalation attempt with Tilly via ice cream (small attunement repair)
+- Tuesday's choice not to respond reactively to Janna's text — disengagement as regulation
+- Saturday's choice to route the argument to therapy rather than escalate
 
-## 6. Worth Watching
+These are unlogged because they're internal moves rather than discrete actions. That distinction is worth gently surfacing — the win-counting bias is missing the regulatory work, which is the actual therapeutic progress.
 
-The sleep improvement (6.7h → 7.6h → 8.0h across three weeks) is the most concrete positive trend in the dataset. The question for W19 is whether HRV begins to respond — if sleep stays at 8h and HRV remains below 35ms for another two weeks, the nervous system load is coming from somewhere else (likely the Janna tension and physical pain) and needs different intervention. The Diarium duplication should be investigated — a simple data integrity check in the pipeline would catch this automatically.
+## 7. Worth Watching
 
-## 7. Film Pick (Self-Care)
+The shoulder. *"Can't rotate it, seems to be a permanent thing now"* is the first appearance of the language of permanence about a body issue, in a week where the body has been the loudest signal. It might feel good to book a physiotherapy assessment before "permanent" becomes the working frame. The tracking system could surface this better — body-check entries naming the same site for 3+ consecutive days could trigger a quiet flag rather than waiting for the language to harden.
 
-**The Quiet Girl** (2022) — A gentle, near-wordless Irish film about a neglected child who finds safety and tenderness with foster relatives over one summer. It's about what happens when someone sees you clearly and doesn't ask you to perform. Given a week where Jim's body is depleted and he's doing invisible parenting work that may not be recognised, this film would validate the quiet kind of care he's practising — without demanding anything of him emotionally. Beautifully paced, visually warm, and only 95 minutes.
+## 8. What This Week Means
 
-**Sometimes I Think About Dying** (2023) — A very different pick but potentially apt. A quiet, autistic-coded character navigates connection and isolation in small, honest increments. If Jim has the bandwidth for something that mirrors rather than escapes, this film names the experience of existing slightly outside the room in a way that feels seen rather than pathologised. Best saved for a night when he's rested, not depleted.
+This was a week where the nervous system was clearly under-resourced and the relational world delivered a rupture anyway — and Jim met it with more therapeutic infrastructure than he's previously had available. The most significant movement is the **visible operationalisation of multiple therapy frameworks under genuine pressure**: PDA-aware self-instruction on Friday, Adult-state containment of Saturday's marital incident, completed compassion-focused therapy homework, and assertiveness with Adam through physical depletion. What progressed: the gap between rupture and regulated response is shortening — Saturday's incident routed to therapy within hours rather than ruminating across days. What remains stuck: the underlying relational dynamic with Janna escalated to a physical lashing-out, which is a category-shift that needs explicit therapeutic attention beyond *"didn't feel supported"*. What is newly visible: a left shoulder issue described in the language of permanence, occurring in the same week that positive language drops 62% against baseline — a body and a vocabulary both signalling chronic load that no amount of regulatory skill will substitute for genuine restoration.

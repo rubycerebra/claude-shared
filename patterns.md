@@ -338,6 +338,16 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - **What it is:** The scientific framework that the brain can be rewired through repeated practice of new behaviors and thought patterns, which the speaker explored during their PhD research. Understanding this gives the speaker evidence-based confidence that persistent effort to change habits will eventually create lasting neural pathways, even when progress feels slow.
 - **W19 (2026-05-02):** Auto-added from session transcript.
 
+### Compassion Focused Therapy (CFT)
+- **Source:** Samantha — session 2026-05-08
+- **What it is:** A therapeutic approach that uses compassion as a core tool to help individuals understand and express their inner emotional experiences rather than externalising difficult feelings as anger or blame. For Tilly, this framework is being used to create a safe space where she can open up about what she is actually feeling beneath her outward reactions.
+- **W19 (2026-05-08):** Auto-added from session transcript.
+
+### Anger Iceberg
+- **Source:** Samantha — session 2026-05-08
+- **What it is:** A visual tool that depicts anger as the visible tip of an iceberg, with hidden emotions like sadness, helplessness, disappointment, overwhelm, and frustration sitting beneath the surface. A child-friendly version was recommended so Tilly can point to or name the buried feelings she struggles to articulate, building her emotional vocabulary and self-awareness.
+- **W19 (2026-05-08):** Auto-added from session transcript.
+
 ---
 
 <!-- weekly-update: 2026-W14 -->
@@ -425,3 +435,17 @@ Techniques introduced by Samantha and actively being practised. Auto-updated fro
 - Chronic stomach sensitivity/cramping—documented 04-28, 04-29, 05-01 across multiple days; responding to light foods but recurring; may signal ongoing digestive or stress-related baseline
 - Left shoulder rotation limitation—May 1 explicitly noted as 'permanent thing now'; chronic pain + mobility loss without recovery despite rest
 - Relationship friction pattern when needing recovery time—04-28/29 Janna tension over fatigue/presence gap; Jim's perception: being present but low capacity misread as absence or neglect
+
+
+## AI refresh — 2026-05-08
+- Sleep deprivation triggers emotional dysregulation: woke groggy, acted snappy/childish with Tilly
+- Early waking with anxiety/light-headed feeling eases with movement and walking
+- Physical and mental tension occur simultaneously and manifest together
+- Conflict avoidance when feeling unsupported/attacked; uncertainty about asserting needs while staying civil
+
+
+## AI refresh — 2026-05-08
+- Eight hours sleep doesn't guarantee recovery when prior days were high-demand — needs active decompression and body movement
+- Physical symptoms (stomach cramping, shoulder tension, back pain) appear alongside relationship conflict and high family demand
+- Waking abruptly from insufficient sleep triggers snappiness with kids before capacity to co-regulate is available
+- Anxiety about showing up for others co-occurs with dysregulation signals (medicated feeling, light sensitivity, tension)

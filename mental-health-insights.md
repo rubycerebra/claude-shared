@@ -349,3 +349,15 @@ The formal naming of PDA Demand Spiral in patterns.md on 8 March is a genuine mi
 
 ### Work habits Pieces has observed
 - Code Refactoring & Data Integrity · System Stability & Therapy Prep · Therapy, Coding, & Logistics
+
+
+## AI refresh — 2026-05-08
+- Biometric data (HRV) disconnects from felt experience; internal signals more reliable than metrics for self-assessment
+- Conflict response pattern: unsure how to speak mind when feeling attacked without damaging relationship; exploring in therapy
+- Body actively signals decompression need (yoga, stretching) to process held tension in back/legs
+
+
+## AI refresh — 2026-05-08
+- Janna's 'didn't feel supported' feedback in conflict — Jim's de-escalation approach may be experienced as dismissive; needs therapy exploration
+- Co-regulation framework from podcast is aspirational but breaks when Janna's own dysregulation takes over — family-wide learning curve
+- Somatic awareness proves more reliable than wearable metrics for understanding actual readiness state — worth prioritizing body data over HRV
